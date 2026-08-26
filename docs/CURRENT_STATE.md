@@ -27,14 +27,14 @@ Current architectural truth belongs in `ARCHITECTURE.md`.
 ## 2. Project Status
 
 **Project:** ToroidAMP
-**Stage:** Foundation
-**Current Phase:** Foundation 0 — Project Definition
-**Status:** ACTIVE
-**Implementation:** NOT STARTED
+**Stage:** Production Core & UI Architecture
+**Current Phase:** Production Cut 1A — Core Extraction + Project Skills + UI Directions
+**Status:** CLOSED (Next: Production Cut 1B — Player UI Implementation)
+**Implementation:** PRODUCTION SKELETON INITIALIZED / TESTS PASSING (100%)
 
-ToroidAMP is currently being defined before the first implementation cut.
+ToroidAMP has extracted its production core into `src/toroidamp/`, established 3 project skills in `.agents/skills/`, and produced a comprehensive UI direction study (Directions A, B, and C).
 
-No production code has yet been created in the ToroidAMP repository.
+
 
 ---
 
@@ -268,260 +268,102 @@ No final decision has been made.
 
 The following decisions currently block or influence implementation architecture.
 
-### AUDIO-001 — Playback Backend
+## 10. Established & Closed Decision Gates
 
-Determine the production playback backend.
+### AUDIO-001 — Conventional Playback Backend
+* **Decision**: `sounddevice` + `soundfile` / `miniaudio` streaming output callback.
+* **Status:** CLOSED (Validated with WAV, MP3, OGG, FLAC).
 
-Required evaluation:
+### AUDIO-002 — Tracker Module Decoder Engine
+* **Decision**: Native `libmodplug` / `libopenmpt` CFFI stream decoder rendering tracker files to normalized float32 PCM.
+* **Status:** CLOSED (Validated with MOD, XM, IT, S3M).
 
-* common audio formats;
-* tracker modules;
-* Windows/Linux;
-* seek;
-* playback position;
-* PCM access;
-* packaging;
-* licensing.
+### AUDIO-003 — PCM Access & Analysis Handoff
+* **Decision**: Thread-safe circular snapshot buffer (`AnalysisHandoff`) isolating audio callback from UI/analysis.
+* **Status:** CLOSED (~17us push overhead, ~0.8us snapshot overhead).
 
-**Status:** OPEN
+### ANALYSIS-001 — AudioFrame Contract
+* **Decision**: Normalized `AudioFrame` (`rms`, `peak`, `bass`, `mids`, `treble`, `spectrum`, `waveform`, `beat`, `strong_beat`).
+* **Status:** CLOSED (Report in `02_audio_pipeline_tracker_pcm.md`).
 
-### AUDIO-002 — PCM / Analysis Path
-
-Determine how ToroidAMP obtains reliable real-time audio data for visualization.
-
-**Status:** OPEN
-
-### ANALYSIS-001 — Visualizer Audio Contract
-
-Define the minimum normalized data passed to visualizers.
-
-Potential fields:
-
-```text id="onr94a"
-waveform
-rms
-peak
-spectrum
-bass
-mids
-treble
-beat
-strong_beat
-```
-
-**Status:** OPEN
+### ANALYSIS-002 — Beat Detection
+* **Decision**: Dynamic sliding-window energy variance detector with bass transient thresholding.
+* **Status:** CLOSED (Transient-reactive, explicit BPM excluded from V1).
 
 ### VIS-001 — Existing Visualizer Audit
-
-Inventory the reusable visualization code in MetalWar-Installer.
-
-Determine:
-
-* available visualizers;
-* dependencies;
-* Installer-specific coupling;
-* audio inputs;
-* rendering assumptions;
-* extraction difficulty;
-* reuse priority.
-
-**Status:** OPEN
+* **Decision**: Extract `Starfield`, `Toroid 3D` (`GeometricTransformer3D`), `RetroGrid`, and adapt `SpectrumAnalyzer`.
+* **Status:** CLOSED (Report in `01_technical_reconnaissance.md`).
 
 ### VIS-002 — Rendering Integration
-
-Determine how the visualization renderer integrates with the desktop UI.
-
-**Status:** OPEN
+* **Decision**: Pygame offscreen surface transfer to PySide6 `QImage` / `QPixmap`.
+* **Status:** CLOSED (~1.27ms transfer overhead at 800x600).
 
 ### UI-001 — PySide6 Validation
+* **Decision**: PySide6 confirmed as desktop GUI framework.
+* **Status:** CLOSED.
 
-Confirm or reject PySide6 as ToroidAMP's production desktop toolkit.
-
-**Status:** OPEN
-
-### RUNTIME-001 — Scheduling
-
-Determine the minimum concurrency/timing model required to prevent visualization or UI work from affecting playback.
-
-**Status:** OPEN
+### RUNTIME-001 — Concurrency / Scheduling
+* **Decision**: High-priority audio callback decoupled from UI render loop via thread-safe PCM snapshotting.
+* **Status:** CLOSED.
 
 ### PACKAGE-001 — Distribution
-
-Determine packaging strategy for Windows and Linux.
-
-This does not currently block early development.
-
-**Status:** DEFERRED
+* **Decision**: PyInstaller / Nuitka desktop packaging.
+* **Status:** DEFERRED.
 
 ---
 
 ## 11. Current Risks
 
-### Visualization / Playback Coupling
-
-The primary technical risk is choosing a playback backend that reproduces supported formats correctly but makes real-time PCM access unnecessarily difficult.
-
-Because visualization is fundamental to ToroidAMP, PCM/analysis access must influence the playback-backend decision.
-
-### Pygame / Qt Integration
-
-Existing visualizers are valuable, but their current Pygame rendering model may not integrate cleanly enough with the chosen desktop toolkit.
-
-This requires a prototype.
-
-### Tracker Support
-
-Existing playback demonstrates tracker compatibility, but production requirements may expose limitations involving:
-
-* seeking;
-* metadata;
-* PCM extraction;
-* consistent behavior across platforms.
-
-### Scope Expansion
-
-ToroidAMP's experimental nature makes visual-feature expansion cheap and attractive.
-
-Core player requirements should be stabilized before optional visual experiments begin dominating development.
+### Cross-Platform Library Loading
+`libmodplug` and PortAudio must be resolved reliably on both Windows and Linux via automatic wheel fallback or `ctypes.util.find_library`.
 
 ---
 
 ## 12. Current Work
 
-**ACTIVE: Foundation 0 — Project Definition**
+**Production Cut 1A — Core Extraction + Project Skills + UI Directions**
+STATUS: CLOSED
 
-Current objectives:
-
-* establish product identity;
-* establish V1 scope;
-* establish initial architecture boundaries;
-* define documentation lifecycle;
-* prepare the repository for first implementation work.
-
-No implementation should begin until Foundation 0 is closed.
+Extracted production audio/analysis/visualizer core into `src/toroidamp/`, initialized project skills, and validated Direction A/B/C mockups.
 
 ---
 
-## 13. Remaining Foundation 0 Work
+## 13. Next Cut
 
-Foundation 0 currently requires:
-
-* initialize `ARCHIVE.md`;
-* create public-facing `README.md`;
-* create/select project license;
-* create repository;
-* establish initial source skeleton only when implementation begins;
-* perform initial commit.
-
-After these items are complete:
-
-**Foundation 0 → CLOSED**
-
----
-
-## 14. Next Cut
-
-### Foundation I — Technical Reconnaissance
-
-The first technical cut should investigate existing assets and close the minimum decisions required before building the player.
-
-Primary work:
-
-```text id="4sgp0b"
-MetalWar-Installer
-        │
-        ├── Audit audio implementation
-        │
-        └── Audit visualizers
-                 │
-                 ▼
-        Identify reusable assets
-                 │
-                 ▼
-        Playback / PCM experiment
-                 │
-                 ▼
-        UI / Visualizer integration experiment
-```
-
-Expected outcomes:
-
-* inventory of reusable visualizers;
-* inventory of reusable playback code;
-* playback-backend recommendation;
-* PCM acquisition strategy;
-* initial audio-analysis contract;
-* PySide6 decision;
-* visualization-rendering decision.
-
-Foundation I should prioritize **small executable probes over production architecture**.
-
----
-
-## 15. Implementation Gate
-
-Production implementation should begin only after Foundation I has answered at minimum:
-
-```text id="hzzk2r"
-How do we play the supported formats?
-
-How do we obtain audio data?
-
-How does a visualizer consume that data?
-
-How do we render it inside the UI?
-```
-
-Once those four questions have practical answers, ToroidAMP can proceed to its first implementation slice.
-
----
-
-## 16. Documentation Lifecycle
-
-At the end of every significant development cut:
-
-1. evaluate whether operational project state changed;
-2. update `CURRENT_STATE.md` only when necessary;
-3. move completed historical context to `ARCHIVE.md` when it no longer belongs here;
-4. update `ARCHITECTURE.md` when architectural truth changes;
-5. update `SCOPE.md` only through explicit scope decisions.
-
-If a cut does not materially change operational state:
-
-```text id="vgv1ho"
-CURRENT_STATE_UPDATE: NOT_REQUIRED
-```
-
-`CURRENT_STATE.md` should never become a chronological development log.
-
----
-
-## 17. Current Snapshot
-
-```text id="kj5yju"
-TOROIDAMP
-
-Foundation 0 — Project Definition
+### Production Cut 1B — Primary Player UI Implementation
 STATUS: ACTIVE
 
-Vision             CLOSED
-Scope              CLOSED
-Architecture       INITIALIZED
-Current State      INITIALIZED
-Archive            PENDING
-README             PENDING
-License            PENDING
-Repository         PENDING
-
-Implementation     NOT STARTED
-
-NEXT:
-Complete Foundation 0
-→ Foundation I — Technical Reconnaissance
-```
+Primary objectives:
+* Review user feedback and choose UI Direction A, B, or C.
+* Implement production `MainWindow` in `src/toroidamp/ui/main_window.py`.
+* Implement playlist management, drag-and-drop loading, track navigation, and volume controls.
+* Connect production Toroid and Waveform Ribbon visualizers with interactive switching.
 
 ---
 
-## 18. Current Principle
+## 14. Documentation Lifecycle
 
-> **Do not build the player until we know how the toroid gets its data.**
+At the end of every significant development cut:
+1. Evaluate whether operational project state changed;
+2. Update `CURRENT_STATE.md` only when necessary;
+3. Move completed historical context to `ARCHIVE.md` when it no longer belongs here;
+4. Update `ARCHITECTURE.md` when architectural truth changes;
+5. Update `SCOPE.md` only through explicit scope decisions.
+
+---
+
+## 15. Current Snapshot
+
+```text
+TOROIDAMP
+
+Foundation 0 — Project Definition             CLOSED
+Foundation I — Technical Reconnaissance         CLOSED
+Foundation II — Audio & Tracker Prototype       CLOSED
+Production Cut 1A — Core Extraction & Skills    CLOSED
+Production Cut 1B — Player UI Implementation    ACTIVE
+
+Next: Implement production MainWindow & Playlist UI.
+```
+
+
