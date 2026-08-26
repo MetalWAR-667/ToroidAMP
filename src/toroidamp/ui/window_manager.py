@@ -305,6 +305,10 @@ class WindowManager(QWidget):
         One unified clean application shutdown path:
         saves session, stops timers, releases audio & native resources, terminates Qt.
         """
+        if getattr(self, "_is_shutting_down", False):
+            return
+        self._is_shutting_down = True
+
         logger.info("Executing ToroidAMP shutdown sequence")
         self.save_current_session()
 
@@ -317,14 +321,20 @@ class WindowManager(QWidget):
         self.player_engine.close()
 
         # Close all windows and tray
+        self.retina_melt.hide()
+        self.vis_mod.hide()
+        self.pl_mod.hide()
+        self.chassis.hide()
+        self.tray_icon.hide()
+
         self.retina_melt.close()
         self.vis_mod.close()
         self.pl_mod.close()
         self.chassis.close()
-        self.tray_icon.hide()
 
         logger.info("Shutdown sequence complete. Exiting process.")
         QApplication.quit()
+
 
     def load_and_play(self, filepath: str):
         """Loads and starts playing a track."""

@@ -68,26 +68,12 @@ def main():
         window_manager.pl_mod.refresh()
         window_manager.load_and_play(cli_files[0])
     else:
-        # First-time run fallback sample tracks if no session existed
-        if len(playlist) == 0:
-            asset_dir = os.path.join(os.path.dirname(__file__), "..", "..", "tests", "assets", "audio")
-            sample_mp3 = os.path.abspath(os.path.join(asset_dir, "Burn The World Waltz.mp3"))
-            if os.path.exists(sample_mp3):
-                playlist.add_file(sample_mp3, "Burn The World Waltz", duration=200.0)
-
-            donor_xm = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "..", "Metalwar-Installer", "dalezy-lotus_drei_remix.xm"))
-            if os.path.exists(donor_xm):
-                playlist.add_file(donor_xm, "dalezy-lotus_drei_remix", duration=40.0)
-
-            playlist.sanitize()
-            playlist.current_index = -1  # Authoritative rule: STARTUP = NO TRACK LOADED
-            window_manager.pl_mod.refresh()
-
         # Announce startup identity line asynchronously
         logger.info("Triggering asynchronous startup voice identity line")
         voice_service.speak_startup_phrase_async()
 
     exit_code = app.exec()
+
     player.close()
     sys.exit(exit_code)
 

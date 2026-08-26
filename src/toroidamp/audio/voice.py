@@ -2,7 +2,7 @@
 ToroidAMP - Voice Synthesis Service
 Provides asynchronous identity audio announcement and sound effect barks
 isolated completely from music playback and visualizers.
-Reuses the exact robotic dual-channel delay recipe from MetalWar-Installer.
+Reuses the proven robotic dual-channel stereo delay recipe.
 """
 
 import logging
@@ -25,8 +25,9 @@ class VoiceService:
     """
     Synthesizes and plays identity speech phrases asynchronously
     using native OS TTS engines via pyttsx3, temporary WAV generation,
-    and the human-approved MetalWar-Installer robotic dual-channel stereo delay.
+    and robotic dual-channel stereo delay.
     """
+
 
     STARTUP_LINE = "ToroidAMP... It really warps the toroid's ass!"
 

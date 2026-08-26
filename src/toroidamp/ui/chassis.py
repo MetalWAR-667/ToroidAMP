@@ -10,7 +10,8 @@ from PySide6.QtWidgets import (
     QSlider, QFrame, QStackedWidget, QApplication
 )
 from PySide6.QtCore import Qt, QPoint, Signal
-from PySide6.QtGui import QMouseEvent, QDragEnterEvent, QDropEvent
+from PySide6.QtGui import QMouseEvent, QDragEnterEvent, QDropEvent, QCloseEvent
+
 
 
 class UnifiedChassis(QWidget):
@@ -417,3 +418,13 @@ class UnifiedChassis(QWidget):
         if files:
             self.files_dropped.emit(files)
         event.acceptProposedAction()
+
+    def closeEvent(self, event: QCloseEvent):
+        """
+        Intercepts all native OS close requests (Taskbar thumbnail X, Alt+F4, WM_CLOSE)
+        and routes them strictly to the authoritative shutdown lifecycle.
+        """
+        event.ignore()
+        self.close_requested.emit()
+
+
