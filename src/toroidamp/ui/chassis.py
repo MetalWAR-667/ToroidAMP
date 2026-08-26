@@ -19,7 +19,11 @@ class UnifiedChassis(QWidget):
     """
     scale_changed = Signal(str) # 'mini', 'normal'
     retina_melt_requested = Signal()
+    minimize_requested = Signal()
+    close_requested = Signal()
     play_toggled = Signal()
+
+
     prev_clicked = Signal()
     next_clicked = Signal()
     stop_clicked = Signal()
@@ -114,11 +118,21 @@ class UnifiedChassis(QWidget):
         btn_fs.clicked.connect(self.retina_melt_requested.emit)
         h_layout.addWidget(btn_fs)
 
+        btn_min = QPushButton("─", hdr)
+        btn_min.setToolTip("Minimize to Tray (Keep Playing)")
+        btn_min.setFixedSize(16, 16)
+        btn_min.setStyleSheet("QPushButton { background: transparent; border: none; color: #8892b0; font-size: 11px; } QPushButton:hover { color: #00f0ff; }")
+        btn_min.clicked.connect(self.minimize_requested.emit)
+        h_layout.addWidget(btn_min)
+
         btn_close = QPushButton("✕", hdr)
+        btn_close.setToolTip("Exit ToroidAMP")
         btn_close.setFixedSize(16, 16)
         btn_close.setStyleSheet("QPushButton { background: transparent; border: none; color: #8892b0; font-size: 11px; } QPushButton:hover { color: #ff0055; }")
-        btn_close.clicked.connect(QApplication.quit)
+        btn_close.clicked.connect(self.close_requested.emit)
         h_layout.addWidget(btn_close)
+
+
 
         layout.addWidget(hdr)
 
@@ -298,6 +312,7 @@ class UnifiedChassis(QWidget):
         layout.addWidget(btn_to_normal)
 
         btn_fs = QPushButton("⛶", self.mini_widget)
+        btn_fs.setToolTip("RETINA MELT Fullscreen")
         btn_fs.setFixedSize(18, 18)
         btn_fs.setStyleSheet("""
             QPushButton {
@@ -314,7 +329,22 @@ class UnifiedChassis(QWidget):
         btn_fs.clicked.connect(self.retina_melt_requested.emit)
         layout.addWidget(btn_fs)
 
+        btn_mini_hide = QPushButton("─", self.mini_widget)
+        btn_mini_hide.setToolTip("Minimize to Tray (Keep Playing)")
+        btn_mini_hide.setFixedSize(16, 16)
+        btn_mini_hide.setStyleSheet("QPushButton { background: transparent; border: none; color: #8892b0; font-size: 11px; } QPushButton:hover { color: #00f0ff; }")
+        btn_mini_hide.clicked.connect(self.minimize_requested.emit)
+        layout.addWidget(btn_mini_hide)
+
+        btn_mini_close = QPushButton("✕", self.mini_widget)
+        btn_mini_close.setToolTip("Exit ToroidAMP")
+        btn_mini_close.setFixedSize(16, 16)
+        btn_mini_close.setStyleSheet("QPushButton { background: transparent; border: none; color: #8892b0; font-size: 11px; } QPushButton:hover { color: #ff0055; }")
+        btn_mini_close.clicked.connect(self.close_requested.emit)
+        layout.addWidget(btn_mini_close)
+
         self.stack.addWidget(self.mini_widget)
+
 
     def set_mode(self, mode: str, animated: bool = True):
         self.mode = mode

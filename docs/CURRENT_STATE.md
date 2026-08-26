@@ -27,13 +27,15 @@ Current architectural truth belongs in `ARCHITECTURE.md`.
 ## 2. Project Status
 
 **Project:** ToroidAMP
-**Stage:** Core Implementation & Functional Product
-**Current Phase:** Production Cut 1B — Primary Player UI Implementation
-**Status:** CLOSED (Next: Production Cut 2 — Visualizer Engine Expansion)
-**Implementation:** FUNCTIONAL APPLICATION OPERATIONAL (`python -m toroidamp`)
+**Stage:** Core Implementation & Desktop Lifecycle
+**Current Phase:** FIX-001 — Startup, Lifecycle & Voice Identity
+**Status:** CLOSED (Next: Production Cut 3 — Visualizer Expansion & Effects)
+**Implementation:** PRODUCTION APPLICATION WITH REFINED LIFECYCLE & VOICE (`toroidamp`)
 
-ToroidAMP is now a fully functional, installable desktop music player supporting conventional audio (MP3, WAV, OGG, FLAC) and tracker modules (MOD, XM, IT, S3M).
-It operates across three experience scales: MINI (380x36 px), NORMAL (420x135 px + dockable modules), and RETINA MELT (fullscreen visualizer).
+ToroidAMP lifecycle semantics are now strictly separated: MINI (visible compact scale), MINIMIZE (hide to tray with active audio), and CLOSE/X (immediate full shutdown).
+On startup, ToroidAMP initializes with no loaded music track, sanitizes its restored playlist against the filesystem, and announces its identity motto via VoiceService.
+
+
 
 
 
@@ -325,22 +327,22 @@ The following decisions currently block or influence implementation architecture
 
 ## 12. Current Work
 
-**Production Cut 1B — Primary Player UI Implementation**
+**Production Cut 2 — Desktop Lifecycle & Session Persistence**
 STATUS: CLOSED
 
-Implemented the full ToroidAMP application:
-* Standard `pyproject.toml` packaging and `toroidamp` entry points.
-* Unified chassis supporting MINI ($380 \times 36\text{ px}$) and NORMAL ($420 \times 135\text{ px}$).
-* Dockable `VisualizerModule` and `PlaylistModule` with magnetic snapping.
-* Complete playlist management with drag-and-drop and M3U/M3U8 load/save.
-* Real DSP analysis driving `ToroidVisualizer` (with `fckvar`) and `WaveformRibbonVisualizer`.
-* Fullscreen RETINA MELT with auto-hiding HUD and prior-scale return memory.
+Implemented production desktop lifecycle:
+* System tray presence (`ToroidTrayIcon`) with quick transport and status.
+* Clear close-to-tray vs. explicit shutdown semantics.
+* Atomic JSON session persistence (`SessionManager`) at standard OS config paths.
+* Safe playback startup policy (restores queue, index, volume without surprise autoplay).
+* Off-screen screen geometry clamping and recovery.
+* Zero-overhead visualizer suspension when hidden to tray.
 
 ---
 
 ## 13. Next Cut
 
-### Production Cut 2 — Visualizer Engine Expansion & Demoscene Effects
+### Production Cut 3 — Visualizer Expansion & Demoscene Effects
 STATUS: ACTIVE
 
 Primary objectives:
@@ -372,10 +374,14 @@ Foundation II — Audio & Tracker Prototype         CLOSED
 Production Cut 1A — Core Extraction & Skills      CLOSED
 UI Direction Gate D.1 — Mini & Experience Scale   CLOSED
 Production Cut 1B — Primary Player Implementation CLOSED
-Production Cut 2 — Visualizer Expansion           ACTIVE
+Production Cut 2 — Desktop Lifecycle & Session    CLOSED
+FIX-001 — Startup Lifecycle & Voice Identity      CLOSED
+Production Cut 3 — Visualizer Expansion           ACTIVE
 
 Next: Port Starfield, RetroGrid, and Spectrum visualizers into production engine.
 ```
+
+
 
 
 

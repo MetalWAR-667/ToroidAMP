@@ -18,6 +18,19 @@ This document should only state a technical choice as established when that choi
 
 Unresolved architectural questions are explicitly marked **OPEN**.
 
+### Desktop Lifecycle Contracts (Authoritative FIX-001)
+
+ToroidAMP strictly distinguishes between three lifecycle operations:
+* **MINI**: Application experience scale ($380 \times 36\text{ px}$ always-visible desktop control strip).
+* **MINIMIZE (`─`)**: Hides the application to the system tray while audio playback continues uninterrupted.
+* **CLOSE (`✕`)**: Authoritative application shutdown. Stops audio playback, saves session atomically, closes native audio streams, and cleanly terminates the process.
+
+### Startup Music & Voice Identity Invariant
+* On normal startup, ToroidAMP **never autoplays** and **never loads a song automatically**.
+* `PlayerEngine` initializes in the `STOPPED` state with `current_track = None`.
+* Restored playlists are sanitized to contain only existing files on disk.
+* ToroidAMP speaks its demoscene identity line (`"ToroidAMP... It really warps the toroid's ass!"`) asynchronously via `VoiceService` without interfering with player state or visualizer analysis.
+
 ---
 
 ## 2. Architectural Goals

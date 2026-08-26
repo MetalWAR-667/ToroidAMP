@@ -49,8 +49,9 @@ class PlaylistManager:
     def current_index(self, index: int) -> None:
         if 0 <= index < len(self._items):
             self._current_index = index
-        elif len(self._items) == 0:
+        elif index == -1 or len(self._items) == 0:
             self._current_index = -1
+
 
     @property
     def current_item(self) -> Optional[PlaylistItem]:
@@ -83,7 +84,31 @@ class PlaylistManager:
         if self._shuffle:
             random.shuffle(self._shuffle_order)
 
+    def sanitize(self) -> list[str]:
+        """
+        Validates all current entries in the playlist.
+        Removes any files that no longer exist on disk.
+        Returns the list of removed dead filepaths.
+        """
+        valid_items = []
+        removed_paths = []
+        for item in self._items:
+            if os.path.isfile(item.filepath):
+                valid_items.append(item)
+            else:
+                removed_paths.append(item.filepath)
+
+        self._items = valid_items
+        if len(self._items) == 0:
+            self._current_index = -1
+        elif self._current_index >= len(self._items):
+            self._current_index = 0
+
+        self._rebuild_shuffle_order()
+        return removed_paths
+
     def add_file(self, filepath: str, title: str | None = None, duration: float = 0.0) -> PlaylistItem:
+
         """Adds a single track to the playlist."""
         norm_path = os.path.abspath(filepath)
         if not title:

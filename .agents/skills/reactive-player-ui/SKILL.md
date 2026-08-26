@@ -48,16 +48,19 @@ RETINA MELT (Fullscreen)
 ```
 
 ### Golden Rules:
-1. **MINIMIZATION REDUCES PRESENCE, NOT CONTROL**:
-   * Minimizing ToroidAMP does not bury it in the OS tray; it collapses into **MINI** mode (~380×36 px).
+1. **LIFECYCLE SEPARATION (MINI != MINIMIZE != CLOSE)**:
+   * **MINI** ($380 \times 36\text{ px}$) is an application experience scale visible on the desktop.
+   * **MINIMIZE (`─`)** hides ToroidAMP to the system tray while audio continues playing in the background.
+   * **CLOSE (`✕`)** is authoritative application shutdown (saves session, releases audio hardware, terminates process).
 2. **VISUAL INTENSITY SCALES WITH FOOTPRINT**:
-   * MINI is subtle, calm, and low-juice.
+   * MINI is subtle, calm, and low-juice (zero visualizer rendering overhead).
    * NORMAL provides balanced tactile gamefeel.
    * RETINA MELT unleashes maximum procedural visual chaos.
 3. **PRIOR-SCALE MEMORY**:
-   * Exiting fullscreen must remember whether the user came from MINI or NORMAL and restore that exact scale.
+   * Exiting fullscreen or restoring from tray must remember whether the user came from MINI or NORMAL and restore that exact scale.
 4. **MODULE STATE PRESERVATION**:
    * Collapsing NORMAL $\to$ MINI hides active modules; returning MINI $\to$ NORMAL seamlessly restores the active modules.
+
 
 ---
 
