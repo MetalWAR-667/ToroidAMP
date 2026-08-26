@@ -1,0 +1,40 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "toroidamp"
+version = "0.1.0"
+description = "Compact, modular, musically reactive audio player with demoscene visualizer engine"
+readme = "README.md"
+requires-python = ">=3.11"
+authors = [
+    { name = "ToroidAMP Contributors" }
+]
+keywords = ["audio", "player", "demoscene", "visualizer", "tracker", "mod", "xm", "it", "s3m", "pyside6"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Environment :: X11 Applications :: Qt",
+    "Intended Audience :: End Users/Desktop",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Topic :: Multimedia :: Sound/Audio :: Players",
+]
+dependencies = [
+    "PySide6>=6.6.0",
+    "pygame-ce>=2.5.0",
+    "numpy>=1.24.0",
+    "sounddevice>=0.4.6",
+    "soundfile>=0.12.0",
+    "miniaudio>=1.59",
+]
+
+[project.scripts]
+toroidamp = "toroidamp.__main__:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]

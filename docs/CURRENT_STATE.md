@@ -27,12 +27,16 @@ Current architectural truth belongs in `ARCHITECTURE.md`.
 ## 2. Project Status
 
 **Project:** ToroidAMP
-**Stage:** Production Core & UI Architecture
-**Current Phase:** Production Cut 1A — Core Extraction + Project Skills + UI Directions
-**Status:** CLOSED (Next: Production Cut 1B — Player UI Implementation)
-**Implementation:** PRODUCTION SKELETON INITIALIZED / TESTS PASSING (100%)
+**Stage:** Core Implementation & Functional Product
+**Current Phase:** Production Cut 1B — Primary Player UI Implementation
+**Status:** CLOSED (Next: Production Cut 2 — Visualizer Engine Expansion)
+**Implementation:** FUNCTIONAL APPLICATION OPERATIONAL (`python -m toroidamp`)
 
-ToroidAMP has extracted its production core into `src/toroidamp/`, established 3 project skills in `.agents/skills/`, and produced a comprehensive UI direction study (Directions A, B, and C).
+ToroidAMP is now a fully functional, installable desktop music player supporting conventional audio (MP3, WAV, OGG, FLAC) and tracker modules (MOD, XM, IT, S3M).
+It operates across three experience scales: MINI (380x36 px), NORMAL (420x135 px + dockable modules), and RETINA MELT (fullscreen visualizer).
+
+
+
 
 
 
@@ -321,23 +325,28 @@ The following decisions currently block or influence implementation architecture
 
 ## 12. Current Work
 
-**Production Cut 1A — Core Extraction + Project Skills + UI Directions**
+**Production Cut 1B — Primary Player UI Implementation**
 STATUS: CLOSED
 
-Extracted production audio/analysis/visualizer core into `src/toroidamp/`, initialized project skills, and validated Direction A/B/C mockups.
+Implemented the full ToroidAMP application:
+* Standard `pyproject.toml` packaging and `toroidamp` entry points.
+* Unified chassis supporting MINI ($380 \times 36\text{ px}$) and NORMAL ($420 \times 135\text{ px}$).
+* Dockable `VisualizerModule` and `PlaylistModule` with magnetic snapping.
+* Complete playlist management with drag-and-drop and M3U/M3U8 load/save.
+* Real DSP analysis driving `ToroidVisualizer` (with `fckvar`) and `WaveformRibbonVisualizer`.
+* Fullscreen RETINA MELT with auto-hiding HUD and prior-scale return memory.
 
 ---
 
 ## 13. Next Cut
 
-### Production Cut 1B — Primary Player UI Implementation
+### Production Cut 2 — Visualizer Engine Expansion & Demoscene Effects
 STATUS: ACTIVE
 
 Primary objectives:
-* Review user feedback and choose UI Direction A, B, or C.
-* Implement production `MainWindow` in `src/toroidamp/ui/main_window.py`.
-* Implement playlist management, drag-and-drop loading, track navigation, and volume controls.
-* Connect production Toroid and Waveform Ribbon visualizers with interactive switching.
+* Port and adapt additional donor visualizers from `MetalWAR-Installer` (`Starfield`, `RetroGrid`, `SpectrumAnalyzer`).
+* Implement visualizer configuration options and intensity throttling for motion safety.
+* Implement subtle audio-reactive UI chassis breathing (Juice budget: LOW).
 
 ---
 
@@ -357,13 +366,18 @@ At the end of every significant development cut:
 ```text
 TOROIDAMP
 
-Foundation 0 — Project Definition             CLOSED
-Foundation I — Technical Reconnaissance         CLOSED
-Foundation II — Audio & Tracker Prototype       CLOSED
-Production Cut 1A — Core Extraction & Skills    CLOSED
-Production Cut 1B — Player UI Implementation    ACTIVE
+Foundation 0 — Project Definition               CLOSED
+Foundation I — Technical Reconnaissance           CLOSED
+Foundation II — Audio & Tracker Prototype         CLOSED
+Production Cut 1A — Core Extraction & Skills      CLOSED
+UI Direction Gate D.1 — Mini & Experience Scale   CLOSED
+Production Cut 1B — Primary Player Implementation CLOSED
+Production Cut 2 — Visualizer Expansion           ACTIVE
 
-Next: Implement production MainWindow & Playlist UI.
+Next: Port Starfield, RetroGrid, and Spectrum visualizers into production engine.
 ```
+
+
+
 
 

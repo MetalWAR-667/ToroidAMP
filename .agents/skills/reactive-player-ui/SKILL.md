@@ -2,7 +2,7 @@
 name: reactive-player-ui
 description: >-
   Design and implementation principles for building ToroidAMP's instrument-like,
-  tactile, and musically reactive desktop UI using PySide6.
+  tactile, compact, and modular desktop UI operating across three experience scales (MINI, NORMAL, RETINA MELT).
 ---
 
 # ToroidAMP — Reactive Player UI Specialist Skill
@@ -12,10 +12,10 @@ This skill guides the design and implementation of ToroidAMP's desktop user inte
 ---
 
 ## 1. When to Use
-* Designing and implementing PySide6 desktop player components.
-* Implementing micro-interactions, tactile button feedback, and layout transitions.
+* Designing and implementing PySide6 desktop player components across the 3 experience scales (`MINI`, `NORMAL`, `RETINA MELT`).
+* Implementing micro-interactions, tactile button feedback, and magnetic module snapping.
 * Connecting subtle `AudioFrame` musical reactivity to UI widgets.
-* Implementing Compact, Expanded, and Fullscreen player modes.
+* Managing transitions between `MINI` strip, `NORMAL` modular chassis, and `RETINA MELT` fullscreen.
 
 ## 2. When NOT to Use
 * Writing audio decoding pipelines (use `audio-pipeline`).
@@ -23,49 +23,60 @@ This skill guides the design and implementation of ToroidAMP's desktop user inte
 
 ---
 
-## 3. UI Design Philosophy: The Instrument, Not the Widget
+## 3. Core Working Principle: The Three Experience Scales
 
-ToroidAMP is designed as a **musical instrument**, not a bureaucratic form or standard OS utility window.
-* **Immediate Response**: Every click, hover, and drag must deliver immediate visual feedback (<50 ms).
-* **Tactile Continuity**: Expanding the playlist or toggling visualizers should feel like spatial unfolding of one unified chassis, not opening disjointed popups.
-* **Demoscene Heritage without Cosplay**: Draw inspiration from classic hardware players, tracker interfaces, and neon vector aesthetics without imitating 1998 bitmap artifacts.
-* **Reactive Does Not Mean Distracting**: While visualizers can be visually unhinged, transport controls must remain readable, stable, and ergonomic.
+ToroidAMP operates across **three deliberate experience scales**:
+
+```text
+MINI (380 x 36 px)
+"I am here if you need me."
+- Tiny, quiet, always-visible control strip.
+- Stays on top, snaps to screen edges.
+- Zero distraction while working.
+
+NORMAL (420 x 135 px + Modules)
+"Let's listen to music."
+- Compact modular player core.
+- Dockable/floating Visualizer and Playlist modules.
+- Tactile, interactive demoscene instrument.
+
+RETINA MELT (Fullscreen)
+"TE VOY A DERRETIR LA RETINA."
+- Fullscreen visualizer takeover with auto-hiding controls.
+- Unrestricted visual spectacle and maximum juice budget.
+- Returns cleanly to the exact prior scale (MINI or NORMAL).
+```
+
+### Golden Rules:
+1. **MINIMIZATION REDUCES PRESENCE, NOT CONTROL**:
+   * Minimizing ToroidAMP does not bury it in the OS tray; it collapses into **MINI** mode (~380×36 px).
+2. **VISUAL INTENSITY SCALES WITH FOOTPRINT**:
+   * MINI is subtle, calm, and low-juice.
+   * NORMAL provides balanced tactile gamefeel.
+   * RETINA MELT unleashes maximum procedural visual chaos.
+3. **PRIOR-SCALE MEMORY**:
+   * Exiting fullscreen must remember whether the user came from MINI or NORMAL and restore that exact scale.
+4. **MODULE STATE PRESERVATION**:
+   * Collapsing NORMAL $\to$ MINI hides active modules; returning MINI $\to$ NORMAL seamlessly restores the active modules.
 
 ---
 
-## 4. The Juice Budget
+## 4. Revised Juice Budget by Experience Scale
 
-Use animation and reactivity selectively according to the project's Juice Budget:
-
-| Component / Action | Juice Budget | Allowed Expression |
+| Experience Scale / Action | Juice Budget | Allowed Expression |
 | :--- | :---: | :--- |
-| **Transport Controls** (Play/Pause/Stop) | **LOW** | Sharp state click, subtle border glow, instant settle. |
-| **Button Hover / Focus** | **LOW** | 100ms smooth tint shift, no distracting wobbles. |
-| **Track Change** | **MEDIUM** | Crisp text slide/fade, subtle track-number flash. |
-| **Playlist Expansion** | **MEDIUM** | Smooth spatial accordion unfold with spring settling. |
-| **Continuous Musical UI Response** | **LOW / SUBTLE** | Subtle breathing border on peak energy, soft VU level meters. |
-| **Fullscreen Transition** | **HIGH** | Seamless visualizer expansion, HUD controls auto-fade on idle. |
-| **Toroid Visualizer** | **UNRESTRICTED** | Maximum geometric chaos, warp, and plasma rotation. |
+| **MINI Mode Controls** | **VERY LOW** | Immediate 1px icon shift, no distracting animations. |
+| **MINI Screen Edge Snap** | **LOW** | Clean ~25px proximity snap flush to screen borders. |
+| **NORMAL Transport Controls** | **LOW** | Sharp 2px depression, crisp state icon shift, instant settle. |
+| **NORMAL Module Dock / Snap** | **MEDIUM** | Magnetic edge attraction preview, ~80ms spring settle snap ("clack"). |
+| **NORMAL Track Change** | **LOW / MEDIUM** | Instant LCD marquee text update, subtle progress reset. |
+| **RETINA MELT Controls** | **LOW** | Floating HUD auto-appears on mouse movement, fades after 2.5s idle. |
+| **RETINA MELT Visualizer** | **UNRESTRICTED** | Maximum geometric deformation (`fckvar`), plasma shifts, ghosting. |
 
 ---
 
-## 5. Three Coherent UI Modes
+## 5. UI Architecture: Single-Window Chassis + ModuleShell
 
-1. **COMPACT MODE**:
-   * Minimal desktop footprint (~360×120 px).
-   * Essential transport buttons, current track marquee, volume, and mini-visualizer / VU meter.
-   * Perfect for background listening while working.
-2. **EXPANDED MODE**:
-   * Standard desktop player footprint (~680×520 px).
-   * Full embedded visualizer display, interactive playlist queue, track metadata, and audio telemetry.
-3. **FULLSCREEN MODE**:
-   * Visualizer occupies entire monitor display.
-   * Minimalist floating transport HUD that fades out after 2.5s of mouse inactivity.
-
----
-
-## 6. Accessibility & Usability Guardrails
-* **Contrast**: Text and indicators must maintain at least 4.5:1 contrast against dark backgrounds.
-* **State Clarity**: Play/Pause/Stop state must be unmistakably clear from icon shape and distinct color, not just animation.
-* **Keyboard Navigation**: Space (Play/Pause), Left/Right (Seek), Up/Down (Volume), F (Fullscreen).
-* **High-DPI**: All widgets must scale properly across high-resolution displays without blurry rendering.
+* **Unified Player Chassis**: A single frameless `QWidget` hosting a `QStackedWidget` containing both MINI and NORMAL layouts. Resizing the chassis ($380 \times 36 \leftrightarrow 420 \times 135$) guarantees spatial continuity without creating orphaned windows.
+* **Module Shells**: `VisualizerModule` and `PlaylistModule` exist in three states: **CLOSED**, **DOCKED**, or **FLOATING**.
+* **Retina Melt Fullscreen**: Dedicated frameless fullscreen window managing high-resolution offscreen Pygame rendering and auto-hiding HUD overlays.

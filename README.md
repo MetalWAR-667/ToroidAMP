@@ -1,329 +1,94 @@
 # ToroidAMP
 
-> ### **It really warps the toroid's ass!**
+> **"Make the music play reliably. Make the code understandable. Make the screen do something unreasonable. Make Future Crew cry."**
 
-**ToroidAMP** is a lightweight, open-source, cross-platform desktop audio player built in Python, with real-time audio visualization as a first-class feature.
-
-It takes inspiration from the compact music players of the late 1990s and early 2000s: open some files, build a playlist, press Play, and get on with your life.
-
-Except now there are more toroids.
-
----
-
-## What is ToroidAMP?
-
-ToroidAMP aims to be a small local music player for **Windows and Linux** focused on three things:
-
-**Play music.
-Manage a playlist.
-Make the music move.**
-
-No accounts.
-
-No cloud.
-
-No streaming platform.
-
-No recommendation algorithm trying to understand your emotional relationship with progressive metal.
-
-Just local files, a compact player, and visualizers with questionable amounts of geometry.
-
----
-
-## Planned V1
-
-The first usable version of ToroidAMP targets:
-
-### Playback
-
-* Play / Pause / Stop
-* Previous / Next
-* Seek
-* Volume
-* Shuffle
-* Repeat
-* Automatic playlist progression
-
-### Playlist
-
-* Add and remove tracks
-* Reorder tracks
-* Drag and drop
-* Load playlists
-* Save playlists
-* M3U/M3U8 support
-
-### Visualization
-
-* Real-time audio-reactive visualizers
-* Visualizer embedded in the player
-* Fullscreen visualization
-* Multiple selectable visualizers
-* Visualization that can be disabled when not needed
-
-### Desktop
-
-* Compact interface
-* Windows support
-* Linux support
-* System tray
-* Background playback
-* Session restoration
-
----
-
-## Audio Formats
-
-ToroidAMP V1 intends to support common audio formats:
+ToroidAMP is a compact, modular, musically reactive audio player with a demoscene visualizer engine built with Python, PySide6, and Pygame-CE.
 
 ```text
-WAV
-MP3
-OGG / Vorbis
-FLAC
-```
-
-And because apparently we have standards:
-
-```text
-MOD
-XM
-S3M
-IT
-```
-
-Classic tracker modules are not an afterthought.
-
-They are part of the plan.
-
----
-
-## Visualizers
-
-Visualization is not intended to be a decorative feature bolted onto ToroidAMP after playback works.
-
-It is one of the reasons the project exists.
-
-Existing experimental work already includes concepts such as:
-
-* spectrum visualization;
-* starfields;
-* particles;
-* wireframe geometry;
-* pseudo-3D transformations;
-* beat-reactive effects;
-* assorted geometric irresponsibility.
-
-The project will initially reuse and adapt proven visual experiments from **MetalWar-Installer** where appropriate.
-
-Longer term, visualizers should operate behind a small, understandable internal contract so contributors can experiment without needing to understand the entire player.
-
-The ideal contributor workflow is approximately:
-
-```text
-I have a terrible visual idea.
-          ↓
-Create visualizer.
-          ↓
-Feed it audio data.
-          ↓
-Why is there a rotating toroid?
-          ↓
-Merge.
+WINAMP FOOTPRINT.
+MODULAR CONSTRUCTION.
+MODERN GAMEFEEL.
+DEMOSCENE SOUL.
 ```
 
 ---
 
-## Philosophy
+## 1. Quick Start / Installation
 
-ToroidAMP deliberately avoids becoming a full media-management ecosystem.
+### Prerequisites
+* Python 3.11, 3.12, 3.13, or 3.14
+* PortAudio / Audio output device
+* Windows, Linux, or macOS
 
-The project favors:
+### Installation
+From the repository root:
 
-* local files;
-* small components;
-* simple workflows;
-* explicit responsibilities;
-* minimal persistent state;
-* replaceable subsystems;
-* experimentation without destabilizing playback.
-
-A feature does not belong in ToroidAMP simply because another music player has it.
-
-It should improve playback, usability, portability, visualization, or meaningful extensibility.
-
----
-
-## Architecture
-
-The intended high-level audio pipeline is:
-
-```text
-Audio File
-    │
-    ▼
-Playback / Decoder
-    │
-    ▼
-PCM
-    │
-    ├──────────────► Audio Output
-    │
-    ▼
-Audio Analysis
-    │
-    ▼
-Normalized Audio Data
-    │
-    ▼
-Visualizer
-    │
-    ▼
-Embedded / Fullscreen Render
+```powershell
+python -m pip install -e .
 ```
 
-Playback should remain boring and reliable.
+### Launch Application
+You can launch ToroidAMP using either command:
 
-Visualization is allowed considerably less supervision.
-
-The exact playback backend, PCM strategy, rendering integration, and visualization contract are currently under technical evaluation.
-
-See:
-
-```text
-docs/VISION.md
-docs/SCOPE.md
-docs/ARCHITECTURE.md
-docs/CURRENT_STATE.md
+```powershell
+python -m toroidamp
 ```
 
-for the current project definition.
+or via the installed console script:
 
----
-
-## Technology
-
-Current baseline:
-
-* **Python**
-* **Windows + Linux**
-* **PySide6 / Qt** — leading UI candidate, pending validation
-* **Pygame** — existing playback/visualization technology under evaluation
-* **M3U/M3U8** — preferred playlist direction
-* lightweight file-based settings/session persistence
-
-Several technical choices remain intentionally open until small prototypes provide evidence.
-
----
-
-## Project Status
-
-> **Foundation 0 — Project Definition**
-
-ToroidAMP is currently in its initial foundation stage.
-
-Product vision and V1 scope have been defined.
-
-Implementation has **not started yet**.
-
-The next technical phase will audit reusable code from MetalWar-Installer and investigate:
-
-* playback backend;
-* tracker playback;
-* PCM access;
-* audio analysis;
-* existing visualizer extraction;
-* PySide6 integration;
-* embedded and fullscreen visualization.
-
-The project intentionally begins with technical probes before committing to production architecture.
-
----
-
-## Contributing
-
-ToroidAMP is intended to become an open-source project friendly to experimentation and external contributions.
-
-Contribution guidelines will be added once the initial architecture and development workflow have been validated.
-
-Likely contribution areas include:
-
-* visualizers;
-* audio-format support;
-* Linux integration;
-* Windows integration;
-* UI improvements;
-* testing;
-* documentation.
-
-A formal plugin API is **not** currently part of V1.
-
-First we intend to prove the internal extension boundaries by actually using them.
-
----
-
-## What ToroidAMP Is Not
-
-ToroidAMP is not currently trying to become:
-
-* Spotify;
-* a streaming client;
-* a cloud music service;
-* a podcast manager;
-* an indexed music-library platform;
-* a social network;
-* an AI recommendation engine;
-* an enterprise media solution.
-
-It is a desktop music player.
-
-With toroids.
-
----
-
-## Repository Structure
-
-Initial documentation structure:
-
-```text
-ToroidAMP/
-├── README.md
-├── LICENSE
-│
-├── docs/
-│   ├── VISION.md
-│   ├── SCOPE.md
-│   ├── ARCHITECTURE.md
-│   ├── CURRENT_STATE.md
-│   └── ARCHIVE.md
-│
-└── src/
+```powershell
+toroidamp
 ```
 
-The production source structure will be introduced as implementation begins.
+You can also pass audio files directly via command line:
+
+```powershell
+toroidamp "path/to/song.mp3" "path/to/module.xm"
+```
 
 ---
 
-## License
+## 2. The Three Experience Scales
 
-ToroidAMP will be released under an open-source license.
+ToroidAMP operates across three distinct user experience scales:
 
-The specific license is currently being selected.
+1. **MINI ($380 \times 36\text{ px}$)**:
+   * *"I am here if you need me."*
+   * Ultra-compact, always-on-top control strip.
+   * Snaps magnetically to screen edges (Top/Bottom/Left/Right).
+   * Zero visual distraction while working.
+2. **NORMAL ($420 \times 135\text{ px} + \text{Modules}$)**:
+   * *"Let's listen to music."*
+   * Standalone player core with tactile transport controls, seek scrubber, volume, and module toggles (`VIS`, `PL`).
+   * Attaches dockable modules: **Visualizer** (Bottom) and **Playlist** (Right).
+3. **RETINA MELT (Fullscreen)**:
+   * *"TE VOY A DERRETIR LA RETINA."*
+   * Fullscreen procedural visualizer takeover at native display resolution.
+   * Auto-hiding floating playback HUD (appears on mouse move, fades after 2.5s).
+   * Remembers and returns cleanly to the prior experience scale (MINI or NORMAL) on `Esc`.
 
 ---
 
-## Final Technical Requirement
+## 3. Audio & Tracker Format Support
 
-Any architecture proposed for ToroidAMP must eventually answer one critical engineering question:
+ToroidAMP uses a unified decoding architecture where every format decodes into normalized `float32` stereo PCM ($44100\text{ Hz}$) feeding both the audio hardware and real-time FFT/waveform analysis.
 
-> **Can it make an audio-reactive toroid unnecessarily dramatic?**
-
-If not, further investigation may be required.
+* **Conventional Audio**: MP3, OGG/Vorbis, WAV, FLAC (via `soundfile` / `miniaudio`).
+* **Tracker Modules**: MOD, XM, IT, S3M (via native `libmodplug` ctypes).
 
 ---
 
-# ToroidAMP
+## 4. Included Visualizers
 
-### **It really warps the toroid's ass!**
+* **`3D Toroid`**: 3D parametric wireframe torus ($24 \times 36$ vertices) reacting to real-time audio waveforms, bass expansion, plasma heat-shading, and demoscene `fckvar` deformation.
+* **`Waveform Ribbon`**: Multi-layered glowing neon oscilloscope ribbon driven by real-time waveform displacement and midrange harmonic frequencies.
 
-Local music. Classic modules. Questionable geometry.
+---
+
+## 5. Development & Testing
+
+Run the production test suite:
+
+```powershell
+py -3.13 tests/test_production_cut1b.py
+```
