@@ -110,7 +110,15 @@ def test_screen_geometry_clamping():
 
 
 def test_desktop_lifecycle_tray_and_shutdown():
-    """Validates full desktop lifecycle: hide to tray, continuous audio, restore, and shutdown."""
+    """
+    Validates full desktop lifecycle: MINI compaction, continuous audio, and shutdown.
+
+    UX-002 replaced the hide-to-tray lifecycle (`handle_close_action`,
+    `is_hidden_to_tray`, `restore_from_tray`) with an always-visible
+    contract — MINIMIZE compacts to MINI, and the tray icon only offers
+    `_focus_chassis` (raise+activate). This test was rewritten accordingly;
+    see docs/ux/002_always_visible_player.md and tests/test_ux_002.py.
+    """
     os.environ["QT_QPA_PLATFORM"] = "offscreen"
     os.environ["SDL_VIDEODRIVER"] = "dummy"
 
@@ -126,7 +134,7 @@ def test_desktop_lifecycle_tray_and_shutdown():
         handoff = AnalysisHandoff(2048)
         player = PlayerEngine(handoff=handoff)
         playlist = PlaylistManager()
-        
+
         # Load sample audio
         mp3_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "assets", "audio", "Burn The World Waltz.mp3"))
         if os.path.exists(mp3_path):
@@ -142,17 +150,18 @@ def test_desktop_lifecycle_tray_and_shutdown():
         assert wm.vis_mod.isVisible()
         assert wm.pl_mod.isVisible()
 
-        # 2. Hide to Tray (Simulate clicking '✕' or Close)
-        wm.handle_close_action()
-        assert wm.is_hidden_to_tray is True
-        assert not wm.chassis.isVisible()
+        # 2. MINIMIZE (-): compacts to MINI, chassis stays visible, audio continues
+        wm.chassis.minimize_requested.emit()
+        assert wm.chassis.mode == "mini"
+        assert wm.chassis.isVisible() is True
         assert not wm.vis_mod.isVisible()
         assert not wm.pl_mod.isVisible()
         assert player.state == PlaybackState.PLAYING  # AUDIO REMAINS PLAYING!
 
-        # 3. Restore from Tray
-        wm.restore_from_tray()
-        assert wm.is_hidden_to_tray is False
+        # 3. Return to NORMAL — modules restored, tray "Show" just focuses the chassis
+        wm.chassis.set_mode("normal")
+        wm._focus_chassis()
+        assert wm.chassis.mode == "normal"
         assert wm.chassis.isVisible()
         assert wm.vis_mod.isVisible()
         assert wm.pl_mod.isVisible()

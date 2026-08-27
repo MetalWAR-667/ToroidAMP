@@ -118,4 +118,13 @@ RETINA MELT (Fullscreen)
 3. **RESET SIZE RESTORES DEFAULT DIMENSIONS ONLY**:
    * The reset action on a module is a single, narrow operation: restore `DEFAULT_SIZE`. It must never move, dock, undock, close, or otherwise touch module content or visibility — one control, one meaning.
 
+---
+
+## 8. Information Motion & Transient Controls (UX-004)
+
+1. **INFORMATION MOTION MUST BE CONDITIONAL ON OVERFLOW**:
+   * Text motion (marquee scroll, ticker-style effects) exists to solve a real readability problem — content that does not fit its space — not to add movement for its own sake. If the full text already fits, it must render completely static: no timer, no animation, no jitter. Any component built to show more information than fits should measure first (actual rendered width vs. available width) and only animate when that measurement proves it's necessary.
+2. **TRANSIENT CONTROLS SHOULD NOT EXPAND THE BASE EXPERIENCE SCALE**:
+   * When a compact scale (MINI) needs to expose a control that would otherwise require more permanent space (e.g. a volume slider), prefer a transient overlay/popup anchored to the trigger control over growing the base footprint. The scale's authoritative dimensions are a product commitment — a popup that opens and closes on demand does not compromise that, but a widened chassis would.
+
 

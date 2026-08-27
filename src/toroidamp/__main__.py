@@ -9,6 +9,7 @@ import sys
 
 from PySide6.QtWidgets import QApplication
 
+from toroidamp import __version__
 from toroidamp.analysis.audio_frame import AnalysisHandoff
 from toroidamp.audio.player import PlayerEngine
 from toroidamp.audio.playlist import PlaylistManager
@@ -28,7 +29,7 @@ def setup_logging():
 def main():
     setup_logging()
     logger = logging.getLogger("toroidamp.main")
-    logger.info("Starting ToroidAMP v0.1.0 (Production Core & Desktop Lifecycle)")
+    logger.info(f"Starting ToroidAMP v{__version__}")
 
     app = QApplication(sys.argv)
     app.setApplicationName("ToroidAMP")

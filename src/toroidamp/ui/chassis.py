@@ -6,6 +6,8 @@ from PySide6.QtCore import Qt, QPoint, Signal, QEvent
 from PySide6.QtGui import QMouseEvent, QDragEnterEvent, QDropEvent, QCloseEvent, QPainter, QPen, QColor
 
 from .neon import NeonState
+from .marquee import MarqueeLabel
+from .. import __version__
 
 
 class SeekSlider(QSlider):
@@ -167,7 +169,7 @@ class UnifiedChassis(QWidget):
         h_layout = QHBoxLayout(hdr)
         h_layout.setContentsMargins(0, 0, 0, 0)
 
-        id_lbl = QLabel("TOROIDAMP // v0.1 CORE", hdr)
+        id_lbl = QLabel(f"TOROIDAMP // v{__version__} CORE", hdr)
         id_lbl.setStyleSheet("color: #00f0ff; font-family: monospace; font-size: 10px; font-weight: bold;")
         h_layout.addWidget(id_lbl)
 
@@ -234,8 +236,9 @@ class UnifiedChassis(QWidget):
         lcd_layout = QHBoxLayout(self.normal_lcd_frame)
         lcd_layout.setContentsMargins(4, 2, 4, 2)
 
-        self.normal_title_marquee = QLabel("♫ No Track Loaded", self.normal_lcd_frame)
+        self.normal_title_marquee = MarqueeLabel(self.normal_lcd_frame)
         self.normal_title_marquee.setStyleSheet("color: #00ffcc; font-family: monospace; font-size: 12px; font-weight: bold;")
+        self.normal_title_marquee.set_marquee_text("♫ No Track Loaded")
         lcd_layout.addWidget(self.normal_title_marquee, stretch=2)
 
         self.normal_time_display = QLabel("00:00 / 00:00", self.normal_lcd_frame)
@@ -433,8 +436,9 @@ class UnifiedChassis(QWidget):
         mini_lcd_layout = QHBoxLayout(self.mini_lcd_frame)
         mini_lcd_layout.setContentsMargins(4, 0, 4, 0)
 
-        self.mini_title_marquee = QLabel("♫ No Track Loaded", self.mini_lcd_frame)
+        self.mini_title_marquee = MarqueeLabel(self.mini_lcd_frame)
         self.mini_title_marquee.setStyleSheet("color: #00ffcc; font-family: monospace; font-size: 10px; font-weight: bold;")
+        self.mini_title_marquee.set_marquee_text("♫ No Track Loaded")
         mini_lcd_layout.addWidget(self.mini_title_marquee, stretch=2)
 
         self.mini_time_display = QLabel("00:00 / 00:00", self.mini_lcd_frame)
@@ -446,9 +450,18 @@ class UnifiedChassis(QWidget):
 
         layout.addWidget(self.mini_lcd_frame, stretch=2)
 
-        vol_ico = QLabel("🔊", self.mini_widget)
-        vol_ico.setStyleSheet("color: #00ffaa; font-size: 10px;")
-        layout.addWidget(vol_ico)
+        # UX-004: the MINI speaker is a real, clickable volume control — it
+        # opens a small transient popup rather than requiring a trip to
+        # NORMAL. Qt.Popup gives correct outside-click dismissal and never
+        # creates its own taskbar entry, with no Win32-specific code needed.
+        self.mini_vol_btn = QPushButton("🔊", self.mini_widget)
+        self.mini_vol_btn.setToolTip("Volume")
+        self.mini_vol_btn.setFlat(True)
+        self.mini_vol_btn.setStyleSheet("QPushButton { background: transparent; border: none; color: #00ffaa; font-size: 10px; padding: 0; } QPushButton:hover { color: #00f0ff; }")
+        self.mini_vol_btn.clicked.connect(self._toggle_mini_volume_popup)
+        layout.addWidget(self.mini_vol_btn)
+
+        self._build_mini_volume_popup()
 
 
         btn_to_normal = QPushButton("▲ NORMAL", self.mini_widget)
@@ -519,8 +532,8 @@ class UnifiedChassis(QWidget):
             self.scale_changed.emit("normal")
 
     def update_telemetry(self, title: str, time_str: str, progress_ratio: float, is_playing: bool):
-        self.normal_title_marquee.setText(title)
-        self.mini_title_marquee.setText(title)
+        self.normal_title_marquee.set_marquee_text(title)
+        self.mini_title_marquee.set_marquee_text(title)
         self.normal_time_display.setText(time_str)
         # MINI shows full elapsed / total so the human always knows where they are.
         self.mini_time_display.setText(time_str)
@@ -534,6 +547,92 @@ class UnifiedChassis(QWidget):
 
     def set_volume(self, volume: float):
         self.normal_vol_slider.setValue(int(volume * 100))
+        # There is one authoritative volume value; the MINI popup slider is
+        # just another view of it, kept in sync whenever it exists.
+        self.mini_pop_slider.setValue(int(volume * 100))
+
+    # Nominal footprint of the popup's hit-area (may exceed the visible
+    # slider slightly for grabbability — UX-004 follow-up Part D).
+    _VOL_POPUP_SLIDER_LEN = 90
+    _VOL_POPUP_MARGIN = 8
+
+    def _build_mini_volume_popup(self):
+        """
+        Builds the transient MINI volume popup: a borderless, translucent
+        Qt.Popup holding only a vertical slider — no opaque panel, titlebar,
+        or frame. Qt.Popup closes naturally on any outside click/focus loss
+        and never registers its own taskbar entry; it does not enlarge
+        MINI's authoritative 460x36 footprint.
+        """
+        self.volume_popup = QWidget(self, Qt.Popup)
+        self.volume_popup.setAttribute(Qt.WA_TranslucentBackground)
+        self.volume_popup.setStyleSheet("background: transparent; border: none;")
+        pop_layout = QVBoxLayout(self.volume_popup)
+        pop_layout.setContentsMargins(
+            self._VOL_POPUP_MARGIN, self._VOL_POPUP_MARGIN,
+            self._VOL_POPUP_MARGIN, self._VOL_POPUP_MARGIN
+        )
+
+        self.mini_pop_slider = QSlider(Qt.Vertical, self.volume_popup)
+        self.mini_pop_slider.setRange(0, 100)
+        self.mini_pop_slider.setValue(80)
+        self.mini_pop_slider.setFixedHeight(self._VOL_POPUP_SLIDER_LEN)
+        self.mini_pop_slider.setStyleSheet("""
+            QSlider::groove:vertical { width: 3px; background: #00f0ff; border-radius: 1px; }
+            QSlider::handle:vertical { background: #ffffff; border: 1px solid #00f0ff; height: 8px; margin: 0 -5px; border-radius: 4px; }
+            QSlider::handle:vertical:hover { background: #00f0ff; }
+        """)
+        self.mini_pop_slider.valueChanged.connect(self._on_mini_volume_slider_changed)
+        pop_layout.addWidget(self.mini_pop_slider, alignment=Qt.AlignHCenter)
+
+        self.volume_popup.adjustSize()
+
+    def _on_mini_volume_slider_changed(self, value: int):
+        # Keep the NORMAL slider in sync immediately — same single
+        # authoritative value, two views/controllers.
+        self.normal_vol_slider.setValue(value)
+        self.volume_changed.emit(value / 100.0)
+
+    def _toggle_mini_volume_popup(self):
+        if self.volume_popup.isVisible():
+            self.volume_popup.hide()
+            return
+        # Always resync from the current authoritative value before showing —
+        # guards against any drift regardless of how the value last changed.
+        self.mini_pop_slider.blockSignals(True)
+        self.mini_pop_slider.setValue(self.normal_vol_slider.value())
+        self.mini_pop_slider.blockSignals(False)
+
+        self.volume_popup.move(self._compute_volume_popup_pos())
+        self.volume_popup.show()
+
+    def _compute_volume_popup_pos(self) -> QPoint:
+        """
+        Anchors the popup horizontally centered over the speaker icon, with
+        its bottom edge just above MINI (the intended primary placement).
+        Falls back below the speaker if there isn't room above, and clamps
+        to the current screen so it can never land off-screen or detached.
+        """
+        popup_w = self.volume_popup.width()
+        popup_h = self.volume_popup.height()
+        gap = 4
+
+        btn_top_left = self.mini_vol_btn.mapToGlobal(QPoint(0, 0))
+        btn_center_x = btn_top_left.x() + self.mini_vol_btn.width() // 2
+
+        x = btn_center_x - popup_w // 2
+        y = btn_top_left.y() - popup_h - gap  # primary: above the speaker
+
+        screen = self.screen()
+        if screen is not None:
+            avail = screen.availableGeometry()
+            if y < avail.top():
+                # Not enough room above — graceful fallback below.
+                y = btn_top_left.y() + self.mini_vol_btn.height() + gap
+            x = max(avail.left(), min(x, avail.right() - popup_w))
+            y = max(avail.top(), min(y, avail.bottom() - popup_h))
+
+        return QPoint(x, y)
 
     def mousePressEvent(self, event: QMouseEvent):
         if event.button() == Qt.LeftButton:

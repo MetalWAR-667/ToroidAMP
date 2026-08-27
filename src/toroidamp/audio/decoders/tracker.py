@@ -33,7 +33,20 @@ class TrackerDecoder(AudioDecoder):
         self._duration: float = 0.0
         self._title: str = ""
 
-    def _discover_libmodplug(self) -> str | None:
+    @staticmethod
+    def is_available() -> bool:
+        """
+        Probes whether the native libmodplug library can be located, without
+        constructing a decoder (which raises if it can't). Tracker playback
+        is a real ToroidAMP feature — this exists so tests/tooling can detect
+        a genuinely missing optional native dependency and skip explicitly,
+        rather than treating it as production behavior to weaken.
+        """
+        path = TrackerDecoder._discover_libmodplug()
+        return bool(path and os.path.exists(path))
+
+    @staticmethod
+    def _discover_libmodplug() -> str | None:
         """Finds libmodplug DLL/.so within Python packages or system library paths."""
         # 1. Check inside pygame site-packages (bundled in Windows wheels)
         try:

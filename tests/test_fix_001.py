@@ -119,7 +119,16 @@ def test_startup_empty_state_and_session_restore():
 
 
 def test_lifecycle_separation_mini_minimize_close():
-    """Validates distinct behaviors for MINI, MINIMIZE (hide to tray), and CLOSE (X shutdown)."""
+    """
+    Validates distinct behaviors for MINI, MINIMIZE, and CLOSE (X shutdown).
+
+    UX-002 superseded FIX-001's original hide-to-tray MINIMIZE contract:
+    ToroidAMP is now an always-visible player (docs/ux/002_always_visible_player.md).
+    MINIMIZE (-) routes to MINI mode rather than hiding the chassis to the
+    tray — `is_hidden_to_tray`/`restore_from_tray` no longer exist. This test
+    was rewritten to assert the current authoritative lifecycle rather than
+    the removed one; see tests/test_ux_002.py for the full UX-002 contract.
+    """
     os.environ["QT_QPA_PLATFORM"] = "offscreen"
     os.environ["SDL_VIDEODRIVER"] = "dummy"
 
@@ -144,21 +153,24 @@ def test_lifecycle_separation_mini_minimize_close():
         wm._play_index(0)
         assert player.state == PlaybackState.PLAYING
 
-        # 1. Test MINI scale: window visible, compact 380x36, playback continues
+        # 1. Test MINI scale: window visible, compact 460x36, playback continues
         wm.chassis.set_mode("mini")
+        assert wm.chassis.mode == "mini"
+        assert wm.chassis.isVisible() is True
+        assert wm.chassis.width() == wm.chassis.MINI_WIDTH
+        assert wm.chassis.height() == wm.chassis.MINI_HEIGHT
+        assert player.state == PlaybackState.PLAYING
+
+        # 2. Test MINIMIZE (-) from NORMAL: routes to MINI, chassis stays visible
+        wm.chassis.set_mode("normal")
+        wm.chassis.minimize_requested.emit()
         assert wm.chassis.mode == "mini"
         assert wm.chassis.isVisible() is True
         assert player.state == PlaybackState.PLAYING
 
-        # 2. Test MINIMIZE (btn_min): window hidden to tray, playback continues
-        wm.chassis.minimize_requested.emit()
-        assert wm.is_hidden_to_tray is True
-        assert wm.chassis.isVisible() is False
-        assert player.state == PlaybackState.PLAYING
-
-        # Restore from tray
-        wm.restore_from_tray()
-        assert wm.is_hidden_to_tray is False
+        # Return to NORMAL
+        wm.chassis.set_mode("normal")
+        assert wm.chassis.mode == "normal"
         assert wm.chassis.isVisible() is True
         assert player.state == PlaybackState.PLAYING
 

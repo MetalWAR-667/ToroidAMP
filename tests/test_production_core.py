@@ -1,6 +1,7 @@
 import os
 import sys
 import numpy as np
+import pytest
 
 # Ensure source package is in path
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "src")))
@@ -62,7 +63,10 @@ def test_tracker_decoder():
     xm_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "Metalwar-Installer", "dalezy-lotus_drei_remix.xm"))
     if not os.path.exists(xm_path):
         pytest.skip(f"Test tracker asset missing: {xm_path}")
-        
+    if not TrackerDecoder.is_available():
+        pytest.skip("libmodplug native library not found in this environment — tracker playback is a real "
+                     "ToroidAMP feature, this is an environmental gap, not a production regression")
+
     decoder = TrackerDecoder()
     decoder.load(xm_path)
     

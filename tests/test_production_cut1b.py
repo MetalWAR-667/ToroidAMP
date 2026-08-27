@@ -7,6 +7,7 @@ import os
 import sys
 import tempfile
 import numpy as np
+import pytest
 
 # Verify imports directly from installed toroidamp package
 from toroidamp.analysis.audio_frame import AudioFrame, AnalysisHandoff
@@ -90,7 +91,7 @@ def test_audio_and_decoders():
         dec.close()
 
     xm_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "Metalwar-Installer", "dalezy-lotus_drei_remix.xm"))
-    if os.path.exists(xm_path):
+    if os.path.exists(xm_path) and TrackerDecoder.is_available():
         t_dec = TrackerDecoder()
         t_dec.load(xm_path)
         assert t_dec.get_duration() > 0.0
@@ -98,6 +99,10 @@ def test_audio_and_decoders():
         assert t_pcm.shape == (512, 2)
         assert t_pcm.dtype == np.float32
         t_dec.close()
+    # If libmodplug isn't present, tracker coverage is skipped here rather
+    # than failing this otherwise-independent (mp3/AudioFrame) test — see
+    # test_production_core.py::test_tracker_decoder for the dedicated,
+    # explicitly-skipping tracker regression test.
 
     # AudioFrame contract
     t = np.linspace(0, 512/44100, 512, endpoint=False)
@@ -158,10 +163,12 @@ def test_ui_experience_scales():
     assert wm.pl_mod.isVisible()
 
     # 3. Transition to MINI
+    # UX-001 widened MINI from 380x36 to 460x36 for title/time readability —
+    # authoritative dimensions now live on UnifiedChassis.MINI_WIDTH/HEIGHT.
     wm.chassis.set_mode("mini")
     assert wm.chassis.mode == "mini"
-    assert wm.chassis.width() == 380
-    assert wm.chassis.height() == 36
+    assert wm.chassis.width() == wm.chassis.MINI_WIDTH
+    assert wm.chassis.height() == wm.chassis.MINI_HEIGHT
     assert not wm.vis_mod.isVisible()
     assert not wm.pl_mod.isVisible()
 
