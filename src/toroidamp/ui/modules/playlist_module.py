@@ -13,7 +13,9 @@ from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QDragEnterEvent, QDropEvent
 
 from .base import ModuleShell
+from ..neon import NeonState
 from ...audio.playlist import PlaylistManager, PlaylistItem
+
 
 
 class PlaylistModule(ModuleShell):
@@ -202,3 +204,36 @@ class PlaylistModule(ModuleShell):
             self.refresh()
             self.files_dropped.emit(dropped_files)
         event.acceptProposedAction()
+
+    def apply_neon_state(self, state: NeonState):
+        """Propagates spectral neon palette to playlist container and active selections."""
+        super().apply_neon_state(state)
+        p_col = state.tier2_panel_color.name()
+        c_col = state.tier1_chassis_color.name()
+
+        self.list_widget.setStyleSheet(f"""
+            QListWidget {{
+                background-color: #06070a;
+                border: 1px solid {p_col};
+                color: #8892b0;
+                font-family: monospace;
+                font-size: 10px;
+                padding: 2px;
+                border-radius: 2px;
+            }}
+            QListWidget::item {{
+                padding: 3px;
+                border-bottom: 1px solid #11131c;
+            }}
+            QListWidget::item:selected {{
+                background-color: #141a2e;
+                color: {c_col};
+                font-weight: bold;
+            }}
+            QListWidget::item:hover {{
+                background-color: #0f121d;
+                color: #00e5ff;
+            }}
+        """)
+        self.title_label.setStyleSheet(f"color: {c_col}; font-family: monospace; font-size: 10px; font-weight: bold;")
+

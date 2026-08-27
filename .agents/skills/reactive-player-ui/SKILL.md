@@ -83,3 +83,28 @@ RETINA MELT (Fullscreen)
 * **Unified Player Chassis**: A single frameless `QWidget` hosting a `QStackedWidget` containing both MINI and NORMAL layouts. Resizing the chassis ($380 \times 36 \leftrightarrow 420 \times 135$) guarantees spatial continuity without creating orphaned windows.
 * **Module Shells**: `VisualizerModule` and `PlaylistModule` exist in three states: **CLOSED**, **DOCKED**, or **FLOATING**.
 * **Retina Melt Fullscreen**: Dedicated frameless fullscreen window managing high-resolution offscreen Pygame rendering and auto-hiding HUD overlays.
+
+---
+
+## 6. Reactive Neon Chassis Hierarchy & Atmosphere Rules
+
+1. **NEON HIERARCHY**:
+   * **Tier 1 (Chassis / Module Perimeter)**: Outer crisp electric cyan line (Value 170–255, Alpha 190–255).
+   * **Tier 2 (Panel & Section Framing)**: Subdued secondary cyan/steel blue (Value 90–170).
+   * **Tier 3 (Interactive Controls)**: Buttons and chips with sharp state transitions (hover $\to$ electric cyan, pressed/checked $\to$ solid cyan fill).
+2. **SHELL REACTIVITY IS ATMOSPHERIC, NOT SPECTACLE**:
+   * The shell breathes slowly (~3.2s continuous sine cycle).
+   * Music influence is restrained ($+\text{RMS} \times \text{small\_factor} + \text{beat\_impulse} \times \text{tiny\_factor}$).
+   * The visualizer owns the spectacle; the shell owns the atmosphere.
+3. **SHARED ANIMATION SOURCE**:
+   * A single `ReactiveNeonController` computes coordinated palette states and updates active widgets simultaneously during UI ticks, avoiding per-widget timers and repaint storms.
+4. **REACTIVE DIFFERENTIATION > REACTIVE EXAGGERATION**:
+   * **Core Principle**: *"Reactivity should be perceptible through contrast between different music, not through exaggeration within a single song."*
+   * Different genres and dynamic profiles (e.g. heavy bass vs orchestral strings) should impart an observably distinct visual character across listening time, rather than demanding rapid, hyperactive blinking within every measure.
+   * **Expression Hierarchy**:
+     * `SHELL` $\to$ **LOW / ATMOSPHERIC**
+     * `TRACK UI` $\to$ **MEDIUM / INFORMATIVE**
+     * `VISUALIZER` $\to$ **HIGH / EXPRESSIVE**
+     * `RETINA MELT` $\to$ **UNRESTRICTED WITHIN SAFETY/PERFORMANCE LIMITS**
+
+

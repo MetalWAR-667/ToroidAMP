@@ -17,6 +17,7 @@ from .modules.base import ModuleShell
 from .modules.visualizer_module import VisualizerModule
 from .modules.playlist_module import PlaylistModule
 from .tray import ToroidTrayIcon
+from .neon import ReactiveNeonController
 
 from ..audio.player import PlayerEngine, PlaybackState
 from ..audio.playlist import PlaylistManager
@@ -48,9 +49,11 @@ class WindowManager(QWidget):
         self.handoff = handoff
         self.playlist = playlist
         self.session_manager = session_manager or SessionManager()
+        self.neon_controller = ReactiveNeonController()
 
         # Load session state
         self.session_state = self.session_manager.load()
+
 
         # 1. Main Unified Chassis (MINI / NORMAL)
         self.chassis = UnifiedChassis()
@@ -525,7 +528,18 @@ class WindowManager(QWidget):
         self.retina_melt.update_telemetry(title_str, time_str, is_playing)
         self.tray_icon.update_status(title_str, is_playing)
 
-        # 3. Only compute DSP & render visualizer if a visualizer is actually visible!
+        # 3. Update Reactive Neon Chassis & Module Breathing (~60 FPS)
+        if not self.is_hidden_to_tray:
+            frame = self.handoff.get_audio_frame(44100) if is_playing else None
+            is_mini = (self.chassis.mode == "mini")
+            neon_state = self.neon_controller.update(0.016, frame, is_mini=is_mini)
+            self.chassis.apply_neon_state(neon_state)
+            if self.vis_mod.isVisible():
+                self.vis_mod.apply_neon_state(neon_state)
+            if self.pl_mod.isVisible():
+                self.pl_mod.apply_neon_state(neon_state)
+
+        # 4. Only compute DSP & render visualizer if a visualizer is actually visible!
         # (Zero CPU/GPU visualizer waste when hidden to tray or in MINI mode)
         if self.vis_mod.isVisible() or self.retina_melt.isVisible():
             frame = self.handoff.get_audio_frame(44100)
@@ -533,3 +547,4 @@ class WindowManager(QWidget):
                 self.vis_mod.render_frame(frame, 0.016)
             if self.retina_melt.isVisible():
                 self.retina_melt.render_frame(frame, 0.016)
+

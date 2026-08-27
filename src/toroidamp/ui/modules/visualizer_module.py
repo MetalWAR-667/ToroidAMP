@@ -10,7 +10,10 @@ from PySide6.QtGui import QImage, QPixmap
 import pygame
 
 from .base import ModuleShell
+from ..neon import NeonState
 from ...analysis.audio_frame import AudioFrame
+
+
 from ...visualizers.base import Visualizer
 from ...visualizers.toroid import ToroidVisualizer
 from ...visualizers.ribbon import WaveformRibbonVisualizer
@@ -60,19 +63,17 @@ class VisualizerModule(ModuleShell):
 
         b_layout.addStretch()
 
-        self.btn_fs = QPushButton("⛶ RETINA MELT", bot_bar)
+        self.btn_fs = QPushButton("⛶ MELT", bot_bar)
         self.btn_fs.setStyleSheet("""
             QPushButton {
                 background: #141622;
-                border: 1px solid #222638;
+                border: 1px solid #3d1f2e;
                 color: #ff0077;
                 font-family: monospace;
                 font-size: 9px;
-                font-weight: bold;
                 padding: 2px 6px;
             }
             QPushButton:hover {
-                border-color: #ff0077;
                 background: #ff0077;
                 color: #ffffff;
             }
@@ -115,3 +116,14 @@ class VisualizerModule(ModuleShell):
         except Exception as e:
             # Failure isolation: render bug must never crash playback
             pass
+
+    def apply_neon_state(self, state: NeonState):
+        """Propagates spectral neon palette to module border, inner visualizer frame, and header."""
+        super().apply_neon_state(state)
+        p_col = state.tier2_panel_color.name()
+        c_col = state.tier1_chassis_color.name()
+
+        # Update visualizer viewport inner border
+        self.vis_label.setStyleSheet(f"background-color: #06070a; border: 1px solid {p_col}; border-radius: 2px;")
+        self.title_label.setStyleSheet(f"color: {c_col}; font-family: monospace; font-size: 10px; font-weight: bold;")
+

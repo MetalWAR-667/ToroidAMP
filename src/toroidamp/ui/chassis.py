@@ -1,16 +1,11 @@
-"""
-ToroidAMP - Production Unified Chassis Window
-Operates in:
-1. MINI MODE (~380 x 36 px always-on-top control strip with screen edge snapping)
-2. NORMAL MODE (420 x 135 px modular core instrument)
-"""
-
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton,
     QSlider, QFrame, QStackedWidget, QApplication
 )
 from PySide6.QtCore import Qt, QPoint, Signal
-from PySide6.QtGui import QMouseEvent, QDragEnterEvent, QDropEvent, QCloseEvent
+from PySide6.QtGui import QMouseEvent, QDragEnterEvent, QDropEvent, QCloseEvent, QPainter, QPen, QColor
+
+from .neon import NeonState
 
 
 
@@ -38,21 +33,15 @@ class UnifiedChassis(QWidget):
 
     def __init__(self, parent=None):
         super().__init__(parent, Qt.Window | Qt.FramelessWindowHint)
+        self.setAttribute(Qt.WA_TranslucentBackground)
         self.mode = "normal" # 'mini' or 'normal'
         self._drag_pos = QPoint()
         self._is_dragging = False
         self.setAcceptDrops(True)
-
-        self.setStyleSheet("""
-            UnifiedChassis {
-                background-color: #0a0b10;
-                border: 2px solid #00f0ff;
-                border-radius: 4px;
-            }
-        """)
+        self._current_neon: NeonState | None = None
 
         self.outer_layout = QVBoxLayout(self)
-        self.outer_layout.setContentsMargins(0, 0, 0, 0)
+        self.outer_layout.setContentsMargins(1, 1, 1, 1)
         self.outer_layout.setSpacing(0)
 
         self.stack = QStackedWidget(self)
@@ -63,6 +52,60 @@ class UnifiedChassis(QWidget):
 
         # Default start in NORMAL mode
         self.set_mode("normal", animated=False)
+
+    def apply_neon_state(self, state: NeonState):
+        """Applies dynamic reactive neon colors across borders, panels, and LCD displays."""
+        self._current_neon = state
+
+        # Expressive Spectral Track Display (Tier 2/Glow)
+        t_col = state.track_glow_color.name()
+        bg_col = state.track_bg_color.name(QColor.HexArgb)
+        p_col = state.tier2_panel_color.name()
+
+        # Update Normal LCD styling
+        self.normal_lcd_frame.setStyleSheet(f"""
+            QFrame {{
+                background-color: {bg_col};
+                border: 1px solid {t_col};
+                border-radius: 3px;
+                padding: 2px 6px;
+            }}
+        """)
+
+        # Update Mini LCD styling
+        self.mini_lcd_frame.setStyleSheet(f"""
+            QFrame {{
+                background-color: {bg_col};
+                border: 1px solid {t_col};
+                border-radius: 2px;
+                padding: 1px 4px;
+            }}
+        """)
+
+        self.update() # Trigger lightweight border repaint
+
+
+    def paintEvent(self, event):
+        """Paints crisp, reactive electric neon outer border (Tier 1)."""
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.Antialiasing)
+
+        # Background fill
+        painter.setBrush(QColor(10, 11, 16, 250))
+        painter.setPen(Qt.NoPen)
+        painter.drawRoundedRect(self.rect().adjusted(1, 1, -1, -1), 4, 4)
+
+        # Electric Neon Border (Tier 1)
+        if self._current_neon:
+            pen = QPen(self._current_neon.tier1_chassis_color, 1.5)
+        else:
+            pen = QPen(QColor(0, 240, 255, 220), 1.5)
+
+        painter.setBrush(Qt.NoBrush)
+        painter.setPen(pen)
+        painter.drawRoundedRect(self.rect().adjusted(1, 1, -1, -1), 4, 4)
+        painter.end()
+
 
     def _init_normal_view(self):
         """Constructs the NORMAL 420x135 px modular core view."""
@@ -138,21 +181,22 @@ class UnifiedChassis(QWidget):
         layout.addWidget(hdr)
 
         # LCD Display Rack
-        lcd_frame = QFrame(self.normal_widget)
-        lcd_frame.setFixedHeight(38)
-        lcd_frame.setStyleSheet("background-color: #040508; border: 1px solid #1a2233; border-radius: 3px; padding: 2px 6px;")
-        lcd_layout = QHBoxLayout(lcd_frame)
+        self.normal_lcd_frame = QFrame(self.normal_widget)
+        self.normal_lcd_frame.setFixedHeight(38)
+        self.normal_lcd_frame.setStyleSheet("background-color: #040508; border: 1px solid #1a2233; border-radius: 3px; padding: 2px 6px;")
+        lcd_layout = QHBoxLayout(self.normal_lcd_frame)
         lcd_layout.setContentsMargins(4, 2, 4, 2)
 
-        self.normal_title_marquee = QLabel("♫ No Track Loaded", lcd_frame)
+        self.normal_title_marquee = QLabel("♫ No Track Loaded", self.normal_lcd_frame)
         self.normal_title_marquee.setStyleSheet("color: #00ffcc; font-family: monospace; font-size: 12px; font-weight: bold;")
         lcd_layout.addWidget(self.normal_title_marquee, stretch=2)
 
-        self.normal_time_display = QLabel("00:00 / 00:00", lcd_frame)
+        self.normal_time_display = QLabel("00:00 / 00:00", self.normal_lcd_frame)
         self.normal_time_display.setStyleSheet("color: #ffaa00; font-family: monospace; font-size: 11px;")
         lcd_layout.addWidget(self.normal_time_display, alignment=Qt.AlignRight)
 
-        layout.addWidget(lcd_frame)
+        layout.addWidget(self.normal_lcd_frame)
+
 
         # Progress / Seek Bar
         self.normal_seek_slider = QSlider(Qt.Horizontal, self.normal_widget)
@@ -175,17 +219,25 @@ class UnifiedChassis(QWidget):
 
         btn_style = """
             QPushButton {
-                background-color: #141724;
-                border: 1px solid #28304a;
+                background-color: #12141f;
+                border: 1px solid #1f273d;
                 border-radius: 2px;
-                color: #e2e8f0;
+                color: #cbd5e1;
                 font-family: monospace;
                 font-weight: bold;
                 font-size: 10px;
                 padding: 4px 8px;
             }
-            QPushButton:hover { border-color: #00f0ff; color: #00f0ff; }
-            QPushButton:pressed { background-color: #00f0ff; color: #000000; }
+            QPushButton:hover {
+                border-color: #00f0ff;
+                color: #00f0ff;
+                background-color: #161c2e;
+            }
+            QPushButton:pressed {
+                background-color: #00f0ff;
+                color: #040508;
+                border-color: #00f0ff;
+            }
         """
         btn_prev = QPushButton("◄◄", ctrl_bar)
         btn_prev.setStyleSheet(btn_style)
@@ -216,9 +268,9 @@ class UnifiedChassis(QWidget):
         self.normal_vol_slider.setValue(80)
         self.normal_vol_slider.setFixedWidth(50)
         self.normal_vol_slider.setStyleSheet("""
-            QSlider::groove:horizontal { height: 3px; background: #1a1d2e; }
-            QSlider::sub-page:horizontal { background: #00ffaa; }
-            QSlider::handle:horizontal { background: #ffffff; width: 6px; margin: -2px 0; }
+            QSlider::groove:horizontal { height: 3px; background: #1a1d2e; border-radius: 1px; }
+            QSlider::sub-page:horizontal { background: #00f0ff; border-radius: 1px; }
+            QSlider::handle:horizontal { background: #ffffff; border: 1px solid #00f0ff; width: 6px; margin: -2px 0; border-radius: 3px; }
         """)
         self.normal_vol_slider.valueChanged.connect(lambda v: self.volume_changed.emit(v / 100.0))
         c_layout.addWidget(self.normal_vol_slider)
@@ -229,8 +281,25 @@ class UnifiedChassis(QWidget):
         self.chip_vis = QPushButton("VIS", ctrl_bar)
         self.chip_vis.setCheckable(True)
         self.chip_vis.setStyleSheet("""
-            QPushButton { background: #0f1320; border: 1px solid #00f0ff; color: #00f0ff; font-family: monospace; font-size: 9px; font-weight: bold; padding: 3px 6px; border-radius: 2px; }
-            QPushButton:checked { background: #00f0ff; color: #000000; }
+            QPushButton {
+                background: #0d111c;
+                border: 1px solid #1f2a40;
+                color: #00f0ff;
+                font-family: monospace;
+                font-size: 9px;
+                font-weight: bold;
+                padding: 3px 6px;
+                border-radius: 2px;
+            }
+            QPushButton:hover {
+                border-color: #00f0ff;
+                background-color: #141f33;
+            }
+            QPushButton:checked {
+                background: #00f0ff;
+                color: #040508;
+                border-color: #00f0ff;
+            }
         """)
         self.chip_vis.clicked.connect(self.toggle_vis_clicked.emit)
         c_layout.addWidget(self.chip_vis)
@@ -238,11 +307,29 @@ class UnifiedChassis(QWidget):
         self.chip_pl = QPushButton("PL", ctrl_bar)
         self.chip_pl.setCheckable(True)
         self.chip_pl.setStyleSheet("""
-            QPushButton { background: #0f1320; border: 1px solid #ff0077; color: #ff0077; font-family: monospace; font-size: 9px; font-weight: bold; padding: 3px 6px; border-radius: 2px; }
-            QPushButton:checked { background: #ff0077; color: #000000; }
+            QPushButton {
+                background: #140d17;
+                border: 1px solid #3d1f2e;
+                color: #ff0077;
+                font-family: monospace;
+                font-size: 9px;
+                font-weight: bold;
+                padding: 3px 6px;
+                border-radius: 2px;
+            }
+            QPushButton:hover {
+                border-color: #ff0077;
+                background-color: #2b1220;
+            }
+            QPushButton:checked {
+                background: #ff0077;
+                color: #ffffff;
+                border-color: #ff0077;
+            }
         """)
         self.chip_pl.clicked.connect(self.toggle_pl_clicked.emit)
         c_layout.addWidget(self.chip_pl)
+
 
         layout.addWidget(ctrl_bar)
         self.stack.addWidget(self.normal_widget)
@@ -256,17 +343,27 @@ class UnifiedChassis(QWidget):
 
         mini_btn_style = """
             QPushButton {
-                background-color: #141724;
-                border: 1px solid #28304a;
+                background-color: #12141f;
+                border: 1px solid #1f273d;
                 border-radius: 2px;
-                color: #e2e8f0;
+                color: #cbd5e1;
                 font-family: monospace;
                 font-weight: bold;
                 font-size: 9px;
                 padding: 2px 5px;
             }
-            QPushButton:hover { border-color: #00f0ff; color: #00f0ff; }
+            QPushButton:hover {
+                border-color: #00f0ff;
+                color: #00f0ff;
+                background-color: #161c2e;
+            }
+            QPushButton:pressed {
+                background-color: #00f0ff;
+                color: #040508;
+                border-color: #00f0ff;
+            }
         """
+
         btn_prev = QPushButton("◄◄", self.mini_widget)
         btn_prev.setStyleSheet(mini_btn_style)
         btn_prev.clicked.connect(self.prev_clicked.emit)
@@ -282,17 +379,27 @@ class UnifiedChassis(QWidget):
         btn_next.clicked.connect(self.next_clicked.emit)
         layout.addWidget(btn_next)
 
-        self.mini_title_marquee = QLabel("♫ No Track Loaded", self.mini_widget)
-        self.mini_title_marquee.setStyleSheet("color: #00ffcc; font-family: monospace; font-size: 10px; font-weight: bold;")
-        layout.addWidget(self.mini_title_marquee, stretch=2)
+        # Mini LCD Frame (Expressive Track Display)
+        self.mini_lcd_frame = QFrame(self.mini_widget)
+        self.mini_lcd_frame.setFixedHeight(24)
+        self.mini_lcd_frame.setStyleSheet("background-color: #040508; border: 1px solid #1a2233; border-radius: 2px; padding: 1px 4px;")
+        mini_lcd_layout = QHBoxLayout(self.mini_lcd_frame)
+        mini_lcd_layout.setContentsMargins(4, 0, 4, 0)
 
-        self.mini_time_display = QLabel("00:00", self.mini_widget)
+        self.mini_title_marquee = QLabel("♫ No Track Loaded", self.mini_lcd_frame)
+        self.mini_title_marquee.setStyleSheet("color: #00ffcc; font-family: monospace; font-size: 10px; font-weight: bold;")
+        mini_lcd_layout.addWidget(self.mini_title_marquee, stretch=2)
+
+        self.mini_time_display = QLabel("00:00", self.mini_lcd_frame)
         self.mini_time_display.setStyleSheet("color: #ffaa00; font-family: monospace; font-size: 9px;")
-        layout.addWidget(self.mini_time_display)
+        mini_lcd_layout.addWidget(self.mini_time_display)
+
+        layout.addWidget(self.mini_lcd_frame, stretch=2)
 
         vol_ico = QLabel("🔊", self.mini_widget)
         vol_ico.setStyleSheet("color: #00ffaa; font-size: 10px;")
         layout.addWidget(vol_ico)
+
 
         btn_to_normal = QPushButton("▲ NORMAL", self.mini_widget)
         btn_to_normal.setFixedHeight(18)
