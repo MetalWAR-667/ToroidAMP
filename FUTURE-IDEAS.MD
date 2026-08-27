@@ -1,6 +1,6 @@
 
 
-## GLITCH-MODE FOR FUCKING REAGGETON
+## GLITCH-MODE FOR REAGGETON NON FRIENDS... AS ME!
 
 Dembow Pattern Easter Egg — Futuro RhythmAnalyzer capaz de estimar BPM, beat phase, bar phase y persistencia de patrones rítmicos. Si detecta durante suficiente tiempo un patrón dembow-like con alta confianza, activar un easter egg visual progresivo: glitches, RGB split, tearing/feedback y variables absurdas de diagnóstico (RITMO_INFERNAL, PACIENCIA, SEND_HELP, etc.). El análisis debe detectar características rítmicas, no géneros musicales. La lógica humorística pertenece a un EasterEggController, no al analyzer.
 

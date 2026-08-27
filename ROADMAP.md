@@ -1,11 +1,11 @@
-NOW
+NOW - FINISHED
  │
- ├─ EXP-VISLAB-003
+ ├─ EXP-VISLAB-003 - 
  │   Authoring Foundation II
  │
  ▼
 UX-005
-Daily-use fixes que hayas detectado
+Daily-use fixes detectadas
  │
  ▼
 DSP-001
@@ -27,6 +27,7 @@ Composable visualizer system
  ├── Lyrics
  ├── Matrix Wing Commander II
  └── EQ Cafre Edition
- DSP 
+ └── At least one skin that would cry John Pondsmith?
+ └── Dembow Glith Mode 👹
 
  Hacerlo mejor, hacerlo más divertido y ampliar sus capacidades.
