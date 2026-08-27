@@ -345,16 +345,20 @@ Implemented production desktop lifecycle:
 ### Production Cut 3 — Visualizer Expansion & Demoscene Effects
 STATUS: ACTIVE
 
-Completed promotion (VIS-001):
-* **Deep Field** promoted to production (`src/toroidamp/visualizers/deep_field.py`).
-* **ToroidAMP Floor** promoted to production (`src/toroidamp/visualizers/floor.py`) with restored donor perspective wireframe presentation and real `AudioFrame` spectral topology.
-* **Matrix Wing Commander** held in `experiments/visualizers/` for flight kinetic recovery.
-* Authoritative visualizer ordering: 0: 3D Toroid, 1: Waveform Ribbon, 2: Deep Field, 3: ToroidAMP Floor.
+Completed promotion & polish:
+* **VIS-001**: Deep Field & ToroidAMP Floor promoted to production. (CLOSED)
+* **VIS-002**: Production Visual Polish, RETINA Controls & Jack Final Perceptual Tuning. (CLOSED)
+  - Deep Field: Open vanishing point, multi-pass photon trails, multi-family spectral color distribution. (PASS)
+  - ToroidAMP Floor: Dark silence baseline, shaped non-linear activation, cell-conforming emissive quads, dynamic density. (PASS)
+  - 3D Toroid: True 3D Z-depth camera travel. (PASS)
+  - RETINA MELT: Canonical MarqueeLabel and SeekSlider 2-row HUD controls. (PASS)
 
-Next objectives:
-* Investigate Spectrum Ring / Radial Visualizer.
-* Revisit Matrix Wing Commander flight kinematics (depth routes, barrel rolls).
-* Implement subtle audio-reactive UI chassis breathing (Juice budget: LOW).
+Next Visual R&D:
+* **EXP-GL-001 — GPU Visualizer Foundation Probe**:
+  - Purpose: Validate a GPU-first visualizer path (PySide6 + QtOpenGL / GLSL) before investing further in CPU/Pygame infrastructure.
+  - Probe: Fullscreen fragment shader, resize-safe, RETINA MELT integration, `AudioFrame` uniforms, spectrum texture/buffer, stable lifecycle/context handling, benchmark at 1920×1080.
+  - Capabilities to explore: SDFs, procedural gradients, warping, bloom, feedback, multipass, spectral deformation.
+  - Rule: No migration of existing production visualizers during EXP-GL-001.
 
 ---
 
@@ -384,8 +388,9 @@ Production Cut 2 — Desktop Lifecycle & Session    CLOSED
 FIX-001 — Startup Lifecycle & Voice Identity      CLOSED
 Production Cut 3 — Visualizer Expansion           ACTIVE
   - VIS-001: Deep Field & Floor Promotion         CLOSED
+  - VIS-002: Production Visual Polish & RETINA    CLOSED
 
-Next: Revisit Matrix Wing Commander kinematics; author Radial Spectrum visualizer.
+Next: EXP-GL-001 — GPU Visualizer Foundation Probe (PySide6 + QtOpenGL / GLSL).
 ```
 
 
