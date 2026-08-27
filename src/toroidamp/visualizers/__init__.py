@@ -5,5 +5,13 @@ ToroidAMP - Visualizers Package Root
 from .base import Visualizer
 from .toroid import ToroidVisualizer
 from .ribbon import WaveformRibbonVisualizer
+from .deep_field import DeepFieldVisualizer
+from .floor import ToroidAMPFloorVisualizer
 
-__all__ = ["Visualizer", "ToroidVisualizer", "WaveformRibbonVisualizer"]
+__all__ = [
+    "Visualizer",
+    "ToroidVisualizer",
+    "WaveformRibbonVisualizer",
+    "DeepFieldVisualizer",
+    "ToroidAMPFloorVisualizer",
+]

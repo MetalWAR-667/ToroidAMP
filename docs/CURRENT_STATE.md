@@ -345,9 +345,15 @@ Implemented production desktop lifecycle:
 ### Production Cut 3 — Visualizer Expansion & Demoscene Effects
 STATUS: ACTIVE
 
-Primary objectives:
-* Port and adapt additional donor visualizers from `MetalWAR-Installer` (`Starfield`, `RetroGrid`, `SpectrumAnalyzer`).
-* Implement visualizer configuration options and intensity throttling for motion safety.
+Completed promotion (VIS-001):
+* **Deep Field** promoted to production (`src/toroidamp/visualizers/deep_field.py`).
+* **ToroidAMP Floor** promoted to production (`src/toroidamp/visualizers/floor.py`) with restored donor perspective wireframe presentation and real `AudioFrame` spectral topology.
+* **Matrix Wing Commander** held in `experiments/visualizers/` for flight kinetic recovery.
+* Authoritative visualizer ordering: 0: 3D Toroid, 1: Waveform Ribbon, 2: Deep Field, 3: ToroidAMP Floor.
+
+Next objectives:
+* Investigate Spectrum Ring / Radial Visualizer.
+* Revisit Matrix Wing Commander flight kinematics (depth routes, barrel rolls).
 * Implement subtle audio-reactive UI chassis breathing (Juice budget: LOW).
 
 ---
@@ -377,8 +383,9 @@ Production Cut 1B — Primary Player Implementation CLOSED
 Production Cut 2 — Desktop Lifecycle & Session    CLOSED
 FIX-001 — Startup Lifecycle & Voice Identity      CLOSED
 Production Cut 3 — Visualizer Expansion           ACTIVE
+  - VIS-001: Deep Field & Floor Promotion         CLOSED
 
-Next: Port Starfield, RetroGrid, and Spectrum visualizers into production engine.
+Next: Revisit Matrix Wing Commander kinematics; author Radial Spectrum visualizer.
 ```
 
 

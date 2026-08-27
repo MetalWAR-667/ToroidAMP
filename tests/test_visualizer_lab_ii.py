@@ -477,20 +477,16 @@ class TestMatrixWingCommander(LabTestCase):
 # ---------------------------------------------------------------------------
 
 class TestProductionIsolation(LabTestCase):
-    def test_experiments_not_registered_in_visualizer_module(self):
+    def test_unpromoted_experiments_not_registered_in_visualizer_module(self):
         vis_module_path = os.path.join(REPO_ROOT, "src", "toroidamp", "ui", "modules", "visualizer_module.py")
         with open(vis_module_path, "r", encoding="utf-8") as f:
             source = f.read()
-        self.assertNotIn("DeepFieldVisualizer", source)
-        self.assertNotIn("ToroidAMPFloorVisualizer", source)
         self.assertNotIn("MatrixWingCommanderVisualizer", source)
 
-    def test_experiments_not_registered_in_fullscreen(self):
+    def test_unpromoted_experiments_not_registered_in_fullscreen(self):
         fullscreen_path = os.path.join(REPO_ROOT, "src", "toroidamp", "ui", "fullscreen.py")
         with open(fullscreen_path, "r", encoding="utf-8") as f:
             source = f.read()
-        self.assertNotIn("DeepFieldVisualizer", source)
-        self.assertNotIn("ToroidAMPFloorVisualizer", source)
         self.assertNotIn("MatrixWingCommanderVisualizer", source)
 
     def test_experiments_do_not_import_from_donor_repo(self):

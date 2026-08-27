@@ -225,6 +225,9 @@ class WindowManager(QWidget):
         self.retina_melt.play_toggled.connect(self._toggle_play)
         self.retina_melt.prev_clicked.connect(self._play_previous)
         self.retina_melt.next_clicked.connect(self._play_next)
+        self.retina_melt.volume_changed.connect(self._on_volume_changed)
+        self.retina_melt.visualizer_switched.connect(self._on_retina_visualizer_switched)
+        self.retina_melt.seek_changed.connect(self._on_seek)
 
         # System Tray Controls
         self.tray_icon.restore_requested.connect(self._focus_chassis)
@@ -381,6 +384,15 @@ class WindowManager(QWidget):
 
     def _on_volume_changed(self, vol: float):
         self.player_engine.volume = vol
+        self.chassis.set_volume(vol)
+        self.retina_melt.set_volume(vol)
+        self.session_state.volume = vol
+
+    def _on_retina_visualizer_switched(self, index: int):
+        self.vis_mod.vis_idx = index
+        name = self.vis_mod.current_visualizer.get_name().upper()
+        self.vis_mod.btn_switch.setText(f"MODE: {name}")
+        self.session_state.selected_visualizer_idx = index
 
     def _on_shuffle_toggled(self, enabled: bool):
         self.playlist.shuffle = enabled
@@ -423,6 +435,7 @@ class WindowManager(QWidget):
         self.chassis.hide()
         self.vis_mod.hide()
         self.pl_mod.hide()
+        self.retina_melt.set_volume(self.player_engine.volume)
         self.retina_melt.set_visualizer_index(self.vis_mod.vis_idx)
         self.retina_melt.show_fullscreen_experience()
 
@@ -527,6 +540,7 @@ class WindowManager(QWidget):
         is_playing = self.player_engine.state == PlaybackState.PLAYING
         self.chassis.update_telemetry(title_str, time_str, progress, is_playing)
         self.retina_melt.update_telemetry(title_str, time_str, is_playing)
+        self.retina_melt.set_seek_position(pos, dur)
         self.tray_icon.update_status(title_str, is_playing)
 
         # 3. Update Reactive Neon Chassis & Module Breathing (~60 FPS)

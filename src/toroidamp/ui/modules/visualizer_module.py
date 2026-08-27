@@ -17,6 +17,8 @@ from ...analysis.audio_frame import AudioFrame
 from ...visualizers.base import Visualizer
 from ...visualizers.toroid import ToroidVisualizer
 from ...visualizers.ribbon import WaveformRibbonVisualizer
+from ...visualizers.deep_field import DeepFieldVisualizer
+from ...visualizers.floor import ToroidAMPFloorVisualizer
 
 
 class VisualizerModule(ModuleShell):
@@ -101,7 +103,9 @@ class VisualizerModule(ModuleShell):
         self.surface = pygame.Surface((self.surf_w, self.surf_h))
         self.visualizers: list[Visualizer] = [
             ToroidVisualizer(self.surf_w, self.surf_h),
-            WaveformRibbonVisualizer(self.surf_w, self.surf_h)
+            WaveformRibbonVisualizer(self.surf_w, self.surf_h),
+            DeepFieldVisualizer(self.surf_w, self.surf_h),
+            ToroidAMPFloorVisualizer(self.surf_w, self.surf_h),
         ]
         self.vis_idx = 0
 

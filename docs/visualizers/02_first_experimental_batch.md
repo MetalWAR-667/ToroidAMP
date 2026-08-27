@@ -380,6 +380,36 @@ The window is resizable — drag any edge to confirm the resize behavior live, m
 
 ---
 
+## 20. Authoritative Human Evaluation Verdict (VIS-001)
+
+Visualizer Lab II has completed human evaluation with real music across all candidates:
+
+### Deep Field
+* **HUMAN VERDICT**: **PASS**
+* **Production Promotion**: **YES**
+* **Additional Finding**: Strong standalone visualizer. Very high future COMPOSITION value.
+* **Human Observation**: The starfield works well independently, but feels especially suitable as a background layer underneath other visual systems.
+
+### ToroidAMP Floor
+* **HUMAN VERDICT**: **PASS**
+* **Production Promotion**: **YES**
+* **Human Observation**: The new musical behavior is successful and visually attractive. However, the donor MetalWar-Installer presentation was visually stronger because the illuminated tiles existed beneath / within a perspective wireframe grid.
+* **Required Production Polish**: Restore that visual relationship (perspective wireframe grid + illuminated tile field) without reverting the new real AudioFrame musical model.
+
+### Matrix Wing Commander
+* **HUMAN VERDICT**: **HOLD / NOT READY FOR PRODUCTION**
+* **Production Promotion**: **NO**
+* **Specific Failure**: The experimental reinterpretation did not preserve important donor flight choreography:
+  1. routes traveling into depth/background;
+  2. perspective flight trajectories;
+  3. visible trails;
+  4. barrel rolls;
+  5. donor-like cinematic movement.
+* **Future Work**: First recover donor kinetic language faithfully, then add ToroidAMP musical causality.
+* **Status**: Matrix Wing Commander is NOT deleted and remains an active experiment in `experiments/visualizers/`.
+
+---
+
 ## CURRENT_STATE_UPDATE: NOT_REQUIRED
 
 This is experimental research within the existing ACTIVE Production Cut 3 phase ("Visualizer Expansion & Effects"). Production remains untouched — no visualizer was registered in the selector, no production file under `src/toroidamp/` was modified, version stays at `0.2.1`. Operational baseline remains STABLE.

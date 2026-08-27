@@ -489,9 +489,13 @@ class TestVolumeSync(unittest.TestCase):
 # ---------------------------------------------------------------------------
 
 class TestCanonicalVersion(unittest.TestCase):
-    def test_version_resolves_to_0_2_0(self):
+    def test_version_resolves_to_canonical_pyproject_version(self):
+        import tomllib
         import toroidamp
-        self.assertEqual(toroidamp.__version__, "0.2.0")
+        pyproject_path = os.path.join(REPO_ROOT, "pyproject.toml")
+        with open(pyproject_path, "rb") as f:
+            data = tomllib.load(f)
+        self.assertEqual(toroidamp.__version__, data["project"]["version"])
 
     def test_pyproject_matches_package_version(self):
         import tomllib

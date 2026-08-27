@@ -62,7 +62,13 @@ Before wiring `AudioFrame` fields to visual parameters, be able to state what th
 
 **Different music should change character, not only amplitude.** A visualizer whose only observable behavior is "louder music = more movement" has not earned its place — that mapping is explicitly rejected as creatively weak (`docs/visualizers/01_donor_audit_and_creative_direction.md`). Test a new visualizer against genuinely different material — sparse orchestral, classic heavy metal, dense modern metal, electronic, ambient — and ask whether it looks *different*, not just louder or quieter, across them. This echoes the shell's own established principle (POLISH-001): reactivity should be perceptible through contrast between different music, not exaggeration within one song.
 
-**Define silence behavior explicitly.** What does the visualizer do when `rms` is near zero and no beats are firing — between tracks, during a quiet intro, after a song ends? "Freeze the last frame" and "keep animating on residual/decaying state" are both valid answers, but pick one on purpose. A visualizer with no silence behavior tends to either look broken (frozen) or keeps jittering on noise/random fallback, and this is easy to miss until someone actually leaves music paused.
+**Define silence behavior explicitly.** What does the visualizer do when `rms` is near zero and no beats are firing — between tracks, during a quiet intro, after a song ends? "Freeze the last frame" and "keep animating on residual/decaying state" are both valid answers, but pick one on purpose. Silence is a musical state. A visualizer with no silence behavior tends to either look broken (frozen) or keeps jittering on noise/random fallback.
+
+**Randomness provides variation; music provides causality.** Randomness should determine *which* variant or aesthetic flavor occurs (e.g. which palette variant, which maneuver flavor, which sector phase); the music's real metrics (`beat`, `strong_beat`, `spectrum`) must determine *when* and *where* things happen.
+
+**Strong beats trigger discrete events, not merely larger scalars.** Treat `strong_beat` as a transient trigger for bounded state transitions, traveling waves, or camera maneuvers (gated by cooldowns), rather than simply scaling up a continuous amplitude multiplier.
+
+**Perceptual reality over mathematical existence.** If an effect exists in code (a variable changes, an offscreen surface blends, an internal scale factor shifts) but the human cannot perceptually distinguish it in real listening, the effect does not exist. Test for clear visual contrast and unmistakable perceptual impact, not merely code branch execution. Prefer *obvious $\to$ tune down* over *invisible $\to$ claim implemented*.
 
 ---
 
