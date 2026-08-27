@@ -54,7 +54,19 @@ class CustomVisualizer(Visualizer):
 
 ---
 
-## 4. Available Audio Signals (`AudioFrame`)
+## 4. Musical Thesis (read before mapping signals)
+
+**A visualizer should have a musical thesis.**
+
+Before wiring `AudioFrame` fields to visual parameters, be able to state what the visualizer is actually *about* — what it means for the music to be "doing something" on screen. "Bass makes it bigger" is a parameter mapping, not a thesis. "The camera feels *pushed* by bass, drifts sideways with mids, and sparkles with treble" is a thesis, because it composes multiple fields into a coherent visual idea rather than one field per knob.
+
+**Different music should change character, not only amplitude.** A visualizer whose only observable behavior is "louder music = more movement" has not earned its place — that mapping is explicitly rejected as creatively weak (`docs/visualizers/01_donor_audit_and_creative_direction.md`). Test a new visualizer against genuinely different material — sparse orchestral, classic heavy metal, dense modern metal, electronic, ambient — and ask whether it looks *different*, not just louder or quieter, across them. This echoes the shell's own established principle (POLISH-001): reactivity should be perceptible through contrast between different music, not exaggeration within one song.
+
+**Define silence behavior explicitly.** What does the visualizer do when `rms` is near zero and no beats are firing — between tracks, during a quiet intro, after a song ends? "Freeze the last frame" and "keep animating on residual/decaying state" are both valid answers, but pick one on purpose. A visualizer with no silence behavior tends to either look broken (frozen) or keeps jittering on noise/random fallback, and this is easy to miss until someone actually leaves music paused.
+
+---
+
+## 5. Available Audio Signals (`AudioFrame`)
 
 Visualizers receive normalized, thread-safe `AudioFrame` instances on every frame tick:
 
@@ -72,7 +84,7 @@ Visualizers receive normalized, thread-safe `AudioFrame` instances on every fram
 
 ---
 
-## 5. Performance & Rendering Rules
+## 6. Performance & Rendering Rules
 1. **Offscreen Rendering**: Visualizers render to an offscreen `pygame.Surface`. The UI transfers this surface to a Qt `QPixmap` via `pygame.image.tobytes(surface, 'RGBA')`.
 2. **Frame Budget**: Keep total `render()` execution under **8 milliseconds** per frame to guarantee 60–120 FPS.
 3. **No Qt Operations in Visualizer**: Visualizers must remain pure Python/Pygame/math. Do not import `PySide6` inside visualizer modules.
@@ -80,7 +92,7 @@ Visualizers receive normalized, thread-safe `AudioFrame` instances on every fram
 
 ---
 
-## 6. Demoscene Historical Note: `fckvar`
+## 7. Demoscene Historical Note: `fckvar`
 ToroidAMP contains exactly **one** intentional archaeological demoscene variable:
 * **Name**: `fckvar`
 * **Location**: **STRICTLY RESERVED** for `ToroidVisualizer` (`toroid.py`).
@@ -89,8 +101,11 @@ ToroidAMP contains exactly **one** intentional archaeological demoscene variable
 
 ---
 
-## 7. Authoring Checklist
+## 8. Authoring Checklist
+* [ ] Can state the visualizer's musical thesis in one sentence — not just a list of signal→parameter mappings.
 * [ ] Inherits from `Visualizer` and implements `get_name()`, `resize()`, `update()`, `render()`.
 * [ ] Uses real `AudioFrame` metrics rather than synthetic timers or fake sine clocks.
+* [ ] Composes multiple `AudioFrame` fields so different genres produce different *character*, not just different amplitude.
+* [ ] Defines explicit silence/near-zero-`rms` behavior.
 * [ ] Handles `resize()` cleanly when switching between windowed and fullscreen.
 * [ ] Runs within the 8ms frame budget.
