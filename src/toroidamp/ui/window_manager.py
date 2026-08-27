@@ -69,7 +69,7 @@ class WindowManager(QWidget):
         self.pl_mod = PlaylistModule(self.playlist, parent=self.chassis)
 
         # 3. Retina Melt Fullscreen Window
-        self.retina_melt = RetinaMeltWindow()
+        self.retina_melt = RetinaMeltWindow(session_manager=self.session_manager)
 
         # 4. System Tray Icon
         self.tray_icon = ToroidTrayIcon(self)
@@ -114,8 +114,6 @@ class WindowManager(QWidget):
         # 3. Restore Visualizer Selection
         if 0 <= st.selected_visualizer_idx < len(self.vis_mod.visualizers):
             self.vis_mod.vis_idx = st.selected_visualizer_idx
-            name = self.vis_mod.current_visualizer.get_name().upper()
-            self.vis_mod.btn_switch.setText(f"MODE: {name}")
 
         # 4. Restore Playlist Items (if not overridden by CLI args)
         if len(self.playlist) == 0 and st.playlist_files:
@@ -390,8 +388,7 @@ class WindowManager(QWidget):
 
     def _on_retina_visualizer_switched(self, index: int):
         self.vis_mod.vis_idx = index
-        name = self.vis_mod.current_visualizer.get_name().upper()
-        self.vis_mod.btn_switch.setText(f"MODE: {name}")
+        self.vis_mod._update_presentation_mode()
         self.session_state.selected_visualizer_idx = index
 
     def _on_shuffle_toggled(self, enabled: bool):
@@ -441,6 +438,7 @@ class WindowManager(QWidget):
 
     def _exit_retina_melt(self):
         self.retina_melt.hide()
+        self.vis_mod._update_presentation_mode()
         self.chassis.set_mode(self.prior_scale, animated=False)
         self.chassis.show()
 

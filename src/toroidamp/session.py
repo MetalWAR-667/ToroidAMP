@@ -53,6 +53,8 @@ class SessionState:
     repeat: bool = False
     selected_visualizer_idx: int = 0
     close_to_tray: bool = True
+    # Visualizer Settings
+    visualizer_parameters: dict[str, dict[str, float]] = field(default_factory=dict) # {vis_id: {param_name: val}}
 
     # Window Geometries
     chassis_pos: WindowPosition = field(default_factory=WindowPosition)
@@ -170,7 +172,8 @@ class SessionManager:
                 ),
                 playlist_files=data.get("playlist_files", []),
                 current_track_index=int(data.get("current_track_index", -1)),
-                last_position_seconds=float(data.get("last_position_seconds", 0.0))
+                last_position_seconds=float(data.get("last_position_seconds", 0.0)),
+                visualizer_parameters=data.get("visualizer_parameters", {})
             )
             logger.info(f"Session loaded successfully from {self._session_path}")
         except Exception as e:

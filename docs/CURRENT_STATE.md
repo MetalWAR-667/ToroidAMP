@@ -348,17 +348,23 @@ STATUS: ACTIVE
 Completed promotion & polish:
 * **VIS-001**: Deep Field & ToroidAMP Floor promoted to production. (CLOSED)
 * **VIS-002**: Production Visual Polish, RETINA Controls & Jack Final Perceptual Tuning. (CLOSED)
-  - Deep Field: Open vanishing point, multi-pass photon trails, multi-family spectral color distribution. (PASS)
-  - ToroidAMP Floor: Dark silence baseline, shaped non-linear activation, cell-conforming emissive quads, dynamic density. (PASS)
-  - 3D Toroid: True 3D Z-depth camera travel. (PASS)
-  - RETINA MELT: Canonical MarqueeLabel and SeekSlider 2-row HUD controls. (PASS)
-
-Next Visual R&D:
-* **EXP-GL-001 — GPU Visualizer Foundation Probe**:
-  - Purpose: Validate a GPU-first visualizer path (PySide6 + QtOpenGL / GLSL) before investing further in CPU/Pygame infrastructure.
-  - Probe: Fullscreen fragment shader, resize-safe, RETINA MELT integration, `AudioFrame` uniforms, spectrum texture/buffer, stable lifecycle/context handling, benchmark at 1920×1080.
-  - Capabilities to explore: SDFs, procedural gradients, warping, bloom, feedback, multipass, spectral deformation.
-  - Rule: No migration of existing production visualizers during EXP-GL-001.
+* **EXP-GL-001**: GPU Visualizer Foundation Probe. (CLOSED - GO)
+* **EXP-VISLAB-001**: GPU Visualizer Authoring Lab Foundation. (CLOSED - GO)
+* **EXP-VISLAB-002**: Real-World External GLSL Compatibility Gate. (CLOSED - PASS)
+* **GPU-OFFICIAL-001**: First Official GPU Visualizer — Toroid Identity. (CLOSED - PASS)
+* **GPU-PROD-001**: RETINA MELT GPU Host Integration + Live Tune Controls. (CLOSED - PASS)
+* **EXP-VISLAB-003**: GPU Visualizer Authoring Lab Foundation II (Controls + Presets). (CLOSED - PASS)
+* **GPU-PROD-002**: RETINA MELT Integrated Shader Lab (Real-Audio GPU Authoring Surface). (IMPLEMENTED — FINAL HUMAN MICRO-GATE PENDING)
+  - Full authoring surface integrated directly into RETINA MELT via `[ ⚗ LAB ]` HUD button and `L` shortcut.
+  - Three distinct interaction depths: HUD (listening), TUNE (adjusting), LAB (authoring).
+  - Strict mutual exclusivity: `TUNE XOR LAB` with unified underlying parameter model.
+  - Scoped dark cyberpunk stylesheet for `QColorDialog` (`_open_styled_color_dialog`), guaranteeing high-contrast cyan/amber text on dark slate backgrounds without affecting native dialogs.
+  - Authoritative visualizer switch contract: navigating away via `MODE` button or `M` shortcut immediately dismisses the visualizer-specific `LAB` workbench (and stale `TUNE` panels).
+  - Local Level-1 GLSL shader loading from `user_shaders/` with clear `MODE: LOCAL — <NAME>` provenance.
+  - Full Foundation II typed parameter rack (float sliders, bool toggles, color pickers) and preset save/load.
+  - Hot reload (`R`) keeps active workbench open and isolates compile failures without interrupting music playback.
+  - Official visualizer registration expanded: Toroid Identity + Cyber Bloom.
+  - Session persistence boundary: official visualizer parameters persist across restarts; local shaders remain temporary non-destructive overrides.
 
 ---
 

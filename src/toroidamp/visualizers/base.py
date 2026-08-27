@@ -36,3 +36,11 @@ class Visualizer(ABC):
     def reset(self) -> None:
         """Optional hook to reset internal particle/motion state."""
         pass
+
+    def is_gpu(self) -> bool:
+        """Indicates whether this visualizer is hardware-accelerated via GLSL."""
+        return False
+
+    def is_retina_only(self) -> bool:
+        """Indicates whether this visualizer is exclusive to the RETINA MELT experience."""
+        return False

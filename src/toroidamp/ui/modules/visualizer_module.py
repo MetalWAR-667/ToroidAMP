@@ -4,7 +4,7 @@ Hosts real-time visualizers (ToroidVisualizer, WaveformRibbonVisualizer)
 with dynamic switching and RETINA MELT entry trigger.
 """
 
-from PySide6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton
+from PySide6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QStackedLayout
 from PySide6.QtCore import Qt, QSize, Signal
 from PySide6.QtGui import QImage, QPixmap
 import pygame
@@ -19,6 +19,10 @@ from ...visualizers.toroid import ToroidVisualizer
 from ...visualizers.ribbon import WaveformRibbonVisualizer
 from ...visualizers.deep_field import DeepFieldVisualizer
 from ...visualizers.floor import ToroidAMPFloorVisualizer
+from ...visualizers.toroid_identity import ToroidIdentityVisualizer
+
+
+from ...visualizers.cyber_bloom import CyberBloomVisualizer
 
 
 class VisualizerModule(ModuleShell):
@@ -39,11 +43,63 @@ class VisualizerModule(ModuleShell):
     def __init__(self, parent=None):
         super().__init__("// MODULE :: VISUALIZER", parent)
 
-        # Visualizer Surface Container
+        # Visualizer Surface Container Stack (Page 0: CPU Pixmap, Page 1: RETINA Placeholder)
+        self.surface_stack = QStackedLayout()
+        self.surface_stack.setContentsMargins(0, 0, 0, 0)
+
+        # Page 0: CPU Canvas
         self.vis_label = QLabel(self)
         self.vis_label.setStyleSheet("background-color: #06070a; border: 1px solid #1a1d2e;")
         self.vis_label.setAlignment(Qt.AlignCenter)
-        self.main_layout.addWidget(self.vis_label, stretch=1)
+        self.surface_stack.addWidget(self.vis_label)
+
+        # Page 1: Deliberate Branded RETINA-only GPU Placeholder
+        self.placeholder_widget = QWidget(self)
+        self.placeholder_widget.setStyleSheet("background-color: #080910; border: 1px solid #1a1d2e;")
+        p_layout = QVBoxLayout(self.placeholder_widget)
+        p_layout.setContentsMargins(16, 16, 16, 16)
+        p_layout.setSpacing(6)
+        p_layout.setAlignment(Qt.AlignCenter)
+
+        self.lbl_placeholder_name = QLabel("TOROID IDENTITY", self.placeholder_widget)
+        self.lbl_placeholder_name.setStyleSheet("color: #00f0ff; font-family: monospace; font-size: 13px; font-weight: bold; border: none; background: transparent;")
+        self.lbl_placeholder_name.setAlignment(Qt.AlignCenter)
+        p_layout.addWidget(self.lbl_placeholder_name)
+
+        lbl_gpu_badge = QLabel("// HARDWARE GPU VISUALIZER //", self.placeholder_widget)
+        lbl_gpu_badge.setStyleSheet("color: #ffaa00; font-family: monospace; font-size: 9px; font-weight: bold; border: none; background: transparent;")
+        lbl_gpu_badge.setAlignment(Qt.AlignCenter)
+        p_layout.addWidget(lbl_gpu_badge)
+
+        lbl_avail = QLabel("Exclusive to RETINA MELT fullscreen playback.", self.placeholder_widget)
+        lbl_avail.setStyleSheet("color: #7882a0; font-family: monospace; font-size: 9px; border: none; background: transparent;")
+        lbl_avail.setAlignment(Qt.AlignCenter)
+        p_layout.addWidget(lbl_avail)
+
+        p_layout.addSpacing(6)
+
+        self.btn_enter_retina = QPushButton("⛶ ENTER RETINA MELT", self.placeholder_widget)
+        self.btn_enter_retina.setStyleSheet("""
+            QPushButton {
+                background: #141726;
+                border: 1px solid #ff0077;
+                color: #ff0077;
+                font-family: monospace;
+                font-size: 10px;
+                font-weight: bold;
+                padding: 5px 14px;
+                border-radius: 3px;
+            }
+            QPushButton:hover {
+                background: #ff0077;
+                color: #ffffff;
+            }
+        """)
+        self.btn_enter_retina.clicked.connect(self.retina_melt_requested.emit)
+        p_layout.addWidget(self.btn_enter_retina, alignment=Qt.AlignCenter)
+
+        self.surface_stack.addWidget(self.placeholder_widget)
+        self.main_layout.addLayout(self.surface_stack, stretch=1)
 
         # Bottom Bar: Mode Selector & Fullscreen
         bot_bar = QWidget(self)
@@ -106,12 +162,24 @@ class VisualizerModule(ModuleShell):
             WaveformRibbonVisualizer(self.surf_w, self.surf_h),
             DeepFieldVisualizer(self.surf_w, self.surf_h),
             ToroidAMPFloorVisualizer(self.surf_w, self.surf_h),
+            ToroidIdentityVisualizer(self.surf_w, self.surf_h),
+            CyberBloomVisualizer(self.surf_w, self.surf_h),
         ]
-        self.vis_idx = 0
+        self._vis_idx = 0
+        self.sync_visualizer_presentation()
+
+    @property
+    def vis_idx(self) -> int:
+        return self._vis_idx
+
+    @vis_idx.setter
+    def vis_idx(self, idx: int):
+        self._vis_idx = idx % len(self.visualizers)
+        self.sync_visualizer_presentation()
 
     @property
     def current_visualizer(self) -> Visualizer:
-        return self.visualizers[self.vis_idx]
+        return self.visualizers[self._vis_idx]
 
     def resizeEvent(self, event):
         super().resizeEvent(event)
@@ -128,17 +196,36 @@ class VisualizerModule(ModuleShell):
         for vis in self.visualizers:
             vis.resize(self.surf_w, self.surf_h)
 
-    def _switch_vis_mode(self):
-        self.vis_idx = (self.vis_idx + 1) % len(self.visualizers)
-        name = self.visualizers[self.vis_idx].get_name().upper()
+    def sync_visualizer_presentation(self):
+        """Authoritative single source of truth for visualizer presentation state."""
+        vis = self.current_visualizer
+        name = vis.get_name().upper()
         self.btn_switch.setText(f"MODE: {name}")
+
+        is_retina_only = getattr(vis, "is_retina_only", lambda: False)() or getattr(vis, "is_gpu", lambda: False)()
+        if is_retina_only:
+            self.lbl_placeholder_name.setText(name)
+            self.surface_stack.setCurrentIndex(1)
+        else:
+            self.surface_stack.setCurrentIndex(0)
+
+    # Alias for backward compatibility
+    _update_presentation_mode = sync_visualizer_presentation
+
+    def _switch_vis_mode(self):
+        self.vis_idx = self._vis_idx + 1
 
     def render_frame(self, frame: AudioFrame, dt: float):
         if not self.isVisible():
             return
+        vis = self.current_visualizer
+        is_retina_only = getattr(vis, "is_retina_only", lambda: False)() or getattr(vis, "is_gpu", lambda: False)()
+        if is_retina_only:
+            # Under RETINA-only policy, do not spin software renderer for GPU visualizers
+            return
+
         try:
             self.surface.fill((6, 7, 10))
-            vis = self.visualizers[self.vis_idx]
             vis.render(self.surface, frame, dt)
             
             raw_data = pygame.image.tobytes(self.surface, "RGBA")
@@ -156,5 +243,6 @@ class VisualizerModule(ModuleShell):
 
         # Update visualizer viewport inner border
         self.vis_label.setStyleSheet(f"background-color: #06070a; border: 1px solid {p_col}; border-radius: 2px;")
+        self.placeholder_widget.setStyleSheet(f"background-color: #080910; border: 1px solid {p_col}; border-radius: 2px;")
         self.title_label.setStyleSheet(f"color: {c_col}; font-family: monospace; font-size: 10px; font-weight: bold;")
 

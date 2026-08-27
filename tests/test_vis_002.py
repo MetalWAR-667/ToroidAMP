@@ -335,7 +335,7 @@ class TestRetinaMeltPerceptualUX(unittest.TestCase):
 
     def test_visualizer_mode_cycling(self):
         melt = self.wm.retina_melt
-        expected_modes = [1, 2, 3, 0]
+        expected_modes = [1, 2, 3, 4, 0]
         for exp in expected_modes:
             melt._cycle_visualizer_mode()
             self.assertEqual(melt.vis_idx, exp)

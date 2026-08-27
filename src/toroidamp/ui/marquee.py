@@ -90,7 +90,8 @@ class MarqueeLabel(QLabel):
         self._recompute_overflow()
 
     def hideEvent(self, event):
-        self._timer.stop()
+        if hasattr(self, "_timer"):
+            self._timer.stop()
         super().hideEvent(event)
 
     def showEvent(self, event):
