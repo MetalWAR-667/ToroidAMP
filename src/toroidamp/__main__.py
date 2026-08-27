@@ -10,6 +10,7 @@ import sys
 from PySide6.QtWidgets import QApplication
 
 from toroidamp import __version__
+from toroidamp.branding import resolve_branding_icon
 from toroidamp.analysis.audio_frame import AnalysisHandoff
 from toroidamp.audio.player import PlayerEngine
 from toroidamp.audio.playlist import PlaylistManager
@@ -35,6 +36,13 @@ def main():
     app.setApplicationName("ToroidAMP")
     app.setOrganizationName("")  # Clean single canonical path: %LOCALAPPDATA%/ToroidAMP
     app.setQuitOnLastWindowClosed(False)  # Ensure tray background lifecycle stays alive when windows hide
+
+    # BRAND-001: official checkerboard toroid identity for every window that
+    # doesn't set its own icon (taskbar, Alt-Tab, etc.). A missing/unreadable
+    # asset only logs a warning — it must never block startup.
+    brand_icon = resolve_branding_icon()
+    if brand_icon is not None:
+        app.setWindowIcon(brand_icon)
 
 
     # 1. Initialize Analysis Handoff

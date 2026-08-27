@@ -234,7 +234,15 @@ class WindowManager(QWidget):
         self.tray_icon.exit_requested.connect(self.shutdown)
 
     def _focus_chassis(self):
-        """Raises and activates the chassis window (tray Show action)."""
+        """
+        Tray 'Restore Player' action. If MINI, restores full NORMAL via the
+        existing authoritative MINI->NORMAL transition (chassis.set_mode,
+        same path the chassis's own ▲ NORMAL button uses) — this is what
+        drives module restoration through _on_scale_changed, so there is
+        only one restoration path. Already-NORMAL just raises/focuses.
+        """
+        if self.chassis.mode == "mini":
+            self.chassis.set_mode("normal")
         self.chassis.raise_()
         self.chassis.activateWindow()
 

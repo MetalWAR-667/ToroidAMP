@@ -8,6 +8,7 @@ from PySide6.QtGui import QMouseEvent, QDragEnterEvent, QDropEvent, QCloseEvent,
 from .neon import NeonState
 from .marquee import MarqueeLabel
 from .. import __version__
+from ..branding import resolve_branding_icon
 
 
 class SeekSlider(QSlider):
@@ -88,6 +89,14 @@ class UnifiedChassis(QWidget):
         self._is_dragging = False
         self.setAcceptDrops(True)
         self._current_neon: NeonState | None = None
+
+        # BRAND-001: explicit chassis-level icon, defensively — QApplication's
+        # icon already applies to any window that doesn't set its own, but
+        # the primary owner window sets it explicitly too for certainty
+        # regardless of Qt.FramelessWindowHint / platform quirks.
+        brand_icon = resolve_branding_icon()
+        if brand_icon is not None:
+            self.setWindowIcon(brand_icon)
 
         self.outer_layout = QVBoxLayout(self)
         self.outer_layout.setContentsMargins(1, 1, 1, 1)

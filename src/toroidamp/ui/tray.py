@@ -9,6 +9,8 @@ from PySide6.QtWidgets import QSystemTrayIcon, QMenu
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QIcon, QPixmap, QPainter, QColor, QFont
 
+from ..branding import resolve_branding_icon
+
 logger = logging.getLogger("toroidamp.tray")
 
 
@@ -24,7 +26,12 @@ class ToroidTrayIcon(QSystemTrayIcon):
 
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.setIcon(self._create_procedural_icon())
+        # BRAND-001: official checkerboard toroid replaces the procedural
+        # cyan/magenta ring. The procedural generator remains as an internal
+        # fallback — if the branding asset is ever missing/unreadable, the
+        # tray still gets a usable icon instead of none at all.
+        official_icon = resolve_branding_icon()
+        self.setIcon(official_icon if official_icon is not None else self._create_procedural_icon())
         self.setToolTip("ToroidAMP // Modular Audio Player")
 
         self._menu = QMenu()

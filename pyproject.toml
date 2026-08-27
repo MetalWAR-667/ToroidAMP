@@ -33,8 +33,21 @@ dependencies = [
     "miniaudio>=1.59",
 ]
 
+[project.optional-dependencies]
+# Only needed to run tools/generate_ico.py (regenerating the Windows .ico
+# from the branding master) — never required to run ToroidAMP itself.
+dev = ["Pillow>=10.0"]
+
 [project.scripts]
 toroidamp = "toroidamp.__main__:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.setuptools.package-data]
+# BRAND-001: ships the operational branding master (and its Windows .ico
+# derivative) inside the installed package, so the application icon
+# resolves correctly for a real wheel/sdist install, not only an editable
+# checkout. The full-resolution creative source (assets/images/) is
+# intentionally excluded — it is never loaded at runtime.
+toroidamp = ["assets/branding/*.png", "assets/branding/*.ico"]
