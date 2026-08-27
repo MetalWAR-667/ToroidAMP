@@ -107,4 +107,15 @@ RETINA MELT (Fullscreen)
      * `VISUALIZER` $\to$ **HIGH / EXPRESSIVE**
      * `RETINA MELT` $\to$ **UNRESTRICTED WITHIN SAFETY/PERFORMANCE LIMITS**
 
+---
+
+## 7. Module Geometry Is User State (UX-003)
+
+1. **USER-CHOSEN MODULE GEOMETRY IS PERSISTENT STATE**:
+   * `VisualizerModule` and `PlaylistModule` sizes are a deliberate user choice, exactly like position or dock state. They belong in session state and must round-trip through session save/restore.
+2. **LIFECYCLE TRANSITIONS MAY HIDE MODULES, BUT MUST NOT ERASE USER LAYOUT CHOICES**:
+   * MINI/NORMAL, dock/undock, and RETINA MELT are all visibility or layout transitions. None of them are permitted to silently reset a module back to its default size. A module that reappears after being hidden must reappear at the size the user left it.
+3. **RESET SIZE RESTORES DEFAULT DIMENSIONS ONLY**:
+   * The reset action on a module is a single, narrow operation: restore `DEFAULT_SIZE`. It must never move, dock, undock, close, or otherwise touch module content or visibility — one control, one meaning.
+
 

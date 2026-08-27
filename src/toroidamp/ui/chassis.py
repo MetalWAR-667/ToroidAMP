@@ -1,12 +1,59 @@
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton,
-    QSlider, QFrame, QStackedWidget, QApplication
+    QSlider, QFrame, QStackedWidget, QApplication, QStyle, QStyleOptionSlider
 )
-from PySide6.QtCore import Qt, QPoint, Signal
+from PySide6.QtCore import Qt, QPoint, Signal, QEvent
 from PySide6.QtGui import QMouseEvent, QDragEnterEvent, QDropEvent, QCloseEvent, QPainter, QPen, QColor
 
 from .neon import NeonState
 
+
+class SeekSlider(QSlider):
+    """
+    Click-anywhere-on-groove seek slider.
+
+    Standard QSlider.sliderMoved only fires when the handle is dragged.
+    This subclass also converts a direct groove-click into an equivalent
+    sliderMoved emission so the seek pathway remains singular — one authority
+    for all seek operations, whether the human drags the handle or clicks
+    halfway through the damn song.
+    """
+
+    def mousePressEvent(self, event: QMouseEvent):
+        if event.button() == Qt.LeftButton:
+            opt = QStyleOptionSlider()
+            self.initStyleOption(opt)
+            hit = self.style().hitTestComplexControl(
+                QStyle.CC_Slider, opt, event.pos(), self
+            )
+            if hit != QStyle.SC_SliderHandle:
+                # Click landed on the groove, not the handle — direct seek.
+                groove = self.style().subControlRect(
+                    QStyle.CC_Slider, opt, QStyle.SC_SliderGroove, self
+                )
+                handle = self.style().subControlRect(
+                    QStyle.CC_Slider, opt, QStyle.SC_SliderHandle, self
+                )
+                # Usable travel = groove width minus one full handle width
+                # (half-handle margin on each end).
+                half_h = handle.width() // 2
+                usable_left = groove.left() + half_h
+                usable_width = groove.width() - handle.width()
+                if usable_width > 0:
+                    offset = max(0, min(usable_width, event.pos().x() - usable_left))
+                    ratio = offset / usable_width
+                else:
+                    ratio = 0.0
+                value = int(round(
+                    ratio * (self.maximum() - self.minimum()) + self.minimum()
+                ))
+                self.setValue(value)
+                # Emit sliderMoved so the existing seek_changed connection fires.
+                self.sliderMoved.emit(value)
+                event.accept()
+                return
+        # Click was on the handle — standard drag handling.
+        super().mousePressEvent(event)
 
 
 class UnifiedChassis(QWidget):
@@ -163,7 +210,7 @@ class UnifiedChassis(QWidget):
         h_layout.addWidget(btn_fs)
 
         btn_min = QPushButton("─", hdr)
-        btn_min.setToolTip("Minimize to Tray (Keep Playing)")
+        btn_min.setToolTip("Compact to MINI strip")
         btn_min.setFixedSize(16, 16)
         btn_min.setStyleSheet("QPushButton { background: transparent; border: none; color: #8892b0; font-size: 11px; } QPushButton:hover { color: #00f0ff; }")
         btn_min.clicked.connect(self.minimize_requested.emit)
@@ -198,8 +245,8 @@ class UnifiedChassis(QWidget):
         layout.addWidget(self.normal_lcd_frame)
 
 
-        # Progress / Seek Bar
-        self.normal_seek_slider = QSlider(Qt.Horizontal, self.normal_widget)
+        # Progress / Seek Bar — SeekSlider supports both handle-drag and direct groove-click.
+        self.normal_seek_slider = SeekSlider(Qt.Horizontal, self.normal_widget)
         self.normal_seek_slider.setRange(0, 1000)
         self.normal_seek_slider.setValue(0)
         self.normal_seek_slider.setFixedHeight(12)
@@ -335,7 +382,7 @@ class UnifiedChassis(QWidget):
         self.stack.addWidget(self.normal_widget)
 
     def _init_mini_view(self):
-        """Constructs the ultra-compact MINI ~380x36 px control strip."""
+        """Constructs the ultra-compact MINI ~460x36 px control strip."""
         self.mini_widget = QWidget()
         layout = QHBoxLayout(self.mini_widget)
         layout.setContentsMargins(6, 4, 6, 4)
@@ -390,8 +437,11 @@ class UnifiedChassis(QWidget):
         self.mini_title_marquee.setStyleSheet("color: #00ffcc; font-family: monospace; font-size: 10px; font-weight: bold;")
         mini_lcd_layout.addWidget(self.mini_title_marquee, stretch=2)
 
-        self.mini_time_display = QLabel("00:00", self.mini_lcd_frame)
+        self.mini_time_display = QLabel("00:00 / 00:00", self.mini_lcd_frame)
         self.mini_time_display.setStyleSheet("color: #ffaa00; font-family: monospace; font-size: 9px;")
+        # Fixed minimum width prevents layout jitter as digit count changes.
+        self.mini_time_display.setMinimumWidth(90)
+        self.mini_time_display.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
         mini_lcd_layout.addWidget(self.mini_time_display)
 
         layout.addWidget(self.mini_lcd_frame, stretch=2)
@@ -437,13 +487,6 @@ class UnifiedChassis(QWidget):
         btn_fs.clicked.connect(self.retina_melt_requested.emit)
         layout.addWidget(btn_fs)
 
-        btn_mini_hide = QPushButton("─", self.mini_widget)
-        btn_mini_hide.setToolTip("Minimize to Tray (Keep Playing)")
-        btn_mini_hide.setFixedSize(16, 16)
-        btn_mini_hide.setStyleSheet("QPushButton { background: transparent; border: none; color: #8892b0; font-size: 11px; } QPushButton:hover { color: #00f0ff; }")
-        btn_mini_hide.clicked.connect(self.minimize_requested.emit)
-        layout.addWidget(btn_mini_hide)
-
         btn_mini_close = QPushButton("✕", self.mini_widget)
         btn_mini_close.setToolTip("Exit ToroidAMP")
         btn_mini_close.setFixedSize(16, 16)
@@ -454,17 +497,23 @@ class UnifiedChassis(QWidget):
         self.stack.addWidget(self.mini_widget)
 
 
+    # Authoritative MINI dimensions — update session geometry compatibility tests when changing.
+    MINI_WIDTH = 460
+    MINI_HEIGHT = 36
+    NORMAL_WIDTH = 420
+    NORMAL_HEIGHT = 135
+
     def set_mode(self, mode: str, animated: bool = True):
         self.mode = mode
         if mode == "mini":
             self.stack.setCurrentWidget(self.mini_widget)
-            self.setFixedSize(380, 36)
+            self.setFixedSize(self.MINI_WIDTH, self.MINI_HEIGHT)
             self.setWindowFlag(Qt.WindowStaysOnTopHint, True)
             self.show()
             self.scale_changed.emit("mini")
         else:
             self.stack.setCurrentWidget(self.normal_widget)
-            self.setFixedSize(420, 135)
+            self.setFixedSize(self.NORMAL_WIDTH, self.NORMAL_HEIGHT)
             self.setWindowFlag(Qt.WindowStaysOnTopHint, False)
             self.show()
             self.scale_changed.emit("normal")
@@ -473,7 +522,8 @@ class UnifiedChassis(QWidget):
         self.normal_title_marquee.setText(title)
         self.mini_title_marquee.setText(title)
         self.normal_time_display.setText(time_str)
-        self.mini_time_display.setText(time_str.split(" / ")[0] if " / " in time_str else time_str)
+        # MINI shows full elapsed / total so the human always knows where they are.
+        self.mini_time_display.setText(time_str)
         
         if not self.normal_seek_slider.isSliderDown():
             self.normal_seek_slider.setValue(int(progress_ratio * 1000))
@@ -525,6 +575,25 @@ class UnifiedChassis(QWidget):
         if files:
             self.files_dropped.emit(files)
         event.acceptProposedAction()
+
+    def changeEvent(self, event):
+        """
+        Intercepts native OS minimize (Win+M, taskbar button click, keyboard shortcut).
+        Redirects to MINI mode instead of hiding the window — the chassis stays visible.
+
+        Limitation: Win+D (show desktop) is an OS-level operation that bypasses
+        Qt's event system; the chassis may be temporarily obscured but is not destroyed.
+        """
+        if event.type() == QEvent.Type.WindowStateChange:
+            if self.windowState() & Qt.WindowMinimized:
+                # Cancel the minimize — restore the window state immediately.
+                self.setWindowState(Qt.WindowNoState)
+                # Compact to MINI if not already there.
+                if self.mode != "mini":
+                    self.set_mode("mini")
+                event.accept()
+                return
+        super().changeEvent(event)
 
     def closeEvent(self, event: QCloseEvent):
         """

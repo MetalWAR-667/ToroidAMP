@@ -29,6 +29,11 @@ class WindowPosition:
 class ModulePosition:
     x: int = 250
     y: int = 320
+    # 0 means "unset" — the restoring code falls back to the module's own
+    # DEFAULT_SIZE. Session state stores raw geometry only; it does not know
+    # about module-specific minimums or defaults (those are a UI concern).
+    width: int = 0
+    height: int = 0
     is_docked: bool = True
     dock_edge: str = "bottom"
     is_visible: bool = False
@@ -105,6 +110,15 @@ class SessionManager:
     def session_path(self) -> Path:
         return self._session_path
 
+    @staticmethod
+    def _safe_positive_int(value: Any) -> int:
+        """Parses a saved dimension; invalid or non-positive values collapse to 0 ('unset')."""
+        try:
+            parsed = int(value)
+        except (TypeError, ValueError):
+            return 0
+        return parsed if parsed > 0 else 0
+
 
     def load(self) -> SessionState:
         """Loads and validates session JSON. Falls back cleanly on error."""
@@ -139,6 +153,8 @@ class SessionManager:
                 vis_module=ModulePosition(
                     x=int(vis_d.get("x", 250)),
                     y=int(vis_d.get("y", 320)),
+                    width=self._safe_positive_int(vis_d.get("width", 0)),
+                    height=self._safe_positive_int(vis_d.get("height", 0)),
                     is_docked=bool(vis_d.get("is_docked", True)),
                     dock_edge=str(vis_d.get("dock_edge", "bottom")),
                     is_visible=bool(vis_d.get("is_visible", False))
@@ -146,6 +162,8 @@ class SessionManager:
                 pl_module=ModulePosition(
                     x=int(pl_d.get("x", 675)),
                     y=int(pl_d.get("y", 180)),
+                    width=self._safe_positive_int(pl_d.get("width", 0)),
+                    height=self._safe_positive_int(pl_d.get("height", 0)),
                     is_docked=bool(pl_d.get("is_docked", True)),
                     dock_edge=str(pl_d.get("dock_edge", "right")),
                     is_visible=bool(pl_d.get("is_visible", False))

@@ -9,7 +9,7 @@ from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton,
     QListWidget, QListWidgetItem, QFileDialog
 )
-from PySide6.QtCore import Qt, Signal
+from PySide6.QtCore import Qt, QSize, Signal
 from PySide6.QtGui import QDragEnterEvent, QDropEvent
 
 from .base import ModuleShell
@@ -29,10 +29,21 @@ class PlaylistModule(ModuleShell):
 
     SUPPORTED_EXTENSIONS = {".mp3", ".ogg", ".wav", ".flac", ".mod", ".xm", ".it", ".s3m"}
 
+    # UX-003: 270x240 is the established production default. 230x200 keeps
+    # the six toolbar buttons and footer usable while leaving a real list.
+    DEFAULT_SIZE = QSize(270, 240)
+    MIN_SIZE = QSize(230, 200)
+    # Docking only anchors PL's position (x to the chassis right edge, y to
+    # the chassis top) — it must not force PL's size. Dragging the left/top
+    # edges while docked would fight that position anchor (realign would
+    # immediately snap them back), so only those two are excluded; width and
+    # height (right/bottom edges) remain fully user-resizable while docked —
+    # see UX-003 follow-up "Docked Playlist Vertical Resize".
+    DOCK_LOCKED_EDGES = {"left", "top"}
+
     def __init__(self, manager: PlaylistManager, parent=None):
         super().__init__("// MODULE :: PLAYLIST", parent)
         self.manager = manager
-        self.setFixedSize(270, 240)
         self.setAcceptDrops(True)
 
         # Playlist ListWidget

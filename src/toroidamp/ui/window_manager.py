@@ -58,9 +58,15 @@ class WindowManager(QWidget):
         # 1. Main Unified Chassis (MINI / NORMAL)
         self.chassis = UnifiedChassis()
 
-        # 2. Dockable Modules
-        self.vis_mod = VisualizerModule()
-        self.pl_mod = PlaylistModule(self.playlist)
+        # 2. Dockable Modules — chassis is passed as Qt parent so that Windows
+        #    treats VisualizerModule and PlaylistModule as "owned" windows of
+        #    the chassis.  Owned windows do not receive their own taskbar entry
+        #    on Windows; only the chassis (the owner) appears.  The Qt.Window
+        #    flag in ModuleShell keeps them as independently positionable
+        #    top-level windows — spatial independence is preserved; taskbar
+        #    identity is not.
+        self.vis_mod = VisualizerModule(parent=self.chassis)
+        self.pl_mod = PlaylistModule(self.playlist, parent=self.chassis)
 
         # 3. Retina Melt Fullscreen Window
         self.retina_melt = RetinaMeltWindow()
@@ -73,8 +79,6 @@ class WindowManager(QWidget):
         self.prior_scale = self.session_state.scale
         self.saved_vis_visible = self.session_state.vis_module.is_visible
         self.saved_pl_visible = self.session_state.pl_module.is_visible
-        self.is_hidden_to_tray = False
-
         # Apply Restored Session State
         self._apply_restored_session()
 
@@ -124,37 +128,58 @@ class WindowManager(QWidget):
             self.pl_mod.refresh()
 
 
-        # 5. Restore Window Geometries with Screen Clamping
         screen = QGuiApplication.primaryScreen()
         screen_rect = screen.availableGeometry() if screen else None
 
-        cx, cy = st.chassis_pos.x, st.chassis_pos.y
-        if screen_rect:
-            cx, cy = SessionManager.clamp_to_screen(cx, cy, st.chassis_pos.w, st.chassis_pos.h, screen_rect)
-        self.chassis.move(cx, cy)
-
-        # Visualizer Geometry
-        vx, vy = st.vis_module.x, st.vis_module.y
-        if screen_rect:
-            vx, vy = SessionManager.clamp_to_screen(vx, vy, 420, 240, screen_rect)
-        self.vis_mod.move(vx, vy)
-        self.vis_mod.is_docked = st.vis_module.is_docked
-        self.vis_mod.dock_edge = st.vis_module.dock_edge
-        self.vis_mod.btn_dock.setText("⇱" if self.vis_mod.is_docked else "⇲")
-
-        # Playlist Geometry
-        px, py = st.pl_module.x, st.pl_module.y
-        if screen_rect:
-            px, py = SessionManager.clamp_to_screen(px, py, 270, 240, screen_rect)
-        self.pl_mod.move(px, py)
-        self.pl_mod.is_docked = st.pl_module.is_docked
-        self.pl_mod.dock_edge = st.pl_module.dock_edge
-        self.pl_mod.btn_dock.setText("⇱" if self.pl_mod.is_docked else "⇲")
-
-        # 6. Restore Scale Mode & Module Visibility
+        # 5. Restore Scale Mode first — establishes authoritative chassis dimensions
+        #    (MINI_WIDTH × MINI_HEIGHT or NORMAL_WIDTH × NORMAL_HEIGHT) so that
+        #    screen clamping below uses the real window size, not a stale session
+        #    value.  Old sessions that stored a narrower MINI width are silently
+        #    upgraded: the position is preserved, but the new authoritative size wins.
         self.chassis.set_mode(st.scale, animated=False)
         self.chassis.show()
 
+        # 6. Restore Window Geometries with Screen Clamping (using live chassis size)
+        cx, cy = st.chassis_pos.x, st.chassis_pos.y
+        if screen_rect:
+            cx, cy = SessionManager.clamp_to_screen(
+                cx, cy, self.chassis.width(), self.chassis.height(), screen_rect
+            )
+        self.chassis.move(cx, cy)
+
+        # Visualizer Geometry & Size — USER SIZE IS STATE: a missing/invalid
+        # saved size falls back to the module's stable DEFAULT_SIZE, never to
+        # whatever the runtime geometry happens to be.
+        vis_w = st.vis_module.width or self.vis_mod.DEFAULT_SIZE.width()
+        vis_h = st.vis_module.height or self.vis_mod.DEFAULT_SIZE.height()
+        if screen_rect:
+            vis_w = min(vis_w, screen_rect.width())
+            vis_h = min(vis_h, screen_rect.height())
+        self.vis_mod.set_user_size(vis_w, vis_h)
+
+        vx, vy = st.vis_module.x, st.vis_module.y
+        if screen_rect:
+            vx, vy = SessionManager.clamp_to_screen(vx, vy, self.vis_mod.width(), self.vis_mod.height(), screen_rect)
+        self.vis_mod.move(vx, vy)
+        self.vis_mod.is_docked = st.vis_module.is_docked
+        self.vis_mod.dock_edge = st.vis_module.dock_edge
+
+        # Playlist Geometry & Size
+        pl_w = st.pl_module.width or self.pl_mod.DEFAULT_SIZE.width()
+        pl_h = st.pl_module.height or self.pl_mod.DEFAULT_SIZE.height()
+        if screen_rect:
+            pl_w = min(pl_w, screen_rect.width())
+            pl_h = min(pl_h, screen_rect.height())
+        self.pl_mod.set_user_size(pl_w, pl_h)
+
+        px, py = st.pl_module.x, st.pl_module.y
+        if screen_rect:
+            px, py = SessionManager.clamp_to_screen(px, py, self.pl_mod.width(), self.pl_mod.height(), screen_rect)
+        self.pl_mod.move(px, py)
+        self.pl_mod.is_docked = st.pl_module.is_docked
+        self.pl_mod.dock_edge = st.pl_module.dock_edge
+
+        # 7. Restore Module Visibility
         if st.scale == "normal":
             if st.vis_module.is_visible:
                 self.vis_mod.show()
@@ -168,7 +193,7 @@ class WindowManager(QWidget):
         # Chassis Controls
         self.chassis.scale_changed.connect(self._on_scale_changed)
         self.chassis.retina_melt_requested.connect(self._enter_retina_melt)
-        self.chassis.minimize_requested.connect(self.hide_to_tray)
+        self.chassis.minimize_requested.connect(lambda: self.chassis.set_mode("mini"))
         self.chassis.close_requested.connect(self.shutdown)
         self.chassis.play_toggled.connect(self._toggle_play)
         self.chassis.prev_clicked.connect(self._play_previous)
@@ -202,62 +227,16 @@ class WindowManager(QWidget):
         self.retina_melt.next_clicked.connect(self._play_next)
 
         # System Tray Controls
-        self.tray_icon.restore_requested.connect(self.restore_from_tray)
+        self.tray_icon.restore_requested.connect(self._focus_chassis)
         self.tray_icon.play_toggled.connect(self._toggle_play)
         self.tray_icon.prev_requested.connect(self._play_previous)
         self.tray_icon.next_requested.connect(self._play_next)
         self.tray_icon.exit_requested.connect(self.shutdown)
 
-    def handle_close_action(self):
-        """
-        Handles clicking the close button ('✕').
-        If close_to_tray is enabled (default), hides to tray while playback continues.
-        """
-        if self.session_state.close_to_tray:
-            self.hide_to_tray()
-        else:
-            self.shutdown()
-
-    def hide_to_tray(self):
-        """Hides the UI to system tray while keeping audio playback completely intact."""
-        logger.info("Hiding ToroidAMP to System Tray")
-        self.is_hidden_to_tray = True
-
-        if self.retina_melt.isVisible():
-            self.retina_melt.hide()
-
-        if self.chassis.mode == "normal":
-            self.saved_vis_visible = self.vis_mod.isVisible()
-            self.saved_pl_visible = self.pl_mod.isVisible()
-
-        self.chassis.hide()
-        self.vis_mod.hide()
-        self.pl_mod.hide()
-        self.save_current_session()
-
-    def restore_from_tray(self):
-        """Restores the player to the last desktop experience scale."""
-        logger.info("Restoring ToroidAMP from System Tray")
-        self.is_hidden_to_tray = False
-
-        if self.retina_melt.isVisible():
-            self.retina_melt.hide()
-
-        self.chassis.set_mode(self.prior_scale, animated=False)
-        self.chassis.show()
-
-        if self.prior_scale == "normal":
-            if self.saved_vis_visible:
-                if self.vis_mod.is_docked:
-                    self.dock_module(self.vis_mod, "bottom")
-                self.vis_mod.show()
-                self.chassis.chip_vis.setChecked(True)
-            if self.saved_pl_visible:
-                if self.pl_mod.is_docked:
-                    self.dock_module(self.pl_mod, "right")
-                self.pl_mod.show()
-                self.chassis.chip_pl.setChecked(True)
-            self.realign_docked_modules()
+    def _focus_chassis(self):
+        """Raises and activates the chassis window (tray Show action)."""
+        self.chassis.raise_()
+        self.chassis.activateWindow()
 
 
     def save_current_session(self):
@@ -273,11 +252,15 @@ class WindowManager(QWidget):
         cp = self.chassis.pos()
         st.chassis_pos = WindowPosition(x=cp.x(), y=cp.y(), w=self.chassis.width(), h=self.chassis.height())
 
-        # Visualizer position & state
+        # Visualizer position & state — user_size (not live geometry) is
+        # persisted so a currently-docked, width-locked module still saves
+        # the floating size the human actually chose.
         vp = self.vis_mod.pos()
         st.vis_module = ModulePosition(
             x=vp.x(),
             y=vp.y(),
+            width=self.vis_mod.user_size.width(),
+            height=self.vis_mod.user_size.height(),
             is_docked=self.vis_mod.is_docked,
             dock_edge=self.vis_mod.dock_edge or "bottom",
             is_visible=self.vis_mod.isVisible() if self.chassis.mode == "normal" else self.saved_vis_visible
@@ -288,6 +271,8 @@ class WindowManager(QWidget):
         st.pl_module = ModulePosition(
             x=pp.x(),
             y=pp.y(),
+            width=self.pl_mod.user_size.width(),
+            height=self.pl_mod.user_size.height(),
             is_docked=self.pl_mod.is_docked,
             dock_edge=self.pl_mod.dock_edge or "right",
             is_visible=self.pl_mod.isVisible() if self.chassis.mode == "normal" else self.saved_pl_visible
@@ -459,13 +444,14 @@ class WindowManager(QWidget):
     def dock_module(self, module: ModuleShell, edge: str):
         module.is_docked = True
         module.dock_edge = edge
-        module.btn_dock.setText("⇱")
         self.realign_docked_modules()
 
     def undock_module(self, module: ModuleShell):
         module.is_docked = False
         module.dock_edge = None
-        module.btn_dock.setText("⇲")
+        # DOCK / UNDOCK / REDOCK must preserve the user's chosen floating
+        # size — restore it now that docking constraints no longer apply.
+        module.restore_user_size()
 
     def realign_docked_modules(self):
         if self.chassis.mode != "normal" or not self.chassis.isVisible():
@@ -473,14 +459,21 @@ class WindowManager(QWidget):
         core_geom = self.chassis.geometry()
 
         if self.vis_mod.is_docked and self.vis_mod.isVisible():
+            # Docked VIS aligns its width to the chassis (simplest predictable
+            # behavior); height stays whatever the user has resized it to.
+            if self.vis_mod.width() != core_geom.width():
+                self.vis_mod.resize(core_geom.width(), self.vis_mod.height())
             self.vis_mod.move(core_geom.left(), core_geom.bottom() + 2)
 
         if self.pl_mod.is_docked and self.pl_mod.isVisible():
+            # Docking defines PL's ATTACHMENT (x follows the chassis right
+            # edge, y follows the chassis top) — it does not define PL's
+            # size. Height is user-resizable while docked and must survive
+            # realignment untouched (UX-003 follow-up: "Docked Playlist
+            # Vertical Resize"). A modular instrument may have asymmetric
+            # module dimensions; PL is free to extend above or below the
+            # VIS+chassis stack.
             self.pl_mod.move(core_geom.right() + 2, core_geom.top())
-            if self.vis_mod.is_docked and self.vis_mod.isVisible():
-                self.pl_mod.setFixedHeight(core_geom.height() + self.vis_mod.height() + 2)
-            else:
-                self.pl_mod.setFixedHeight(core_geom.height())
 
     def _check_magnetic_snapping(self):
         if self.chassis.mode != "normal" or not self.chassis.isVisible():
@@ -529,15 +522,15 @@ class WindowManager(QWidget):
         self.tray_icon.update_status(title_str, is_playing)
 
         # 3. Update Reactive Neon Chassis & Module Breathing (~60 FPS)
-        if not self.is_hidden_to_tray:
-            frame = self.handoff.get_audio_frame(44100) if is_playing else None
-            is_mini = (self.chassis.mode == "mini")
-            neon_state = self.neon_controller.update(0.016, frame, is_mini=is_mini)
-            self.chassis.apply_neon_state(neon_state)
-            if self.vis_mod.isVisible():
-                self.vis_mod.apply_neon_state(neon_state)
-            if self.pl_mod.isVisible():
-                self.pl_mod.apply_neon_state(neon_state)
+        # Chassis is always visible — neon always runs.
+        frame = self.handoff.get_audio_frame(44100) if is_playing else None
+        is_mini = (self.chassis.mode == "mini")
+        neon_state = self.neon_controller.update(0.016, frame, is_mini=is_mini)
+        self.chassis.apply_neon_state(neon_state)
+        if self.vis_mod.isVisible():
+            self.vis_mod.apply_neon_state(neon_state)
+        if self.pl_mod.isVisible():
+            self.pl_mod.apply_neon_state(neon_state)
 
         # 4. Only compute DSP & render visualizer if a visualizer is actually visible!
         # (Zero CPU/GPU visualizer waste when hidden to tray or in MINI mode)

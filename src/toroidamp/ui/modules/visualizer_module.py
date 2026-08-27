@@ -5,7 +5,7 @@ with dynamic switching and RETINA MELT entry trigger.
 """
 
 from PySide6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton
-from PySide6.QtCore import Qt, Signal
+from PySide6.QtCore import Qt, QSize, Signal
 from PySide6.QtGui import QImage, QPixmap
 import pygame
 
@@ -26,9 +26,16 @@ class VisualizerModule(ModuleShell):
     """
     retina_melt_requested = Signal()
 
+    # UX-003: default/min are stable product constants — not derived from
+    # runtime geometry. 420x240 is the established production default;
+    # 300x180 keeps the mode chip, MELT button, and titlebar all usable
+    # while leaving a real render area.
+    DEFAULT_SIZE = QSize(420, 240)
+    MIN_SIZE = QSize(300, 180)
+    DOCK_LOCKED_EDGES = {"left", "right"}  # docked VIS aligns its width to the chassis
+
     def __init__(self, parent=None):
         super().__init__("// MODULE :: VISUALIZER", parent)
-        self.setFixedSize(420, 240)
 
         # Visualizer Surface Container
         self.vis_label = QLabel(self)
@@ -83,9 +90,14 @@ class VisualizerModule(ModuleShell):
 
         self.main_layout.addWidget(bot_bar)
 
-        # Pygame Offscreen Engine
+        # Pygame Offscreen Engine — sized from the actual current viewport
+        # rather than a hardcoded constant, so resizing the module resizes
+        # the render target (Part C: no hard dependency on 420x240).
         pygame.init()
-        self.surf_w, self.surf_h = 412, 185
+        self.main_layout.activate()
+        init_size = self.vis_label.size()
+        self.surf_w = max(10, init_size.width())
+        self.surf_h = max(10, init_size.height())
         self.surface = pygame.Surface((self.surf_w, self.surf_h))
         self.visualizers: list[Visualizer] = [
             ToroidVisualizer(self.surf_w, self.surf_h),
@@ -96,6 +108,21 @@ class VisualizerModule(ModuleShell):
     @property
     def current_visualizer(self) -> Visualizer:
         return self.visualizers[self.vis_idx]
+
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        self._sync_surface_size()
+
+    def _sync_surface_size(self):
+        """Keeps the offscreen render target matched to the current viewport size."""
+        size = self.vis_label.size()
+        w, h = max(10, size.width()), max(10, size.height())
+        if w == self.surf_w and h == self.surf_h:
+            return
+        self.surf_w, self.surf_h = w, h
+        self.surface = pygame.Surface((self.surf_w, self.surf_h))
+        for vis in self.visualizers:
+            vis.resize(self.surf_w, self.surf_h)
 
     def _switch_vis_mode(self):
         self.vis_idx = (self.vis_idx + 1) % len(self.visualizers)
