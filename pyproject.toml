@@ -8,6 +8,8 @@ version = "0.3.1"
 description = "Compact, modular, musically reactive audio player with demoscene visualizer engine"
 readme = "README.md"
 requires-python = ">=3.11"
+license = "MIT"
+license-files = ["LICENSE"]
 authors = [
     { name = "ToroidAMP Contributors" }
 ]
@@ -57,6 +59,10 @@ dev = ["Pillow>=10.0"]
 # RC-069-002: the pytest suite was previously installed ad hoc (not declared
 # anywhere), making a clean-environment test run non-reproducible.
 test = ["pytest>=8.0"]
+# RC-069-003: PyInstaller is a BUILD-time tool only (`pyinstaller
+# packaging/toroidamp.spec`) — never a runtime dependency of the shipped
+# application itself, and never something an end user installs.
+build = ["pyinstaller>=6.10"]
 
 [project.scripts]
 toroidamp = "toroidamp.__main__:main"

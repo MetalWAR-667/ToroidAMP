@@ -1,0 +1,40 @@
+Simple DirectMedia Layer (SDL2) — bundled via pygame-ce
+
+Source verified 2026 against the upstream project
+(https://github.com/libsdl-org/SDL, SDL2 branch/tag license file).
+
+Copyright (C) 1997-2026 Sam Lantinga <slouken@libsdl.org>
+
+This software is provided 'as-is', without any express or implied
+warranty. In no event will the authors be held liable for any damages
+arising from the use of this software.
+
+Permission is granted to anyone to use this software for any purpose,
+including commercial applications, and to alter it and redistribute it
+freely, subject to the following restrictions:
+
+1. The origin of this software must not be misrepresented; you must
+   not claim that you wrote the original software. If you use this
+   software in a product, an acknowledgment in the product
+   documentation would be appreciated but is not required.
+2. Altered source versions must be plainly marked as such, and must
+   not be misrepresented as being the original software.
+3. This notice may not be removed or altered from any source
+   distribution.
+
+--------------------------------------------------------------------
+
+Note (ToroidAMP-specific, RC-069-003B): pygame-ce also bundles several
+SDL2 companion/helper libraries used for image, font, and mixer
+support (SDL2_image, SDL2_mixer, SDL2_ttf) and their own transitive
+codec dependencies (libjpeg, libpng, libtiff, libwebp, libogg, libopus,
+libwavpack, FreeType). These are all established, permissively-licensed
+open-source multimedia libraries (zlib/libpng-style, BSD-style, or
+FreeType's own FTL/BSD-style license, depending on the specific
+component) — their exact individual license texts were NOT
+independently re-verified file-by-file in this cut; see the
+NEEDS VERIFICATION entries in
+docs/release/RC_069_003B_license_and_docs.md's legal-readiness matrix.
+None of them are believed to carry copyleft/LGPL-or-stronger terms, but
+that belief is not yet independently confirmed to the same standard as
+the components with a dedicated license file in this directory.

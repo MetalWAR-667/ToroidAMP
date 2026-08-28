@@ -1,0 +1,44 @@
+libxmp (Extended Module Player) — bundled via pygame-ce, version 4.6.3
+
+Source verified 2026 against the upstream project (https://github.com/libxmp/libxmp)
+and its release notes/issue tracker — not reproduced from memory. See
+docs/release/RC_069_003B_license_and_docs.md for the full verification
+trail (Copying file, README license section, issue #387 discussing the
+4.6.1 LGPL-component removal, and third-party package listings).
+
+libxmp went through a licensing transition: prior to version 4.6.1, the
+full (non-"lite") library was overall LGPL because a handful of bundled
+third-party components (an embedded unzip implementation, an LZW
+depacker used by the Digital Symphony loader, and a few dead-code format
+loaders) were LGPL-licensed. As of libxmp 4.6.1, upstream removed those
+LGPL components. The version bundled by pygame-ce and used by ToroidAMP
+is 4.6.3 (confirmed directly against the running DLL's own exported
+`xmp_version`/`xmp_vercode` data symbols) — i.e. a version AFTER that
+LGPL-component removal. The library's overall license for this version is
+a permissive combination (0BSD AND BSD-3-Clause AND ISC AND MIT AND
+Public Domain across its various source files), summarized by the
+project's own README under the following MIT-style grant:
+
+--------------------------------------------------------------------
+
+Extended Module Player
+Copyright (C) 1996-2026 Claudio Matsuoka and Hipolito Carraro Jr
+
+Permission is hereby granted, free of charge, to any person obtaining a
+copy of this software and associated documentation files (the
+"Software"), to deal in the Software without restriction, including
+without limitation the rights to use, copy, modify, merge, publish,
+distribute, sublicense, and/or sell copies of the Software, and to
+permit persons to whom the Software is furnished to do so, subject to
+the following conditions:
+
+The above copyright notice and this permission notice shall be included
+in all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
+OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
+CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
+TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
+SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.

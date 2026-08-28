@@ -1,5 +1,7 @@
 # ToroidAMP
 
+**License:** [MIT](LICENSE) · **User guide:** [HOWTOUSE.md](HOWTOUSE.md) · **Changelog:** [CHANGELOG.md](CHANGELOG.md) · **Third-party notices:** [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)
+
 > **"Make the music play reliably. Make the code understandable. Make the screen do something unreasonable. Make Future Crew cry."**
 
 ToroidAMP is a compact, modular, musically reactive audio player and real-time audiovisual playground built with Python, PySide6, Pygame-CE, and OpenGL/GLSL.
@@ -113,7 +115,7 @@ ToroidAMP uses a unified decoding architecture where supported formats are conve
 * WAV
 * FLAC
 
-Decoding is provided through `soundfile` / `miniaudio`.
+Decoding is provided through `soundfile` (libsndfile).
 
 ### Tracker Modules
 
@@ -231,6 +233,8 @@ It supports:
 * Real music / real `AudioFrame` reactivity
 
 A broken shader does not stop playback or destroy the current visualization. If recompilation fails, ToroidAMP keeps the previous valid GPU program running and reports the GLSL diagnostic.
+
+The Lab can also automatically discover safe tunable parameters an external shader never explicitly declared — a hard-coded `const float` constant, or a direct `iTime * value` time-scale multiplier — without ever modifying the shader file on disk. A one-click **MUSICALIZE** action then generates a small, bounded, deterministic set of audio bindings across a shader's eligible parameters (clearly tagged `[AUTO]` so generated bindings stay distinguishable from anything set by hand), with a **CLEAR AUTO** action to remove them again. See [HOWTOUSE.md](HOWTOUSE.md) for the practical walkthrough.
 
 ---
 
@@ -400,13 +404,7 @@ These are deliberately deferred until their architecture has been validated expe
 
 ## 11. Development & Testing
 
-ToroidAMP uses automated regression tests alongside human perceptual validation for audiovisual features.
-
-Run the complete test suite with:
-
-```powershell
-py -3.13 -m unittest discover -s tests
-```
+ToroidAMP uses automated regression tests alongside human perceptual validation for audiovisual features. See [HOWTOUSE.md](HOWTOUSE.md)'s *Validation / Self-Test Checklist* for the practical human-verification routine, and its *Developer Validation* section for the current test/build commands.
 
 GPU and visualizer features are additionally validated through dedicated experimental and production integration suites.
 

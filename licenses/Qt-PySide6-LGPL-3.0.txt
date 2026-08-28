@@ -1,0 +1,35 @@
+Qt6 / PySide6 — LGPL-3.0-only
+
+ToroidAMP obtains PySide6 and Qt6 through the official PyPI wheels
+(pip install PySide6), whose own package metadata declares:
+
+    License-Expression: LGPL-3.0-only OR GPL-2.0-only OR GPL-3.0-only
+
+verified directly against the installed package's own METADATA file
+(.venv/Lib/site-packages/pyside6-6.11.2.dist-info/METADATA) — not
+assumed. ToroidAMP does not modify, statically link, or relink Qt in
+any way; it dynamically links against Qt's shared libraries exactly as
+PyInstaller's ONEDIR build already lays them out (separate DLL files
+alongside ToroidAMP.exe, not merged into a single binary) — the
+LGPL-3.0-only option is therefore the applicable choice for this
+distribution, and is the one referenced by this file's name.
+
+STATUS: ACTION REQUIRED — this file is a REFERENCE, not the full
+canonical LGPL-3.0 text. The full ~7,000-word GNU Lesser General
+Public License, Version 3 text was not reliably fetchable as a
+complete, verbatim document from this development environment during
+this cut (network access to gnu.org was intermittently unavailable;
+reconstructing a formal legal text of this length from memory was
+deliberately avoided rather than risk a subtle transcription error in
+a legal document). Before any public distribution:
+
+    Download the exact, current, authoritative text from:
+        https://www.gnu.org/licenses/lgpl-3.0.txt
+    and save it as this same file
+    (licenses/Qt-PySide6-LGPL-3.0.txt), replacing this reference note.
+
+See also docs/release/RC_069_003B_license_and_docs.md, "Qt / PySide6
+LGPL Review" section, for ToroidAMP's non-legal-advice summary of the
+practical obligations this implies for a dynamically-linked ONEDIR
+distribution (separate DLLs, no static linking, notice + license text
+must accompany the binary distribution).
