@@ -12,8 +12,9 @@ Handles:
 """
 
 import re
+import zlib
 from dataclasses import dataclass, field
-from typing import Tuple, List, Dict, Optional
+from typing import Tuple, List, Dict, Optional, Set
 
 
 @dataclass(slots=True)
@@ -26,6 +27,7 @@ class ShaderParameter:
     max_value: float   # Relevant for float
     current_value: any # Current runtime value
     is_promoted_const: bool = False  # GPU-AUDIO-004: True if this originated from a safely-promoted `const float`, not an authored uniform
+    auto_param_kind: Optional[str] = None  # GPU-AUDIO-006B: "local_float" | "time_scale" | None (authored/annotated/promoted-const)
 
 
 @dataclass(slots=True)
@@ -35,6 +37,7 @@ class ShaderMetadata:
     description: str
     parameters: Dict[str, ShaderParameter] = field(default_factory=dict)
     uses_texture: bool = False
+    adapted_source: Optional[str] = None  # GPU-AUDIO-006B: post-transformation, pre-wrap source, for diagnostics only
 
 
 VERTEX_SHADER_SOURCE = """#version 330 core
@@ -359,6 +362,240 @@ def _generate_promoted_range(value: float) -> Tuple[float, float]:
     return (value - span, value + span)
 
 
+# ---------------------------------------------------------------------------
+# GPU-AUDIO-006B — Runtime literal parameterization
+#
+# Architectural rule: PARAMETERIZE THE LITERAL, never "promote the local
+# variable". A matched literal TOKEN is replaced in place by a generated
+# uniform's identifier; the surrounding declaration/expression, the local
+# variable's name, scope, and every existing reference to it are completely
+# untouched. This is deliberately simpler than GPU-AUDIO-004's const
+# promotion (which replaces a whole declaration line with a comment) — here
+# there is no declaration to neutralize, only a numeric token to swap.
+#
+# Evidence base (docs/design/13_gpu_audio_006a_discovery_audit.md): across
+# the real 5-shader USER corpus, exactly two patterns together reach 5/5
+# coverage — TIME_SCALE (direct or macro-wrapped `iTime`/`u_time * LITERAL`)
+# and LOCAL_FLOAT_LITERAL (`float NAME = LITERAL;`, outside any loop
+# header). Nothing else is implemented here; see the design doc for why.
+# ---------------------------------------------------------------------------
+
+_COMMENT_RE = re.compile(r"/\*.*?\*/|//[^\n]*", re.DOTALL)
+
+
+def _mask_comments_preserve_offsets(source: str) -> str:
+    """
+    Replaces every character of every comment with a space (newlines kept
+    as newlines), so the result is EXACTLY the same length as `source` and
+    every surviving character sits at the identical offset. Candidate
+    regexes are matched against this masked copy — a commented-out literal
+    becomes blank space and can never match — while the resulting spans are
+    then valid offsets to slice/replace directly in the real, untouched
+    `source` string. This also means production's `// [param:...]`
+    annotation comments are inert here (they contain no matchable literal
+    shape this module looks for), so annotation discovery is unaffected.
+    """
+    def _repl(m: re.Match) -> str:
+        return "".join(ch if ch == "\n" else " " for ch in m.group(0))
+    return _COMMENT_RE.sub(_repl, source)
+
+
+_RUNTIME_LITERAL_CORE = r"(?:\d+\.\d*|\.\d+|\d+)(?:[eE][+-]?\d+)?"
+_RUNTIME_LITERAL_RE = rf"[+-]?{_RUNTIME_LITERAL_CORE}"
+_TIME_IDENTIFIERS = ("iTime", "u_time")
+_TIME_ALT = "|".join(_TIME_IDENTIFIERS)
+
+# Pattern B — direct or macro-wrapped time scalar multiplier. Deliberately
+# broader than GPU-AUDIO-004's CONST_FLOAT_LITERAL_RE (which excludes
+# leading-dot literals like `.8` by design): the real corpus overwhelmingly
+# uses leading/trailing-dot literals (`iTime*.2`, `iTime*6.`), so excluding
+# that shape here would fail on the majority of real matches.
+#
+# Uses explicit lookaround guards per-branch instead of a single outer `\b`
+# wrapping the whole alternation — a real, silent-corruption bug found
+# during corpus validation: `\b` only means anything adjacent to a WORD
+# character, and a literal can legitimately start OR end on a bare `.`
+# (`.2`, `6.`). A trailing `\b` after `iTime*6.` cannot be satisfied (`.`
+# followed by `)` is non-word -> non-word, no boundary), so the engine
+# backtracked to the shorter, WRONG match `6` — silently dropping the `.`
+# and leaving invalid GLSL (`taAuto_..._HASH.` — a dangling member-access
+# dot) after substitution. Symmetrically, a leading `\b` before `.2*iTime`
+# (preceded by whitespace) also fails, silently truncating `.2` to `2` —
+# a 10x wrong value, not a compile error, which would have been far worse
+# to ship undetected. Both are covered by regression tests.
+#
+# The leading guard `(?<![\w.])` rejects starting mid-identifier or
+# mid-number; the trailing guard `(?![\w])` rejects ending mid-identifier
+# (deliberately NOT excluding a trailing `.`, since the literal's own last
+# character may legitimately BE a dot).
+TIME_SCALE_RE = re.compile(
+    rf"(?<![\w.])(?P<time1>{_TIME_ALT})\s*\*\s*(?P<lit1>{_RUNTIME_LITERAL_RE})(?![\w])"
+    rf"|(?<![\w.])(?P<lit2>{_RUNTIME_LITERAL_RE})\s*\*\s*(?P<time2>{_TIME_ALT})(?![\w])"
+)
+
+# Pattern A — simple local float literal: float NAME = LITERAL; (or ,).
+# Same narrow, single-declarator posture as GPU-AUDIO-004's const promoter:
+# only a bare numeric literal immediately after `=` counts. An expression
+# initializer (`float fov = 2.5 - k;`), a multi-declarator statement
+# (`float a = 1., b = 2.;` — only `a` matches), or anything else more
+# elaborate simply fails to match and is never a candidate.
+LOCAL_FLOAT_LITERAL_RE = re.compile(
+    rf"(?<!const\s)(?<!uniform\s)\bfloat\s+(?P<name>[A-Za-z_]\w*)\s*=\s*(?P<value>{_RUNTIME_LITERAL_RE})\s*[,;]"
+)
+
+
+def _for_header_spans_006b(source: str) -> List[Tuple[int, int]]:
+    return [m.span(1) for m in re.finditer(r"for\s*\(([^)]*)\)", source)]
+
+
+def _span_in_any(span: Tuple[int, int], spans: List[Tuple[int, int]]) -> bool:
+    s, e = span
+    for cs, ce in spans:
+        if s < ce and e > cs:
+            return True
+    return False
+
+
+def _generate_runtime_uniform_name(
+    kind: str, base_name: str, index: int, existing_names: Set[str]
+) -> Optional[str]:
+    """
+    GPU-AUDIO-006B generated-identity policy: `taAuto_<base>_<hash6>`.
+
+    Deliberately NOT line-number-based (a trivial edit above the candidate
+    would shift every subsequent line number and destroy identity for no
+    real reason) and NOT Python's salted `hash()` (not deterministic across
+    process launches). Instead: a small CRC32 digest of
+    `f"{kind}:{base_name}:{index}"` — `kind` separates the two candidate
+    families so they can never collide with each other even at the same
+    index; `base_name` is the local variable name for LOCAL_FLOAT (already
+    a stable, human-meaningful identifier) or the fixed literal
+    `"timeScale"` for TIME_SCALE; `index` is a simple deterministic
+    per-kind occurrence counter (1st, 2nd, ... match found, in file scan
+    order) that disambiguates same-named or same-kind candidates within one
+    shader. This is deliberately NOT full AST identity — see the design doc
+    for the resulting, documented hot-reload limitation.
+    """
+    digest = zlib.crc32(f"{kind}:{base_name}:{index}".encode("utf-8")) & 0xFFFFFFFF
+    safe_base = re.sub(r"[^A-Za-z0-9_]", "_", base_name)
+    uname = f"taAuto_{safe_base}_{digest:06X}"
+    if uname in existing_names or uname in SYSTEM_UNIFORMS:
+        return None
+    return uname
+
+
+# Sentinel/epsilon guard: raymarching-style GLSL idioms commonly use an
+# extreme-magnitude literal as a "very far"/"very negative" accumulator seed
+# (e.g. `float d = -9e9;`, observed directly in the real corpus —
+# Rig_Rekt.frag) rather than as an artist-tunable value. Parameterizing one
+# would be harmless to compile but produce a practically useless LAB
+# slider (a multi-billion-unit range dwarfs any meaningful precision) and
+# an equally useless MUSICALIZE candidate. Conservatively excluded — every
+# genuine tunable value observed in the real corpus (speed/zoom/glow/fov-
+# shaped constants) is well under this threshold.
+_RUNTIME_LITERAL_MAGNITUDE_LIMIT = 1e4
+
+
+def find_runtime_literal_candidates(
+    source_code: str, existing_names: Set[str]
+) -> Tuple[str, Dict[str, "ShaderParameter"]]:
+    """
+    Scans `source_code` for safely-parameterizable literal tokens (TIME_SCALE
+    then LOCAL_FLOAT_LITERAL — TIME_SCALE takes precedence; a literal it
+    claims can never also become a LOCAL_FLOAT_LITERAL candidate, so
+    `float t = iTime * 0.8;` produces exactly ONE generated parameter, not
+    two) and returns (transformed_source, generated_params).
+
+    `transformed_source` has ONLY the matched literal TOKENS replaced by a
+    generated uniform identifier — every declaration, expression, local
+    variable name/scope, and macro body is otherwise byte-identical to
+    `source_code`. This is an in-memory copy; `source_code` (and the file it
+    came from) is never touched.
+    """
+    mask = _mask_comments_preserve_offsets(source_code)
+    for_spans = _for_header_spans_006b(mask)
+
+    generated: Dict[str, ShaderParameter] = {}
+    replacements: List[Tuple[int, int, str]] = []
+    claimed_spans: List[Tuple[int, int]] = []
+    names_in_use = set(existing_names)
+
+    time_scale_index = 0
+    for m in TIME_SCALE_RE.finditer(mask):
+        lit_group = "lit1" if m.group("lit1") is not None else "lit2"
+        lit_start, lit_end = m.span(lit_group)
+        try:
+            value = float(m.group(lit_group))
+        except ValueError:
+            continue
+        if abs(value) > _RUNTIME_LITERAL_MAGNITUDE_LIMIT:
+            continue
+
+        time_scale_index += 1
+        uname = _generate_runtime_uniform_name("TIME_SCALE", "timeScale", time_scale_index, names_in_use)
+        if uname is None:
+            continue
+
+        lo, hi = _generate_promoted_range(value)
+        generated[uname] = ShaderParameter(
+            name=uname,
+            display_name=f"Time Scale {time_scale_index}",
+            param_type="float",
+            default_value=value,
+            min_value=lo,
+            max_value=hi,
+            current_value=value,
+            auto_param_kind="time_scale",
+        )
+        replacements.append((lit_start, lit_end, uname))
+        claimed_spans.append((lit_start, lit_end))
+        names_in_use.add(uname)
+
+    local_float_index = 0
+    for m in LOCAL_FLOAT_LITERAL_RE.finditer(mask):
+        val_start, val_end = m.span("value")
+        if _span_in_any((val_start, val_end), claimed_spans):
+            continue  # already claimed by TIME_SCALE — overlap precedence rule
+        if _span_in_any((val_start, val_end), for_spans):
+            continue  # loop-scoped declarator, e.g. for(float t = 0.0; ...) — structural, never a candidate
+
+        name = m.group("name")
+        if name in SYSTEM_UNIFORMS:
+            continue
+        try:
+            value = float(m.group("value"))
+        except ValueError:
+            continue
+        if abs(value) > _RUNTIME_LITERAL_MAGNITUDE_LIMIT:
+            continue
+
+        local_float_index += 1
+        uname = _generate_runtime_uniform_name("LOCAL_FLOAT", name, local_float_index, names_in_use)
+        if uname is None:
+            continue
+
+        lo, hi = _generate_promoted_range(value)
+        generated[uname] = ShaderParameter(
+            name=uname,
+            display_name=name,
+            param_type="float",
+            default_value=value,
+            min_value=lo,
+            max_value=hi,
+            current_value=value,
+            auto_param_kind="local_float",
+        )
+        replacements.append((val_start, val_end, uname))
+        claimed_spans.append((val_start, val_end))
+        names_in_use.add(uname)
+
+    transformed = source_code
+    for start, end, repl in sorted(replacements, key=lambda r: r[0], reverse=True):
+        transformed = transformed[:start] + repl + transformed[end:]
+
+    return transformed, generated
+
+
 def hex_to_rgb_normalized(hex_str: str) -> Optional[Tuple[float, float, float]]:
     """Converts #RRGGBB or #RGB to normalized float tuple (0.0 .. 1.0)."""
     s = hex_str.strip()
@@ -479,6 +716,15 @@ def classify_and_wrap_source(raw_source: str, title: str = "Shader") -> Tuple[st
     clean_src, promoted_params = find_safe_promotable_consts(clean_src, set(parameters.keys()))
     parameters.update(promoted_params)
 
+    # GPU-AUDIO-006B: safe runtime literal parameterization (TIME_SCALE +
+    # LOCAL_FLOAT_LITERAL). Same additive/in-memory-only posture as
+    # GPU-AUDIO-004 above — operates on this same `clean_src` copy (now
+    # already reflecting const promotion too), never on `raw_source`.
+    clean_src, runtime_params = find_runtime_literal_candidates(clean_src, set(parameters.keys()))
+    parameters.update(runtime_params)
+
+    adapted_source = clean_src  # GPU-AUDIO-006B: diagnostics snapshot, post-transform/pre-wrap
+
     param_uniform_lines = []
     for p in parameters.values():
         if p.param_type == "float":
@@ -503,7 +749,8 @@ def classify_and_wrap_source(raw_source: str, title: str = "Shader") -> Tuple[st
             is_shadertoy_style=True,
             description="Shadertoy Single-Pass (Level 1 + Level 2 Extensions)",
             parameters=parameters,
-            uses_texture=uses_texture
+            uses_texture=uses_texture,
+            adapted_source=adapted_source,
         )
     else:
         if not clean_src.startswith("#version"):
@@ -519,7 +766,8 @@ def classify_and_wrap_source(raw_source: str, title: str = "Shader") -> Tuple[st
             is_shadertoy_style=False,
             description="Native ToroidAMP GLSL Fragment Shader",
             parameters=parameters,
-            uses_texture=uses_texture
+            uses_texture=uses_texture,
+            adapted_source=adapted_source,
         )
 
     return full_source, meta

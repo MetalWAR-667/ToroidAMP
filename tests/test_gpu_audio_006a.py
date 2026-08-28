@@ -207,9 +207,16 @@ class TestGPUAudio006AShaderDiscoveryAudit(unittest.TestCase):
         self.assertEqual(sa.format_shader_report(r1), sa.format_shader_report(r2))
 
     def test_13_no_qapplication_or_opengl_required(self):
-        """This entire test module runs with zero PySide6/Qt import — the assertion is that it imports and runs at all."""
-        import sys as _sys
-        self.assertNotIn("PySide6.QtWidgets", _sys.modules)
+        """
+        The auditor module itself never imports Qt/OpenGL — checked
+        statically against `shader_audit`'s own top-level names, not via
+        process-wide sys.modules (which isn't reliable when this file runs
+        alongside other test modules in the same pytest process that DO
+        import PySide6 for unrelated reasons).
+        """
+        src = Path(sa.__file__).read_text(encoding="utf-8")
+        self.assertNotIn("import PySide6", src)
+        self.assertNotIn("from PySide6", src)
 
     # -- 14: identifier-embedded-digit regression -------------------------------
 

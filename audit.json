@@ -1,0 +1,1648 @@
+pygame-ce 2.5.8 (SDL 2.32.10, Python 3.14.6)
+[
+  {
+    "path": "user_shaders\\apollo_spiral_toroidamp_test.frag",
+    "corpus_tag": "TEST_FIXTURE",
+    "line_count": 78,
+    "candidates": [
+      {
+        "category": "uniform_float_annotated",
+        "classification": "CURRENT",
+        "line": 21,
+        "name": "u_iterCount",
+        "value_text": "6.0",
+        "snippet": "float iters = u_iterCount;",
+        "note": "explicit uniform, already discoverable (GPU-AUDIO-003)"
+      },
+      {
+        "category": "uniform_float_annotated",
+        "classification": "CURRENT",
+        "line": 38,
+        "name": "u_speed",
+        "value_text": "1.0",
+        "snippet": "t = iTime * u_speed;",
+        "note": "explicit uniform, already discoverable (GPU-AUDIO-003)"
+      },
+      {
+        "category": "uniform_float_annotated",
+        "classification": "CURRENT",
+        "line": 24,
+        "name": "u_bassScale",
+        "value_text": "1.2",
+        "snippet": "float scaleFactor = 2.0 + taBass * 0.4 * u_bassScale;",
+        "note": "explicit uniform, already discoverable (GPU-AUDIO-003)"
+      },
+      {
+        "category": "uniform_float_annotated",
+        "classification": "CURRENT",
+        "line": 68,
+        "name": "u_glow",
+        "value_text": "1.0",
+        "snippet": "float coreMult = (2e5 / (0.6 + taRms * 1.4 + (taStrongBeat > 0 ? 1.0 : 0.0))) / u_glow;",
+        "note": "explicit uniform, already discoverable (GPU-AUDIO-003)"
+      },
+      {
+        "category": "local_float_literal",
+        "classification": "HIGH_VALUE_SAFE_CANDIDATE",
+        "line": 20,
+        "name": "w",
+        "value_text": "4.0",
+        "snippet": "float w = 4.0;",
+        "note": "local float initialized directly from a numeric literal"
+      },
+      {
+        "category": "local_float_literal",
+        "classification": "HIGH_VALUE_SAFE_CANDIDATE",
+        "line": 34,
+        "name": "i",
+        "value_text": "0.0",
+        "snippet": "float i = 0.0,",
+        "note": "local float initialized directly from a numeric literal"
+      },
+      {
+        "category": "vec_literal",
+        "classification": "UNKNOWN",
+        "line": 56,
+        "name": null,
+        "value_text": "vec4(0.0, 33.0, 11.0, 0.0)",
+        "snippet": "p.xy *= mat2(cos(twist + p.z * 0.2 + vec4(0.0, 33.0, 11.0, 0.0)));",
+        "note": "probable geometric/other (component(s) outside 0..1)"
+      },
+      {
+        "category": "structural_int_loop_bound",
+        "classification": "STRUCTURAL_UNSAFE",
+        "line": 26,
+        "name": null,
+        "value_text": "0.0",
+        "snippet": "for (float l, i = 0.0; i++ < iters; p *= l, w *= l) {",
+        "note": "loop bound / iteration literal"
+      },
+      {
+        "category": "structural_int_loop_bound",
+        "classification": "STRUCTURAL_UNSAFE",
+        "line": 52,
+        "name": null,
+        "value_text": "100.0",
+        "snippet": "for (; i++ < 100.0; d += s = 0.002 + abs(min(fractal(p), s)) * 0.5, o += 1.0 / max(0.0001, s)) {",
+        "note": "loop bound / iteration literal"
+      },
+      {
+        "category": "structural_int_loop_bound",
+        "classification": "STRUCTURAL_UNSAFE",
+        "line": 52,
+        "name": null,
+        "value_text": "0.002",
+        "snippet": "for (; i++ < 100.0; d += s = 0.002 + abs(min(fractal(p), s)) * 0.5, o += 1.0 / max(0.0001, s)) {",
+        "note": "loop bound / iteration literal"
+      },
+      {
+        "category": "structural_int_loop_bound",
+        "classification": "STRUCTURAL_UNSAFE",
+        "line": 61,
+        "name": null,
+        "value_text": "5.0",
+        "snippet": "for (n = 5.0; n < 16.0; n += n) {",
+        "note": "loop bound / iteration literal"
+      },
+      {
+        "category": "structural_int_loop_bound",
+        "classification": "STRUCTURAL_UNSAFE",
+        "line": 61,
+        "name": null,
+        "value_text": "16.0",
+        "snippet": "for (n = 5.0; n < 16.0; n += n) {",
+        "note": "loop bound / iteration literal"
+      },
+      {
+        "category": "inline_scalar_literal",
+        "classification": "POSSIBLE_CANDIDATE",
+        "line": 24,
+        "name": null,
+        "value_text": "2.0",
+        "snippet": "float scaleFactor = 2.0 + taBass * 0.4 * u_bassScale;",
+        "note": "heuristic context: coordinate/geometry-related"
+      },
+      {
+        "category": "inline_scalar_literal",
+        "classification": "POSSIBLE_CANDIDATE",
+        "line": 24,
+        "name": null,
+        "value_text": "0.4",
+        "snippet": "float scaleFactor = 2.0 + taBass * 0.4 * u_bassScale;",
+        "note": "heuristic context: coordinate/geometry-related"
+      },
+      {
+        "category": "inline_scalar_literal",
+        "classification": "POSSIBLE_CANDIDATE",
+        "line": 28,
+        "name": null,
+        "value_text": "0.001",
+        "snippet": "l = scaleFactor / max(0.001, dot(p, p));",
+        "note": "heuristic context: coordinate/geometry-related"
+      },
+      {
+        "category": "inline_scalar_literal",
+        "classification": "POSSIBLE_CANDIDATE",
+        "line": 35,
+        "name": null,
+        "value_text": "0.0",
+        "snippet": "d = 0.0,",
+        "note": "heuristic context: coordinate/geometry-related"
+      },
+      {
+        "category": "inline_scalar_literal",
+        "classification": "POSSIBLE_CANDIDATE",
+        "line": 36,
+        "name": null,
+        "value_text": "0.0",
+        "snippet": "s = 0.0,",
+        "note": "heuristic context: coordinate/geometry-related"
+      },
+      {
+        "category": "inline_scalar_literal",
+        "classification": "POSSIBLE_CANDIDATE",
+        "line": 37,
+        "name": null,
+        "value_text": "0.0",
+        "snippet": "n = 0.0,",
+        "note": "heuristic context: coordinate/geometry-related"
+      },
+      {
+        "category": "inline_scalar_literal",
+        "classification": "POSSIBLE_CANDIDATE",
+        "line": 43,
+        "name": null,
+        "value_text": "2.0",
+        "snippet": "u = (u - p.xy / 2.0) / p.y;",
+        "note": "heuristic context: coordinate/geometry-related"
+      },
+      {
+        "category": "inline_scalar_literal",
+        "classification": "POSSIBLE_CANDIDATE",
+        "line": 46,
+        "name": null,
+        "value_text": "0.0",
+        "snippet": "o = vec4(0.0);",
+        "note": "heuristic context: coordinate/geometry-related"
+      }
+    ],
+    "inline_literal_total": 39
+  },
+  {
+    "path": "user_shaders\\shadertoy\\apollo_spiral\\apollo_spiral.frag",
+    "corpus_tag": "USER",
+    "line_count": 53,
+    "candidates": [
+      {
+        "category": "local_float_literal",
+        "classification": "HIGH_VALUE_SAFE_CANDIDATE",
+        "line": 6,
+        "name": "w",
+        "value_text": "4.",
+        "snippet": "float w = 4.;",
+        "note": "local float initialized directly from a numeric literal"
+      },
+      {
+        "category": "vec_literal",
+        "classification": "UNKNOWN",
+        "line": 37,
+        "name": null,
+        "value_text": "vec4(0,33,11,0)",
+        "snippet": "p.xy *= mat2(cos(.05*t+p.z*.2+vec4(0,33,11,0))),",
+        "note": "probable geometric/other (component(s) outside 0..1)"
+      },
+      {
+        "category": "vec_literal",
+        "classification": "UNKNOWN",
+        "line": 49,
+        "name": null,
+        "value_text": "vec4(1, 2, 12, 0)",
+        "snippet": "o = pow(o.xxxx, vec4(1, 2, 12, 0))*6.;",
+        "note": "probable geometric/other (component(s) outside 0..1)"
+      },
+      {
+        "category": "structural_int_loop_bound",
+        "classification": "STRUCTURAL_UNSAFE",
+        "line": 9,
+        "name": null,
+        "value_text": "6.",
+        "snippet": "for (float l, i; i++ < 6.; p *= l, w *= l )",
+        "note": "loop bound / iteration literal"
+      },
+      {
+        "category": "structural_int_loop_bound",
+        "classification": "STRUCTURAL_UNSAFE",
+        "line": 33,
+        "name": null,
+        "value_text": "1e2",
+        "snippet": "for(o*=i; i++<1e2;d += s = .002+abs(min(fractal(p), s))*.5, o += 1./s)",
+        "note": "loop bound / iteration literal"
+      },
+      {
+        "category": "structural_int_loop_bound",
+        "classification": "STRUCTURAL_UNSAFE",
+        "line": 33,
+        "name": null,
+        "value_text": ".002",
+        "snippet": "for(o*=i; i++<1e2;d += s = .002+abs(min(fractal(p), s))*.5, o += 1./s)",
+        "note": "loop bound / iteration literal"
+      },
+      {
+        "category": "inline_scalar_literal",
+        "classification": "POSSIBLE_CANDIDATE",
+        "line": 30,
+        "name": null,
+        "value_text": "2.",
+        "snippet": "u = (u-p.xy/2.)/p.y;",
+        "note": "heuristic context: coordinate/geometry-related"
+      },
+      {
+        "category": "inline_scalar_literal",
+        "classification": "POSSIBLE_CANDIDATE",
+        "line": 33,
+        "name": null,
+        "value_text": ".5",
+        "snippet": "for(o*=i; i++<1e2;d += s = .002+abs(min(fractal(p), s))*.5, o += 1./s)",
+        "note": "heuristic context: coordinate/geometry-related"
+      },
+      {
+        "category": "inline_scalar_literal",
+        "classification": "POSSIBLE_CANDIDATE",
+        "line": 37,
+        "name": null,
+        "value_text": ".05",
+        "snippet": "p.xy *= mat2(cos(.05*t+p.z*.2+vec4(0,33,11,0))),",
+        "note": "heuristic context: coordinate/geometry-related"
+      },
+      {
+        "category": "inline_scalar_literal",
+        "classification": "POSSIBLE_CANDIDATE",
+        "line": 37,
+        "name": null,
+        "value_text": ".2",
+        "snippet": "p.xy *= mat2(cos(.05*t+p.z*.2+vec4(0,33,11,0))),",
+        "note": "heuristic context: coordinate/geometry-related"
+      },
+      {
+        "category": "inline_scalar_literal",
+        "classification": "POSSIBLE_CANDIDATE",
+        "line": 39,
+        "name": null,
+        "value_text": "4.",
+        "snippet": "s = sin(4.+p.y+p.x),",
+        "note": "heuristic context: coordinate/geometry-related"
+      },
+      {
+        "category": "inline_scalar_literal",
+        "classification": "POSSIBLE_CANDIDATE",
+        "line": 41,
+        "name": null,
+        "value_text": "5.",
+        "snippet": "n = 5.; n < 16.; n += n )",
+        "note": "heuristic context: coordinate/geometry-related"
+      },
+      {
+        "category": "inline_scalar_literal",
+        "classification": "UNKNOWN",
+        "line": 15,
+        "name": null,
+        "value_text": "2.",
+        "snippet": "l = 2./dot(p,p);",
+        "note": "heuristic context: unknown"
+      },
+      {
+        "category": "inline_scalar_literal",
+        "classification": "UNKNOWN",
+        "line": 33,
+        "name": null,
+        "value_text": "1.",
+        "snippet": "for(o*=i; i++<1e2;d += s = .002+abs(min(fractal(p), s))*.5, o += 1./s)",
+        "note": "heuristic context: unknown"
+      }
+    ],
+    "inline_literal_total": 12
+  },
+  {
+    "path": "user_shaders\\shadertoy\\happy_glow_cruise\\happy_glow_cruise.frag",
+    "corpus_tag": "USER",
+    "line_count": 63,
+    "candidates": [
+      {
+        "category": "define_time_multiplier",
+        "classification": "HIGH_VALUE_SAFE_CANDIDATE",
+        "line": 4,
+        "name": "T",
+        "value_text": "(iTime*6.)",
+        "snippet": "#define T (iTime*6.)",
+        "note": "macro-wrapped direct time multiplier"
+      },
+      {
+        "category": "local_float_literal",
+        "classification": "HIGH_VALUE_SAFE_CANDIDATE",
+        "line": 31,
+        "name": "s",
+        "value_text": "4.",
+        "snippet": "float s = 4., d = 9e9;",
+        "note": "local float initialized directly from a numeric literal"
+      },
+      {
+        "category": "time_multiplier",
+        "classification": "HIGH_VALUE_SAFE_CANDIDATE",
+        "line": 4,
+        "name": null,
+        "value_text": "iTime * 6",
+        "snippet": "#define T (iTime*6.)",
+        "note": "direct scalar multiplier on the time uniform"
+      },
+      {
+        "category": "vec_literal",
+        "classification": "UNKNOWN",
+        "line": 7,
+        "name": null,
+        "value_text": "vec4(0,33,11,0)",
+        "snippet": "#define R(a) mat2(cos(a+vec4(0,33,11,0)))",
+        "note": "probable geometric/other (component(s) outside 0..1)"
+      },
+      {
+        "category": "vec_literal",
+        "classification": "UNKNOWN",
+        "line": 58,
+        "name": null,
+        "value_text": "vec4(2,1e1,4,0)",
+        "snippet": "o += vec4(2,1e1,4,0)/s",
+        "note": "probable geometric/other (component(s) outside 0..1)"
+      },
+      {
+        "category": "vec_literal",
+        "classification": "UNKNOWN",
+        "line": 59,
+        "name": null,
+        "value_text": "vec4(2,1,8,0)",
+        "snippet": "+ 6e1*vec4(2,1,8,0)*light / d)",
+        "note": "probable geometric/other (component(s) outside 0..1)"
+      },
+      {
+        "category": "structural_int_loop_bound",
+        "classification": "STRUCTURAL_UNSAFE",
+        "line": 57,
+        "name": null,
+        "value_text": "0",
+        "snippet": "for(o=vec4(0);i++ < 5e1 && d < 5e1;",
+        "note": "loop bound / iteration literal"
+      },
+      {
+        "category": "inline_scalar_literal",
+        "classification": "POSSIBLE_CANDIDATE",
+        "line": 15,
+        "name": null,
+        "value_text": ".4",
+        "snippet": "q.x+(sin(p.z*.4) * .4),",
+        "note": "heuristic context: coordinate/geometry-related"
+      },
+      {
+        "category": "inline_scalar_literal",
+        "classification": "POSSIBLE_CANDIDATE",
+        "line": 15,
+        "name": null,
+        "value_text": ".4",
+        "snippet": "q.x+(sin(p.z*.4) * .4),",
+        "note": "heuristic context: coordinate/geometry-related"
+      },
+      {
+        "category": "inline_scalar_literal",
+        "classification": "POSSIBLE_CANDIDATE",
+        "line": 16,
+        "name": null,
+        "value_text": ".3",
+        "snippet": "q.y+sin(sin(p.z*.3)+T) * .5,",
+        "note": "heuristic context: coordinate/geometry-related"
+      },
+      {
+        "category": "inline_scalar_literal",
+        "classification": "POSSIBLE_CANDIDATE",
+        "line": 16,
+        "name": null,
+        "value_text": ".5",
+        "snippet": "q.y+sin(sin(p.z*.3)+T) * .5,",
+        "note": "heuristic context: coordinate/geometry-related"
+      },
+      {
+        "category": "inline_scalar_literal",
+        "classification": "POSSIBLE_CANDIDATE",
+        "line": 17,
+        "name": null,
+        "value_text": "5.",
+        "snippet": "5.+T+tan(cos(T*.2)*.5)*3.2));",
+        "note": "heuristic context: coordinate/geometry-related"
+      },
+      {
+        "category": "inline_scalar_literal",
+        "classification": "POSSIBLE_CANDIDATE",
+        "line": 22,
+        "name": null,
+        "value_text": ".5",
+        "snippet": "p = abs(fract(q/s)*s - s*.5), \\",
+        "note": "heuristic context: coordinate/geometry-related"
+      },
+      {
+        "category": "inline_scalar_literal",
+        "classification": "POSSIBLE_CANDIDATE",
+        "line": 31,
+        "name": null,
+        "value_text": "9e9",
+        "snippet": "float s = 4., d = 9e9;",
+        "note": "heuristic context: coordinate/geometry-related"
+      },
+      {
+        "category": "inline_scalar_literal",
+        "classification": "POSSIBLE_CANDIDATE",
+        "line": 32,
+        "name": null,
+        "value_text": "1.",
+        "snippet": "MENGERLAYER(1., min, 6.);",
+        "note": "heuristic context: coordinate/geometry-related"
+      }
+    ],
+    "inline_literal_total": 35
+  },
+  {
+    "path": "user_shaders\\shadertoy\\rig_rekt\\Rig_Rekt.frag",
+    "corpus_tag": "USER",
+    "line_count": 56,
+    "candidates": [
+      {
+        "category": "local_float_literal",
+        "classification": "HIGH_VALUE_SAFE_CANDIDATE",
+        "line": 18,
+        "name": "d",
+        "value_text": "-9e9",
+        "snippet": "float d = -9e9, i = 1e1;",
+        "note": "local float initialized directly from a numeric literal"
+      },
+      {
+        "category": "vec_literal",
+        "classification": "UNKNOWN",
+        "line": 5,
+        "name": null,
+        "value_text": "vec4(0,33,11,0)",
+        "snippet": "#define R(a) mat2(cos(a + vec4(0,33,11,0)))",
+        "note": "probable geometric/other (component(s) outside 0..1)"
+      },
+      {
+        "category": "vec_literal",
+        "classification": "UNKNOWN",
+        "line": 39,
+        "name": null,
+        "value_text": "vec2(-1.,.1)",
+        "snippet": "vec2 v = (.1*sin(iTime))+u + (u.yx*.8+.2-vec2(-1.,.1));",
+        "note": "probable geometric/other (component(s) outside 0..1)"
+      },
+      {
+        "category": "vec_literal",
+        "classification": "UNKNOWN",
+        "line": 50,
+        "name": null,
+        "value_text": "vec4(1,1.2,1,0)",
+        "snippet": "o += 6e1*vec4(1,1.2,1,0)*s",
+        "note": "probable geometric/other (component(s) outside 0..1)"
+      },
+      {
+        "category": "vec_literal",
+        "classification": "UNKNOWN",
+        "line": 51,
+        "name": null,
+        "value_text": "vec4(1,1.1,1,0)",
+        "snippet": "+ .5*vec4(1,1.1,1,0)/k;",
+        "note": "probable geometric/other (component(s) outside 0..1)"
+      },
+      {
+        "category": "structural_int_loop_bound",
+        "classification": "STRUCTURAL_UNSAFE",
+        "line": 20,
+        "name": null,
+        "value_text": ".2",
+        "snippet": "for(; i > .2; i *= .2)",
+        "note": "loop bound / iteration literal"
+      },
+      {
+        "category": "structural_int_loop_bound",
+        "classification": "STRUCTURAL_UNSAFE",
+        "line": 20,
+        "name": null,
+        "value_text": ".2",
+        "snippet": "for(; i > .2; i *= .2)",
+        "note": "loop bound / iteration literal"
+      },
+      {
+        "category": "structural_int_loop_bound",
+        "classification": "STRUCTURAL_UNSAFE",
+        "line": 41,
+        "name": null,
+        "value_text": "64.",
+        "snippet": "for(o*=i; i++<64.;) {",
+        "note": "loop bound / iteration literal"
+      },
+      {
+        "category": "structural_int_loop_bound",
+        "classification": "STRUCTURAL_UNSAFE",
+        "line": 46,
+        "name": null,
+        "value_text": ".01",
+        "snippet": "for(s = .01; s < .4; s += s )",
+        "note": "loop bound / iteration literal"
+      },
+      {
+        "category": "structural_int_loop_bound",
+        "classification": "STRUCTURAL_UNSAFE",
+        "line": 46,
+        "name": null,
+        "value_text": ".4",
+        "snippet": "for(s = .01; s < .4; s += s )",
+        "note": "loop bound / iteration literal"
+      },
+      {
+        "category": "inline_scalar_literal",
+        "classification": "POSSIBLE_CANDIDATE",
+        "line": 9,
+        "name": null,
+        "value_text": "2.",
+        "snippet": "return 4. - max(p.x, p.y/2.);",
+        "note": "heuristic context: coordinate/geometry-related"
+      },
+      {
+        "category": "inline_scalar_literal",
+        "classification": "POSSIBLE_CANDIDATE",
+        "line": 18,
+        "name": null,
+        "value_text": "1e1",
+        "snippet": "float d = -9e9, i = 1e1;",
+        "note": "heuristic context: coordinate/geometry-related"
+      },
+      {
+        "category": "inline_scalar_literal",
+        "classification": "POSSIBLE_CANDIDATE",
+        "line": 19,
+        "name": null,
+        "value_text": ".5",
+        "snippet": "p.xy *= R(.5);",
+        "note": "heuristic context: coordinate/geometry-related"
+      },
+      {
+        "category": "inline_scalar_literal",
+        "classification": "POSSIBLE_CANDIDATE",
+        "line": 36,
+        "name": null,
+        "value_text": ".75",
+        "snippet": "if (abs(u.y) > .75) { o *=i; return; };",
+        "note": "heuristic context: coordinate/geometry-related"
+      },
+      {
+        "category": "inline_scalar_literal",
+        "classification": "POSSIBLE_CANDIDATE",
+        "line": 38,
+        "name": null,
+        "value_text": "1",
+        "snippet": "vec3 D = normalize(vec3(u, 1));",
+        "note": "heuristic context: coordinate/geometry-related"
+      },
+      {
+        "category": "inline_scalar_literal",
+        "classification": "POSSIBLE_CANDIDATE",
+        "line": 47,
+        "name": null,
+        "value_text": "4.",
+        "snippet": "p += abs(dot(sin(.3*p.z+t+.7*p / s ), vec3(s/4.)));",
+        "note": "heuristic context: coordinate/geometry-related"
+      },
+      {
+        "category": "inline_scalar_literal",
+        "classification": "POSSIBLE_CANDIDATE",
+        "line": 49,
+        "name": null,
+        "value_text": ".005",
+        "snippet": "d += s = min(m, k = .005+.3*abs(p.y+1.5)),",
+        "note": "heuristic context: coordinate/geometry-related"
+      },
+      {
+        "category": "inline_scalar_literal",
+        "classification": "POSSIBLE_CANDIDATE",
+        "line": 49,
+        "name": null,
+        "value_text": "+.3",
+        "snippet": "d += s = min(m, k = .005+.3*abs(p.y+1.5)),",
+        "note": "heuristic context: coordinate/geometry-related"
+      }
+    ],
+    "inline_literal_total": 19
+  },
+  {
+    "path": "user_shaders\\shadertoy\\Skinketest\\Skinketest.frag",
+    "corpus_tag": "USER",
+    "line_count": 169,
+    "candidates": [
+      {
+        "category": "local_float_literal",
+        "classification": "HIGH_VALUE_SAFE_CANDIDATE",
+        "line": 55,
+        "name": "minDist",
+        "value_text": "100.0",
+        "snippet": "float minDist = 100.0;",
+        "note": "local float initialized directly from a numeric literal"
+      },
+      {
+        "category": "local_float_literal",
+        "classification": "HIGH_VALUE_SAFE_CANDIDATE",
+        "line": 56,
+        "name": "glowAcc",
+        "value_text": "0.0",
+        "snippet": "float glowAcc = 0.0;",
+        "note": "local float initialized directly from a numeric literal"
+      },
+      {
+        "category": "time_multiplier",
+        "classification": "HIGH_VALUE_SAFE_CANDIDATE",
+        "line": 25,
+        "name": null,
+        "value_text": "iTime * 0.8",
+        "snippet": "float t = iTime * 0.8;",
+        "note": "direct scalar multiplier on the time uniform"
+      },
+      {
+        "category": "time_multiplier",
+        "classification": "HIGH_VALUE_SAFE_CANDIDATE",
+        "line": 41,
+        "name": null,
+        "value_text": "iTime * 0.8",
+        "snippet": "mat3 rot = rotY(iTime * 0.8 + kick * 0.1) * rotX(iTime * 0.4 - snare * 0.1);",
+        "note": "direct scalar multiplier on the time uniform"
+      },
+      {
+        "category": "time_multiplier",
+        "classification": "HIGH_VALUE_SAFE_CANDIDATE",
+        "line": 41,
+        "name": null,
+        "value_text": "iTime * 0.4",
+        "snippet": "mat3 rot = rotY(iTime * 0.8 + kick * 0.1) * rotX(iTime * 0.4 - snare * 0.1);",
+        "note": "direct scalar multiplier on the time uniform"
+      },
+      {
+        "category": "vec_literal",
+        "classification": "UNKNOWN",
+        "line": 34,
+        "name": null,
+        "value_text": "vec3(-0.5, -0.3, -0.5)",
+        "snippet": "v[0] = vec3(-0.5, -0.3, -0.5) * s;",
+        "note": "probable geometric/other (component(s) outside 0..1)"
+      },
+      {
+        "category": "vec_literal",
+        "classification": "UNKNOWN",
+        "line": 35,
+        "name": null,
+        "value_text": "vec3( 0.5, -0.3, -0.5)",
+        "snippet": "v[1] = vec3( 0.5, -0.3, -0.5) * s;",
+        "note": "probable geometric/other (component(s) outside 0..1)"
+      },
+      {
+        "category": "vec_literal",
+        "classification": "UNKNOWN",
+        "line": 36,
+        "name": null,
+        "value_text": "vec3( 0.5, -0.3,  0.5)",
+        "snippet": "v[2] = vec3( 0.5, -0.3,  0.5) * s;",
+        "note": "probable geometric/other (component(s) outside 0..1)"
+      },
+      {
+        "category": "vec_literal",
+        "classification": "UNKNOWN",
+        "line": 37,
+        "name": null,
+        "value_text": "vec3(-0.5, -0.3,  0.5)",
+        "snippet": "v[3] = vec3(-0.5, -0.3,  0.5) * s;",
+        "note": "probable geometric/other (component(s) outside 0..1)"
+      },
+      {
+        "category": "vec_literal",
+        "classification": "POSSIBLE_CANDIDATE",
+        "line": 66,
+        "name": null,
+        "value_text": "vec3(1.0, 0.4, 0.1)",
+        "snippet": "vec3 glowColor = mix(vec3(1.0, 0.4, 0.1), vec3(0.2, 0.8, 1.0), snare);",
+        "note": "probable color (RGB, all components in ~0..1)"
+      },
+      {
+        "category": "vec_literal",
+        "classification": "POSSIBLE_CANDIDATE",
+        "line": 66,
+        "name": null,
+        "value_text": "vec3(0.2, 0.8, 1.0)",
+        "snippet": "vec3 glowColor = mix(vec3(1.0, 0.4, 0.1), vec3(0.2, 0.8, 1.0), snare);",
+        "note": "probable color (RGB, all components in ~0..1)"
+      },
+      {
+        "category": "vec_literal",
+        "classification": "POSSIBLE_CANDIDATE",
+        "line": 75,
+        "name": null,
+        "value_text": "vec3(0.04, 0.02, 0.01)",
+        "snippet": "col += vec3(0.04, 0.02, 0.01) * (1.0 + kick);",
+        "note": "probable color (RGB, all components in ~0..1)"
+      },
+      {
+        "category": "structural_int_array",
+        "classification": "STRUCTURAL_UNSAFE",
+        "line": 32,
+        "name": null,
+        "value_text": "5",
+        "snippet": "vec3 v[5];",
+        "note": "array dimension or index literal"
+      },
+      {
+        "category": "structural_int_array",
+        "classification": "STRUCTURAL_UNSAFE",
+        "line": 34,
+        "name": null,
+        "value_text": "0",
+        "snippet": "v[0] = vec3(-0.5, -0.3, -0.5) * s;",
+        "note": "array dimension or index literal"
+      },
+      {
+        "category": "structural_int_array",
+        "classification": "STRUCTURAL_UNSAFE",
+        "line": 35,
+        "name": null,
+        "value_text": "1",
+        "snippet": "v[1] = vec3( 0.5, -0.3, -0.5) * s;",
+        "note": "array dimension or index literal"
+      },
+      {
+        "category": "structural_int_array",
+        "classification": "STRUCTURAL_UNSAFE",
+        "line": 36,
+        "name": null,
+        "value_text": "2",
+        "snippet": "v[2] = vec3( 0.5, -0.3,  0.5) * s;",
+        "note": "array dimension or index literal"
+      },
+      {
+        "category": "structural_int_array",
+        "classification": "STRUCTURAL_UNSAFE",
+        "line": 37,
+        "name": null,
+        "value_text": "3",
+        "snippet": "v[3] = vec3(-0.5, -0.3,  0.5) * s;",
+        "note": "array dimension or index literal"
+      },
+      {
+        "category": "structural_int_array",
+        "classification": "STRUCTURAL_UNSAFE",
+        "line": 38,
+        "name": null,
+        "value_text": "4",
+        "snippet": "v[4] = vec3( 0.0,  0.5 + snare * 0.3, 0.0) * s;",
+        "note": "array dimension or index literal"
+      },
+      {
+        "category": "structural_int_array",
+        "classification": "STRUCTURAL_UNSAFE",
+        "line": 44,
+        "name": null,
+        "value_text": "5",
+        "snippet": "vec2 p2d[5];",
+        "note": "array dimension or index literal"
+      },
+      {
+        "category": "structural_int_array",
+        "classification": "STRUCTURAL_UNSAFE",
+        "line": 52,
+        "name": null,
+        "value_text": "16",
+        "snippet": "int edges[16] = int[16](0,1, 1,2, 2,3, 3,0, 0,4, 1,4, 2,4, 3,4);",
+        "note": "array dimension or index literal"
+      },
+      {
+        "category": "structural_int_array",
+        "classification": "STRUCTURAL_UNSAFE",
+        "line": 52,
+        "name": null,
+        "value_text": "16",
+        "snippet": "int edges[16] = int[16](0,1, 1,2, 2,3, 3,0, 0,4, 1,4, 2,4, 3,4);",
+        "note": "array dimension or index literal"
+      },
+      {
+        "category": "structural_int_array",
+        "classification": "STRUCTURAL_UNSAFE",
+        "line": 59,
+        "name": null,
+        "value_text": "2",
+        "snippet": "float d = sdSegment(uv, p2d[edges[i*2]], p2d[edges[i*2+1]]);",
+        "note": "array dimension or index literal"
+      },
+      {
+        "category": "structural_int_array",
+        "classification": "STRUCTURAL_UNSAFE",
+        "line": 59,
+        "name": null,
+        "value_text": "2",
+        "snippet": "float d = sdSegment(uv, p2d[edges[i*2]], p2d[edges[i*2+1]]);",
+        "note": "array dimension or index literal"
+      },
+      {
+        "category": "structural_int_array",
+        "classification": "STRUCTURAL_UNSAFE",
+        "line": 59,
+        "name": null,
+        "value_text": "+1",
+        "snippet": "float d = sdSegment(uv, p2d[edges[i*2]], p2d[edges[i*2+1]]);",
+        "note": "array dimension or index literal"
+      },
+      {
+        "category": "structural_int_loop_bound",
+        "classification": "STRUCTURAL_UNSAFE",
+        "line": 46,
+        "name": null,
+        "value_text": "0",
+        "snippet": "for(int i = 0; i < 5; i++) {",
+        "note": "loop bound / iteration literal"
+      },
+      {
+        "category": "structural_int_loop_bound",
+        "classification": "STRUCTURAL_UNSAFE",
+        "line": 46,
+        "name": null,
+        "value_text": "5",
+        "snippet": "for(int i = 0; i < 5; i++) {",
+        "note": "loop bound / iteration literal"
+      },
+      {
+        "category": "structural_int_loop_bound",
+        "classification": "STRUCTURAL_UNSAFE",
+        "line": 58,
+        "name": null,
+        "value_text": "0",
+        "snippet": "for(int i = 0; i < 8; i++) {",
+        "note": "loop bound / iteration literal"
+      },
+      {
+        "category": "structural_int_loop_bound",
+        "classification": "STRUCTURAL_UNSAFE",
+        "line": 58,
+        "name": null,
+        "value_text": "8",
+        "snippet": "for(int i = 0; i < 8; i++) {",
+        "note": "loop bound / iteration literal"
+      },
+      {
+        "category": "inline_scalar_literal",
+        "classification": "POSSIBLE_CANDIDATE",
+        "line": 16,
+        "name": null,
+        "value_text": "1",
+        "snippet": "mat3 rotX(float a) { float c = cos(a), s = sin(a); return mat3(1,0,0, 0,c,-s, 0,s,c); }",
+        "note": "heuristic context: coordinate/geometry-related"
+      },
+      {
+        "category": "inline_scalar_literal",
+        "classification": "POSSIBLE_CANDIDATE",
+        "line": 16,
+        "name": null,
+        "value_text": "0",
+        "snippet": "mat3 rotX(float a) { float c = cos(a), s = sin(a); return mat3(1,0,0, 0,c,-s, 0,s,c); }",
+        "note": "heuristic context: coordinate/geometry-related"
+      },
+      {
+        "category": "inline_scalar_literal",
+        "classification": "POSSIBLE_CANDIDATE",
+        "line": 16,
+        "name": null,
+        "value_text": "0",
+        "snippet": "mat3 rotX(float a) { float c = cos(a), s = sin(a); return mat3(1,0,0, 0,c,-s, 0,s,c); }",
+        "note": "heuristic context: coordinate/geometry-related"
+      },
+      {
+        "category": "inline_scalar_literal",
+        "classification": "POSSIBLE_CANDIDATE",
+        "line": 16,
+        "name": null,
+        "value_text": "0",
+        "snippet": "mat3 rotX(float a) { float c = cos(a), s = sin(a); return mat3(1,0,0, 0,c,-s, 0,s,c); }",
+        "note": "heuristic context: coordinate/geometry-related"
+      },
+      {
+        "category": "inline_scalar_literal",
+        "classification": "POSSIBLE_CANDIDATE",
+        "line": 16,
+        "name": null,
+        "value_text": "0",
+        "snippet": "mat3 rotX(float a) { float c = cos(a), s = sin(a); return mat3(1,0,0, 0,c,-s, 0,s,c); }",
+        "note": "heuristic context: coordinate/geometry-related"
+      },
+      {
+        "category": "inline_scalar_literal",
+        "classification": "POSSIBLE_CANDIDATE",
+        "line": 17,
+        "name": null,
+        "value_text": "0",
+        "snippet": "mat3 rotY(float a) { float c = cos(a), s = sin(a); return mat3(c,0,s, 0,1,0, -s,0,c); }",
+        "note": "heuristic context: coordinate/geometry-related"
+      },
+      {
+        "category": "inline_scalar_literal",
+        "classification": "POSSIBLE_CANDIDATE",
+        "line": 17,
+        "name": null,
+        "value_text": "0",
+        "snippet": "mat3 rotY(float a) { float c = cos(a), s = sin(a); return mat3(c,0,s, 0,1,0, -s,0,c); }",
+        "note": "heuristic context: coordinate/geometry-related"
+      },
+      {
+        "category": "inline_scalar_literal",
+        "classification": "POSSIBLE_CANDIDATE",
+        "line": 17,
+        "name": null,
+        "value_text": "1",
+        "snippet": "mat3 rotY(float a) { float c = cos(a), s = sin(a); return mat3(c,0,s, 0,1,0, -s,0,c); }",
+        "note": "heuristic context: coordinate/geometry-related"
+      }
+    ],
+    "inline_literal_total": 58
+  },
+  {
+    "path": "user_shaders\\shadertoy\\Universe Ball 2\\Universe Ball 2.frag",
+    "corpus_tag": "USER",
+    "line_count": 33,
+    "candidates": [
+      {
+        "category": "time_multiplier",
+        "classification": "HIGH_VALUE_SAFE_CANDIDATE",
+        "line": 11,
+        "name": null,
+        "value_text": "iTime * .2",
+        "snippet": "float n,i,s,t=iTime*.2, d,v;",
+        "note": "direct scalar multiplier on the time uniform"
+      },
+      {
+        "category": "vec_literal",
+        "classification": "UNKNOWN",
+        "line": 8,
+        "name": null,
+        "value_text": "vec3(6,4,2)",
+        "snippet": "#define PALETTE vec3(6,4,2)",
+        "note": "probable geometric/other (component(s) outside 0..1)"
+      },
+      {
+        "category": "vec_literal",
+        "classification": "UNKNOWN",
+        "line": 14,
+        "name": null,
+        "value_text": "vec2(-.35,.15)",
+        "snippet": "vec2 l = u - (u.yx*.9+.3-vec2(-.35,.15));",
+        "note": "probable geometric/other (component(s) outside 0..1)"
+      },
+      {
+        "category": "vec_literal",
+        "classification": "UNKNOWN",
+        "line": 19,
+        "name": null,
+        "value_text": "vec3(5,2,1)",
+        "snippet": "+  d*vec3(5,2,1)/q.y/1e1",
+        "note": "probable geometric/other (component(s) outside 0..1)"
+      },
+      {
+        "category": "vec_literal",
+        "classification": "UNKNOWN",
+        "line": 20,
+        "name": null,
+        "value_text": "vec3(3,4,1)",
+        "snippet": "+  7.*vec3(3,4,1)/length(l)",
+        "note": "probable geometric/other (component(s) outside 0..1)"
+      },
+      {
+        "category": "vec_literal",
+        "classification": "UNKNOWN",
+        "line": 24,
+        "name": null,
+        "value_text": "vec4(0,33,11,0)",
+        "snippet": "p.xy *= mat2(cos(t+p.z*.6+vec4(0,33,11,0))),",
+        "note": "probable geometric/other (component(s) outside 0..1)"
+      },
+      {
+        "category": "structural_int_loop_bound",
+        "classification": "STRUCTURAL_UNSAFE",
+        "line": 15,
+        "name": null,
+        "value_text": "5e1",
+        "snippet": "for(; i++ < 5e1 && d < 5e1;",
+        "note": "loop bound / iteration literal"
+      },
+      {
+        "category": "structural_int_loop_bound",
+        "classification": "STRUCTURAL_UNSAFE",
+        "line": 15,
+        "name": null,
+        "value_text": "5e1",
+        "snippet": "for(; i++ < 5e1 && d < 5e1;",
+        "note": "loop bound / iteration literal"
+      },
+      {
+        "category": "structural_int_loop_bound",
+        "classification": "STRUCTURAL_UNSAFE",
+        "line": 16,
+        "name": null,
+        "value_text": ".01",
+        "snippet": "d += s = min(q.y=.01+.6*abs(24. - length(q.xy)),",
+        "note": "loop bound / iteration literal"
+      },
+      {
+        "category": "structural_int_loop_bound",
+        "classification": "STRUCTURAL_UNSAFE",
+        "line": 16,
+        "name": null,
+        "value_text": "+.6",
+        "snippet": "d += s = min(q.y=.01+.6*abs(24. - length(q.xy)),",
+        "note": "loop bound / iteration literal"
+      },
+      {
+        "category": "structural_int_loop_bound",
+        "classification": "STRUCTURAL_UNSAFE",
+        "line": 16,
+        "name": null,
+        "value_text": "24.",
+        "snippet": "d += s = min(q.y=.01+.6*abs(24. - length(q.xy)),",
+        "note": "loop bound / iteration literal"
+      },
+      {
+        "category": "structural_int_loop_bound",
+        "classification": "STRUCTURAL_UNSAFE",
+        "line": 22,
+        "name": null,
+        "value_text": "16.",
+        "snippet": "for(q = p = vec3(u * d, d - 16.),",
+        "note": "loop bound / iteration literal"
+      },
+      {
+        "category": "inline_scalar_literal",
+        "classification": "POSSIBLE_CANDIDATE",
+        "line": 14,
+        "name": null,
+        "value_text": ".9",
+        "snippet": "vec2 l = u - (u.yx*.9+.3-vec2(-.35,.15));",
+        "note": "heuristic context: coordinate/geometry-related"
+      },
+      {
+        "category": "inline_scalar_literal",
+        "classification": "POSSIBLE_CANDIDATE",
+        "line": 14,
+        "name": null,
+        "value_text": "+.3",
+        "snippet": "vec2 l = u - (u.yx*.9+.3-vec2(-.35,.15));",
+        "note": "heuristic context: coordinate/geometry-related"
+      },
+      {
+        "category": "inline_scalar_literal",
+        "classification": "POSSIBLE_CANDIDATE",
+        "line": 19,
+        "name": null,
+        "value_text": "1e1",
+        "snippet": "+  d*vec3(5,2,1)/q.y/1e1",
+        "note": "heuristic context: coordinate/geometry-related"
+      },
+      {
+        "category": "inline_scalar_literal",
+        "classification": "POSSIBLE_CANDIDATE",
+        "line": 20,
+        "name": null,
+        "value_text": "7.",
+        "snippet": "+  7.*vec3(3,4,1)/length(l)",
+        "note": "heuristic context: coordinate/geometry-related"
+      },
+      {
+        "category": "inline_scalar_literal",
+        "classification": "POSSIBLE_CANDIDATE",
+        "line": 23,
+        "name": null,
+        "value_text": "-8.",
+        "snippet": "s = length(p)-8.,",
+        "note": "heuristic context: coordinate/geometry-related"
+      },
+      {
+        "category": "inline_scalar_literal",
+        "classification": "POSSIBLE_CANDIDATE",
+        "line": 24,
+        "name": null,
+        "value_text": ".6",
+        "snippet": "p.xy *= mat2(cos(t+p.z*.6+vec4(0,33,11,0))),",
+        "note": "heuristic context: coordinate/geometry-related"
+      },
+      {
+        "category": "inline_scalar_literal",
+        "classification": "POSSIBLE_CANDIDATE",
+        "line": 25,
+        "name": null,
+        "value_text": "4.",
+        "snippet": "p += cos(t+p.zxy)+cos(t+p.yzx*s)/s/4.,",
+        "note": "heuristic context: coordinate/geometry-related"
+      },
+      {
+        "category": "inline_scalar_literal",
+        "classification": "POSSIBLE_CANDIDATE",
+        "line": 26,
+        "name": null,
+        "value_text": ".5",
+        "snippet": "p += .5*cos(t+dot(cos(t+p), p) *  p),",
+        "note": "heuristic context: coordinate/geometry-related"
+      }
+    ],
+    "inline_literal_total": 20
+  },
+  {
+    "path": "user_shaders\\test_annotated.frag",
+    "corpus_tag": "TEST_FIXTURE",
+    "line_count": 16,
+    "candidates": [
+      {
+        "category": "uniform_float_annotated",
+        "classification": "CURRENT",
+        "line": 6,
+        "name": "u_speed",
+        "value_text": "1.5",
+        "snippet": "uniform float u_speed;",
+        "note": "explicit uniform, already discoverable (GPU-AUDIO-003)"
+      }
+    ],
+    "inline_literal_total": 2
+  },
+  {
+    "path": "user_shaders\\test_broken_reload.frag",
+    "corpus_tag": "TEST_FIXTURE",
+    "line_count": 1,
+    "candidates": [],
+    "inline_literal_total": 0
+  },
+  {
+    "path": "user_shaders\\test_const_promotion_demo.frag",
+    "corpus_tag": "TEST_FIXTURE",
+    "line_count": 63,
+    "candidates": [
+      {
+        "category": "const_float_safe_promotable",
+        "classification": "CURRENT",
+        "line": 34,
+        "name": "GLOW",
+        "value_text": "1.8",
+        "snippet": "const float GLOW = 1.8;",
+        "note": "already promotable, GPU-AUDIO-004"
+      },
+      {
+        "category": "const_float_safe_promotable",
+        "classification": "CURRENT",
+        "line": 33,
+        "name": "ZOOM",
+        "value_text": "1.4",
+        "snippet": "const float ZOOM = 1.4;",
+        "note": "already promotable, GPU-AUDIO-004"
+      },
+      {
+        "category": "const_float_safe_promotable",
+        "classification": "CURRENT",
+        "line": 32,
+        "name": "SPEED",
+        "value_text": "0.6",
+        "snippet": "const float SPEED = 0.6;",
+        "note": "already promotable, GPU-AUDIO-004"
+      },
+      {
+        "category": "local_float_literal",
+        "classification": "HIGH_VALUE_SAFE_CANDIDATE",
+        "line": 44,
+        "name": "pattern",
+        "value_text": "0.0",
+        "snippet": "float pattern = 0.0;",
+        "note": "local float initialized directly from a numeric literal"
+      },
+      {
+        "category": "vec_literal",
+        "classification": "POSSIBLE_CANDIDATE",
+        "line": 50,
+        "name": null,
+        "value_text": "vec3(0.1, 0.5, 1.0)",
+        "snippet": "vec3 col = vec3(0.1, 0.5, 1.0) * (0.5 + 0.5 * pattern);",
+        "note": "probable color (RGB, all components in ~0..1)"
+      },
+      {
+        "category": "vec_literal",
+        "classification": "POSSIBLE_CANDIDATE",
+        "line": 59,
+        "name": null,
+        "value_text": "vec3(1.0, 0.2, 0.6)",
+        "snippet": "col += vec3(1.0, 0.2, 0.6) * (0.15 / (r + 0.15));",
+        "note": "probable color (RGB, all components in ~0..1)"
+      },
+      {
+        "category": "structural_int_loop_bound",
+        "classification": "STRUCTURAL_UNSAFE",
+        "line": 45,
+        "name": null,
+        "value_text": "0",
+        "snippet": "for (int i = 0; i < STEPS; i++) {",
+        "note": "loop bound / iteration literal"
+      },
+      {
+        "category": "inline_scalar_literal",
+        "classification": "POSSIBLE_CANDIDATE",
+        "line": 34,
+        "name": null,
+        "value_text": "1.8",
+        "snippet": "const float GLOW = 1.8;",
+        "note": "heuristic context: glow/exposure-related"
+      },
+      {
+        "category": "inline_scalar_literal",
+        "classification": "POSSIBLE_CANDIDATE",
+        "line": 35,
+        "name": null,
+        "value_text": "24",
+        "snippet": "const int STEPS = 24;",
+        "note": "heuristic context: glow/exposure-related"
+      },
+      {
+        "category": "inline_scalar_literal",
+        "classification": "POSSIBLE_CANDIDATE",
+        "line": 38,
+        "name": null,
+        "value_text": "0.5",
+        "snippet": "vec2 uv = (fragCoord - 0.5 * iResolution.xy) / min(iResolution.x, iResolution.y);",
+        "note": "heuristic context: coordinate/geometry-related"
+      },
+      {
+        "category": "inline_scalar_literal",
+        "classification": "POSSIBLE_CANDIDATE",
+        "line": 55,
+        "name": null,
+        "value_text": "0.55",
+        "snippet": "col *= (GLOW * 0.55);",
+        "note": "heuristic context: glow/exposure-related"
+      },
+      {
+        "category": "inline_scalar_literal",
+        "classification": "UNKNOWN",
+        "line": 47,
+        "name": null,
+        "value_text": "20.0",
+        "snippet": "pattern += sin(r * 20.0 - t * 3.0 + a * 5.0 + fi * 6.283) * 0.05;",
+        "note": "heuristic context: unknown"
+      },
+      {
+        "category": "inline_scalar_literal",
+        "classification": "UNKNOWN",
+        "line": 47,
+        "name": null,
+        "value_text": "3.0",
+        "snippet": "pattern += sin(r * 20.0 - t * 3.0 + a * 5.0 + fi * 6.283) * 0.05;",
+        "note": "heuristic context: unknown"
+      },
+      {
+        "category": "inline_scalar_literal",
+        "classification": "UNKNOWN",
+        "line": 47,
+        "name": null,
+        "value_text": "5.0",
+        "snippet": "pattern += sin(r * 20.0 - t * 3.0 + a * 5.0 + fi * 6.283) * 0.05;",
+        "note": "heuristic context: unknown"
+      },
+      {
+        "category": "inline_scalar_literal",
+        "classification": "UNKNOWN",
+        "line": 47,
+        "name": null,
+        "value_text": "6.283",
+        "snippet": "pattern += sin(r * 20.0 - t * 3.0 + a * 5.0 + fi * 6.283) * 0.05;",
+        "note": "heuristic context: unknown"
+      }
+    ],
+    "inline_literal_total": 18
+  },
+  {
+    "path": "user_shaders\\test_discovered_params.frag",
+    "corpus_tag": "TEST_FIXTURE",
+    "line_count": 33,
+    "candidates": [
+      {
+        "category": "uniform_float_bare",
+        "classification": "CURRENT",
+        "line": 6,
+        "name": "u_zoom",
+        "value_text": "1.0",
+        "snippet": "uniform float u_zoom;",
+        "note": "explicit uniform, already discoverable (GPU-AUDIO-003)"
+      },
+      {
+        "category": "uniform_float_bare",
+        "classification": "CURRENT",
+        "line": 7,
+        "name": "u_speed",
+        "value_text": "1.0",
+        "snippet": "uniform float u_speed;",
+        "note": "explicit uniform, already discoverable (GPU-AUDIO-003)"
+      },
+      {
+        "category": "uniform_float_bare",
+        "classification": "CURRENT",
+        "line": 8,
+        "name": "u_glow",
+        "value_text": "1.0",
+        "snippet": "uniform float u_glow;",
+        "note": "explicit uniform, already discoverable (GPU-AUDIO-003)"
+      },
+      {
+        "category": "vec_literal",
+        "classification": "POSSIBLE_CANDIDATE",
+        "line": 23,
+        "name": null,
+        "value_text": "vec3(0.0, 0.95, 1.0)",
+        "snippet": "vec3 cyan = vec3(0.0, 0.95, 1.0);",
+        "note": "probable color (RGB, all components in ~0..1)"
+      },
+      {
+        "category": "vec_literal",
+        "classification": "POSSIBLE_CANDIDATE",
+        "line": 24,
+        "name": null,
+        "value_text": "vec3(1.0, 0.05, 0.6)",
+        "snippet": "vec3 pink = vec3(1.0, 0.05, 0.6);",
+        "note": "probable color (RGB, all components in ~0..1)"
+      },
+      {
+        "category": "inline_scalar_literal",
+        "classification": "POSSIBLE_CANDIDATE",
+        "line": 12,
+        "name": null,
+        "value_text": "0.5",
+        "snippet": "vec2 p = (fragCoord - 0.5 * iResolution.xy) / min(iResolution.x, iResolution.y);",
+        "note": "heuristic context: coordinate/geometry-related"
+      },
+      {
+        "category": "inline_scalar_literal",
+        "classification": "POSSIBLE_CANDIDATE",
+        "line": 28,
+        "name": null,
+        "value_text": "0.05",
+        "snippet": "float core = (0.05 / (r + 0.02)) * u_glow;",
+        "note": "heuristic context: glow/exposure-related"
+      },
+      {
+        "category": "inline_scalar_literal",
+        "classification": "POSSIBLE_CANDIDATE",
+        "line": 28,
+        "name": null,
+        "value_text": "0.02",
+        "snippet": "float core = (0.05 / (r + 0.02)) * u_glow;",
+        "note": "heuristic context: glow/exposure-related"
+      },
+      {
+        "category": "inline_scalar_literal",
+        "classification": "UNKNOWN",
+        "line": 13,
+        "name": null,
+        "value_text": "0.01",
+        "snippet": "p /= max(0.01, u_zoom);",
+        "note": "heuristic context: unknown"
+      },
+      {
+        "category": "inline_scalar_literal",
+        "classification": "UNKNOWN",
+        "line": 20,
+        "name": null,
+        "value_text": "4.0",
+        "snippet": "float ring = sin(r * 24.0 - t * 4.0 + a * 3.0);",
+        "note": "heuristic context: unknown"
+      },
+      {
+        "category": "inline_scalar_literal",
+        "classification": "UNKNOWN",
+        "line": 20,
+        "name": null,
+        "value_text": "3.0",
+        "snippet": "float ring = sin(r * 24.0 - t * 4.0 + a * 3.0);",
+        "note": "heuristic context: unknown"
+      }
+    ],
+    "inline_literal_total": 12
+  },
+  {
+    "path": "user_shaders\\test_preset.frag",
+    "corpus_tag": "TEST_FIXTURE",
+    "line_count": 8,
+    "candidates": [
+      {
+        "category": "uniform_float_annotated",
+        "classification": "CURRENT",
+        "line": 0,
+        "name": "u_gain",
+        "value_text": "1.0",
+        "snippet": "",
+        "note": "explicit uniform, already discoverable (GPU-AUDIO-003)"
+      }
+    ],
+    "inline_literal_total": 1
+  },
+  {
+    "path": "user_shaders\\test_reload.frag",
+    "corpus_tag": "TEST_FIXTURE",
+    "line_count": 7,
+    "candidates": [
+      {
+        "category": "uniform_float_annotated",
+        "classification": "CURRENT",
+        "line": 3,
+        "name": "u_bright",
+        "value_text": "1.0",
+        "snippet": "uniform float u_bright;",
+        "note": "explicit uniform, already discoverable (GPU-AUDIO-003)"
+      },
+      {
+        "category": "inline_scalar_literal",
+        "classification": "POSSIBLE_CANDIDATE",
+        "line": 5,
+        "name": null,
+        "value_text": "0.0",
+        "snippet": "fragColor = vec4(0.0, u_bright, 0.0, 1.0);",
+        "note": "heuristic context: glow/exposure-related"
+      },
+      {
+        "category": "inline_scalar_literal",
+        "classification": "POSSIBLE_CANDIDATE",
+        "line": 5,
+        "name": null,
+        "value_text": "1.0",
+        "snippet": "fragColor = vec4(0.0, u_bright, 0.0, 1.0);",
+        "note": "heuristic context: glow/exposure-related"
+      }
+    ],
+    "inline_literal_total": 3
+  },
+  {
+    "path": "user_shaders\\test_same_reload.frag",
+    "corpus_tag": "TEST_FIXTURE",
+    "line_count": 2,
+    "candidates": [
+      {
+        "category": "uniform_float_annotated",
+        "classification": "CURRENT",
+        "line": 0,
+        "name": "u_s",
+        "value_text": "1.0",
+        "snippet": "",
+        "note": "explicit uniform, already discoverable (GPU-AUDIO-003)"
+      },
+      {
+        "category": "inline_scalar_literal",
+        "classification": "UNKNOWN",
+        "line": 2,
+        "name": null,
+        "value_text": "1.0",
+        "snippet": "void mainImage(out vec4 f, in vec2 c){f=vec4(1.0);}",
+        "note": "heuristic context: unknown"
+      }
+    ],
+    "inline_literal_total": 1
+  },
+  {
+    "path": "user_shaders\\test_session_iso.frag",
+    "corpus_tag": "TEST_FIXTURE",
+    "line_count": 2,
+    "candidates": [],
+    "inline_literal_total": 0
+  },
+  {
+    "path": "user_shaders\\test_switch_local.frag",
+    "corpus_tag": "TEST_FIXTURE",
+    "line_count": 1,
+    "candidates": [
+      {
+        "category": "inline_scalar_literal",
+        "classification": "UNKNOWN",
+        "line": 1,
+        "name": null,
+        "value_text": "1.0",
+        "snippet": "void mainImage(out vec4 f, in vec2 c){f=vec4(1.0);}",
+        "note": "heuristic context: unknown"
+      }
+    ],
+    "inline_literal_total": 1
+  },
+  {
+    "path": "user_shaders\\test_unannotated.frag",
+    "corpus_tag": "TEST_FIXTURE",
+    "line_count": 6,
+    "candidates": [],
+    "inline_literal_total": 1
+  },
+  {
+    "path": "user_shaders\\test_user_spiral.frag",
+    "corpus_tag": "TEST_FIXTURE",
+    "line_count": 22,
+    "candidates": [
+      {
+        "category": "uniform_float_annotated",
+        "classification": "CURRENT",
+        "line": 14,
+        "name": "u_spiralArms",
+        "value_text": "6.0",
+        "snippet": "float spiral = sin(a * u_spiralArms + log(r + 0.001) * 4.0 - iTime * u_speed + taMids * 2.0);",
+        "note": "explicit uniform, already discoverable (GPU-AUDIO-003)"
+      },
+      {
+        "category": "uniform_float_annotated",
+        "classification": "CURRENT",
+        "line": 14,
+        "name": "u_speed",
+        "value_text": "2.0",
+        "snippet": "float spiral = sin(a * u_spiralArms + log(r + 0.001) * 4.0 - iTime * u_speed + taMids * 2.0);",
+        "note": "explicit uniform, already discoverable (GPU-AUDIO-003)"
+      },
+      {
+        "category": "vec_literal",
+        "classification": "POSSIBLE_CANDIDATE",
+        "line": 17,
+        "name": null,
+        "value_text": "vec3(0.1, 0.5, 0.9)",
+        "snippet": "vec3 col = vec3(0.1, 0.5, 0.9) * max(0.0, spiral);",
+        "note": "probable color (RGB, all components in ~0..1)"
+      },
+      {
+        "category": "vec_literal",
+        "classification": "POSSIBLE_CANDIDATE",
+        "line": 18,
+        "name": null,
+        "value_text": "vec3(1.0, 0.2, 0.7)",
+        "snippet": "col += vec3(1.0, 0.2, 0.7) * glow;",
+        "note": "probable color (RGB, all components in ~0..1)"
+      },
+      {
+        "category": "inline_scalar_literal",
+        "classification": "POSSIBLE_CANDIDATE",
+        "line": 10,
+        "name": null,
+        "value_text": "0.5",
+        "snippet": "vec2 uv = (fragCoord - 0.5 * iResolution.xy) / iResolution.y;",
+        "note": "heuristic context: coordinate/geometry-related"
+      },
+      {
+        "category": "inline_scalar_literal",
+        "classification": "POSSIBLE_CANDIDATE",
+        "line": 15,
+        "name": null,
+        "value_text": "0.01",
+        "snippet": "float glow = 0.02 / (r + 0.01) * (0.5 + taBass * 1.5);",
+        "note": "heuristic context: glow/exposure-related"
+      },
+      {
+        "category": "inline_scalar_literal",
+        "classification": "POSSIBLE_CANDIDATE",
+        "line": 15,
+        "name": null,
+        "value_text": "0.5",
+        "snippet": "float glow = 0.02 / (r + 0.01) * (0.5 + taBass * 1.5);",
+        "note": "heuristic context: glow/exposure-related"
+      },
+      {
+        "category": "inline_scalar_literal",
+        "classification": "POSSIBLE_CANDIDATE",
+        "line": 20,
+        "name": null,
+        "value_text": "1.0",
+        "snippet": "fragColor = vec4(col, 1.0);",
+        "note": "heuristic context: glow/exposure-related"
+      },
+      {
+        "category": "inline_scalar_literal",
+        "classification": "UNKNOWN",
+        "line": 14,
+        "name": null,
+        "value_text": "0.001",
+        "snippet": "float spiral = sin(a * u_spiralArms + log(r + 0.001) * 4.0 - iTime * u_speed + taMids * 2.0);",
+        "note": "heuristic context: unknown"
+      },
+      {
+        "category": "inline_scalar_literal",
+        "classification": "UNKNOWN",
+        "line": 14,
+        "name": null,
+        "value_text": "4.0",
+        "snippet": "float spiral = sin(a * u_spiralArms + log(r + 0.001) * 4.0 - iTime * u_speed + taMids * 2.0);",
+        "note": "heuristic context: unknown"
+      },
+      {
+        "category": "inline_scalar_literal",
+        "classification": "UNKNOWN",
+        "line": 15,
+        "name": null,
+        "value_text": "1.5",
+        "snippet": "float glow = 0.02 / (r + 0.01) * (0.5 + taBass * 1.5);",
+        "note": "heuristic context: unknown"
+      }
+    ],
+    "inline_literal_total": 10
+  }
+]

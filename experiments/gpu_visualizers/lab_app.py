@@ -634,7 +634,12 @@ class GPUAuthoringLabWindow(QMainWindow):
                 h_row = QHBoxLayout()
                 # GPU-AUDIO-004: identify promoted-const provenance inline —
                 # no separate "CONST PANEL", same card, same as the Integrated LAB.
-                name_text = f"{param.display_name} [CONST]" if getattr(param, "is_promoted_const", False) else param.display_name
+                if getattr(param, "is_promoted_const", False):
+                    name_text = f"{param.display_name} [CONST]"
+                elif getattr(param, "auto_param_kind", None):
+                    name_text = f"{param.display_name} [AUTO PARAM]"
+                else:
+                    name_text = param.display_name
                 lbl_name = QLabel(name_text, card)
                 lbl_name.setStyleSheet("color: #00f0ff; font-size: 10px; font-weight: bold; border: none;")
                 h_row.addWidget(lbl_name)

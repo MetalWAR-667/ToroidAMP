@@ -1080,7 +1080,12 @@ class RetinaMeltWindow(QWidget):
             else:
                 # float parameter
                 h_row = QHBoxLayout()
-                name_text = f"{param.display_name} [CONST]" if getattr(param, "is_promoted_const", False) else param.display_name
+                if getattr(param, "is_promoted_const", False):
+                    name_text = f"{param.display_name} [CONST]"
+                elif getattr(param, "auto_param_kind", None):
+                    name_text = f"{param.display_name} [AUTO PARAM]"
+                else:
+                    name_text = param.display_name
                 lbl_name = QLabel(name_text, card)
                 lbl_name.setStyleSheet(f"color: {pal.primary}; font-family: {mono_font}; font-size: 10px; font-weight: bold; border: none;")
                 h_row.addWidget(lbl_name)
@@ -1288,7 +1293,12 @@ class RetinaMeltWindow(QWidget):
             else:
                 # float parameter
                 h_row = QHBoxLayout()
-                name_text = f"{param.display_name} [CONST]" if getattr(param, "is_promoted_const", False) else param.display_name
+                if getattr(param, "is_promoted_const", False):
+                    name_text = f"{param.display_name} [CONST]"
+                elif getattr(param, "auto_param_kind", None):
+                    name_text = f"{param.display_name} [AUTO PARAM]"
+                else:
+                    name_text = param.display_name
                 lbl_name = QLabel(name_text, card)
                 lbl_name.setStyleSheet(f"color: {pal.primary}; font-size: 10px; font-weight: bold; border: none;")
                 h_row.addWidget(lbl_name)
