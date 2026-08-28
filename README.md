@@ -18,6 +18,13 @@ DEMOSCENE SOUL.
 
 ---
 
+## See ToroidAMP in action
+
+[![Watch ToroidAMP melt the retina](assets/images/toroidamp_video_thumbnail.png)](https://www.youtube.com/watch?v=7Z4yRYgsavI)
+
+**ToroidAMP — It really warps the toroid's ass!**
+
+
 ## 1. Quick Start / Installation
 
 ### Prerequisites
