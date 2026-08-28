@@ -316,6 +316,20 @@ class GPUAuthoringLabWindow(QMainWindow):
         self.btn_reset_params.setStyleSheet(btn_style)
         self.btn_reset_params.clicked.connect(self.reset_parameters)
         h_param_hdr.addWidget(self.btn_reset_params)
+
+        # GPU-AUDIO-005: Bounded Auto Musicalization action bar (Standalone Lab parity).
+        self.btn_musicalize = QPushButton("⚡ MUSICALIZE", side_panel)
+        self.btn_musicalize.setStyleSheet("""
+            QPushButton { background-color: #1a1e2e; color: #ff0077; border: 1px solid #ff0077; border-radius: 3px; font-family: monospace; font-size: 10px; padding: 3px 6px; font-weight: bold; }
+            QPushButton:hover { background-color: #ff0077; color: #ffffff; }
+        """)
+        self.btn_musicalize.clicked.connect(self.musicalize_shader)
+        h_param_hdr.addWidget(self.btn_musicalize)
+
+        self.btn_clear_auto = QPushButton("CLEAR AUTO", side_panel)
+        self.btn_clear_auto.setStyleSheet(btn_style)
+        self.btn_clear_auto.clicked.connect(self.clear_auto_musicalize)
+        h_param_hdr.addWidget(self.btn_clear_auto)
         s_layout.addLayout(h_param_hdr)
 
         self.param_scroll = QScrollArea(side_panel)
@@ -654,8 +668,9 @@ class GPUAuthoringLabWindow(QMainWindow):
                 slider.valueChanged.connect(make_slider_cb())
                 c_layout.addWidget(slider)
 
-                # Audio Modulation Binding Row (GPU-AUDIO-003)
-                curr_src, curr_amt = self.canvas.get_param_audio_binding(p_name)
+                # Audio Modulation Binding Row (GPU-AUDIO-003; GPU-AUDIO-005 ownership badge)
+                curr_src, curr_amt, _curr_mode, curr_origin = self.canvas.get_param_audio_binding_full(p_name)
+                is_auto = curr_origin == "auto" and curr_src != "NONE"
                 h_audio = QHBoxLayout()
                 h_audio.setSpacing(4)
 
@@ -666,22 +681,22 @@ class GPUAuthoringLabWindow(QMainWindow):
                 # Integrated RETINA LAB in real use — see
                 # docs/design/10_gpu_audio_003.md. Same interaction model as
                 # the Integrated LAB (src/toroidamp/ui/fullscreen.py).
-                btn_src = QPushButton(f"AUDIO: {curr_src}", card)
-                btn_src.setStyleSheet("""
-                    QPushButton {
+                btn_src = QPushButton(f"AUDIO: {curr_src}" + (" [AUTO]" if is_auto else ""), card)
+                btn_src.setStyleSheet(f"""
+                    QPushButton {{
                         background: #1a1e2e;
-                        color: #00f0ff;
+                        color: {'#ff0077' if is_auto else '#00f0ff'};
                         font-family: monospace;
                         font-size: 8px;
                         font-weight: bold;
                         border: 1px solid #2e384d;
                         border-radius: 2px;
                         padding: 2px 4px;
-                    }
-                    QPushButton:hover {
+                    }}
+                    QPushButton:hover {{
                         background: #00f0ff;
                         color: #000000;
-                    }
+                    }}
                 """)
 
                 lbl_amt = QLabel(f"{curr_amt:+4.2f}", card)
@@ -797,6 +812,21 @@ class GPUAuthoringLabWindow(QMainWindow):
     def reset_parameters(self):
         self.canvas.reset_params()
         self._rebuild_parameter_ui()
+
+    def musicalize_shader(self):
+        """GPU-AUDIO-005: bounded, deterministic auto audio bindings for eligible float parameters."""
+        applied = self.canvas.musicalize()
+        self._rebuild_parameter_ui()
+        if applied:
+            self.error_view.setText(f"[MUSICALIZE] Generated {len(applied)} bounded auto binding(s).")
+        else:
+            self.error_view.setText("[MUSICALIZE] No eligible unbound float parameters found.")
+
+    def clear_auto_musicalize(self):
+        """GPU-AUDIO-005 reversibility: removes only MUSICALIZE-generated bindings, leaving manual work intact."""
+        n = self.canvas.clear_auto_bindings()
+        self._rebuild_parameter_ui()
+        self.error_view.setText(f"[CLEAR AUTO] Removed {n} auto-generated binding(s).")
 
     def _on_profile_changed(self, idx: int):
         if 0 <= idx < len(PROFILE_ORDER):

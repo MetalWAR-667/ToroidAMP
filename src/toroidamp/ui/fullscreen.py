@@ -513,6 +513,19 @@ class RetinaMeltWindow(QWidget):
         h_preset_actions.addWidget(self.btn_lab_load_preset)
         self.lab_layout.addLayout(h_preset_actions)
 
+        # GPU-AUDIO-005: Bounded Auto Musicalization action bar.
+        h_musicalize_actions = QHBoxLayout()
+        h_musicalize_actions.setSpacing(4)
+
+        self.btn_lab_musicalize = QPushButton("⚡ MUSICALIZE", self.lab_panel)
+        self.btn_lab_musicalize.clicked.connect(self._musicalize_lab_shader)
+        h_musicalize_actions.addWidget(self.btn_lab_musicalize)
+
+        self.btn_lab_clear_auto = QPushButton("CLEAR AUTO", self.lab_panel)
+        self.btn_lab_clear_auto.clicked.connect(self._clear_auto_musicalize)
+        h_musicalize_actions.addWidget(self.btn_lab_clear_auto)
+        self.lab_layout.addLayout(h_musicalize_actions)
+
         # Scrollable Parameters Area
         self.lab_scroll = QScrollArea(self.lab_panel)
         self.lab_scroll.setWidgetResizable(True)
@@ -764,6 +777,32 @@ class RetinaMeltWindow(QWidget):
                 padding: 3px 5px;
             }}
             QPushButton:hover {{ background: {pal.accent}; color: #ffffff; }}
+        """)
+        self.btn_lab_musicalize.setStyleSheet(f"""
+            QPushButton {{
+                background: {pal.bg_control};
+                border: 1px solid {pal.accent};
+                border-radius: 3px;
+                color: {pal.accent};
+                font-family: {mono_font};
+                font-size: 9px;
+                font-weight: bold;
+                padding: 3px 5px;
+            }}
+            QPushButton:hover {{ background: {pal.accent}; color: #ffffff; }}
+        """)
+        self.btn_lab_clear_auto.setStyleSheet(f"""
+            QPushButton {{
+                background: {pal.bg_control};
+                border: 1px solid {pal.text_dim};
+                border-radius: 3px;
+                color: {pal.text_dim};
+                font-family: {mono_font};
+                font-size: 9px;
+                font-weight: bold;
+                padding: 3px 5px;
+            }}
+            QPushButton:hover {{ background: {pal.text_dim}; color: {pal.bg_lcd}; }}
         """)
 
     @property
@@ -1284,8 +1323,9 @@ class RetinaMeltWindow(QWidget):
                 slider.valueChanged.connect(make_slider_cb())
                 c_layout.addWidget(slider)
 
-                # Audio Modulation Binding Row (GPU-AUDIO-003)
-                curr_src, curr_amt = self.gpu_canvas.get_param_audio_binding(p_name)
+                # Audio Modulation Binding Row (GPU-AUDIO-003; GPU-AUDIO-005 ownership badge)
+                curr_src, curr_amt, _curr_mode, curr_origin = self.gpu_canvas.get_param_audio_binding_full(p_name)
+                is_auto = curr_origin == "auto" and curr_src != "NONE"
                 h_audio = QHBoxLayout()
                 h_audio.setSpacing(4)
 
@@ -1297,11 +1337,11 @@ class RetinaMeltWindow(QWidget):
                 # docs/design/10_gpu_audio_003.md. Clicking the button
                 # expands a small grid of checkable source buttons directly
                 # below it, inside this same card.
-                btn_src = QPushButton(f"AUDIO: {curr_src}", card)
+                btn_src = QPushButton(f"AUDIO: {curr_src}" + (" [AUTO]" if is_auto else ""), card)
                 btn_src.setStyleSheet(f"""
                     QPushButton {{
                         background: {pal.bg_control};
-                        color: {pal.primary};
+                        color: {pal.accent if is_auto else pal.primary};
                         font-family: {mono_font};
                         font-size: 8px;
                         font-weight: bold;
@@ -1427,6 +1467,30 @@ class RetinaMeltWindow(QWidget):
         """Toggles presentation-level generic auto-reactivity on GPU canvas."""
         self.gpu_canvas.set_auto_react(checked)
         self.gpu_canvas.update()
+
+    def _musicalize_lab_shader(self):
+        """
+        GPU-AUDIO-005: assigns bounded, deterministic auto audio bindings to
+        eligible float parameters (never overwriting manually-configured
+        ones), then rebuilds the LAB cards so the result is immediately
+        visible and editable — MUSICALIZE never hides its result behind a
+        separate black-box mode.
+        """
+        applied = self.gpu_canvas.musicalize()
+        self._rebuild_lab_panel()
+        if applied:
+            self.lab_diag_view.setText(f"[MUSICALIZE] Generated {len(applied)} bounded auto binding(s).")
+            self.lab_diag_view.setStyleSheet("color: #00ffcc; font-family: monospace; font-size: 9px; background: #0e111a; padding: 4px 6px; border: 1px solid #1a2032; border-radius: 2px;")
+        else:
+            self.lab_diag_view.setText("[MUSICALIZE] No eligible unbound float parameters found.")
+            self.lab_diag_view.setStyleSheet("color: #ffaa00; font-family: monospace; font-size: 9px; background: #0e111a; padding: 4px 6px; border: 1px solid #1a2032; border-radius: 2px;")
+
+    def _clear_auto_musicalize(self):
+        """GPU-AUDIO-005 reversibility: removes only MUSICALIZE-generated bindings, leaving manual work intact."""
+        n = self.gpu_canvas.clear_auto_bindings()
+        self._rebuild_lab_panel()
+        self.lab_diag_view.setText(f"[CLEAR AUTO] Removed {n} auto-generated binding(s).")
+        self.lab_diag_view.setStyleSheet("color: #00ffcc; font-family: monospace; font-size: 9px; background: #0e111a; padding: 4px 6px; border: 1px solid #1a2032; border-radius: 2px;")
 
     def _load_local_shader_dialog(self):
         """Loads a local GLSL shader into RETINA MELT from user_shaders/."""

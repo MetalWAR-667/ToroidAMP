@@ -220,7 +220,7 @@ class TestGPUAudio003DiscoveredBinding(unittest.TestCase):
 
         slider_amt.setValue(200)  # +2.00
         QApplication.processEvents()
-        self.assertEqual(win.gpu_canvas.audio_bindings.get("u_zoom"), ("BASS", 2.0))
+        self.assertEqual(win.gpu_canvas.audio_bindings.get("u_zoom")[:2], ("BASS", 2.0))
 
         active_frame = AudioFrame(
             rms=0.5, peak=0.8, bass=0.75, mids=0.4, treble=0.2,
@@ -229,7 +229,7 @@ class TestGPUAudio003DiscoveredBinding(unittest.TestCase):
         )
         win.render_frame(active_frame, 0.016)
         base_val = win.gpu_canvas.current_params["u_zoom"]
-        src, amt = win.gpu_canvas.audio_bindings["u_zoom"]
+        src, amt = win.gpu_canvas.audio_bindings["u_zoom"][:2]
         final_val = base_val + (getattr(win.gpu_canvas._current_audio_frame, src.lower()) * amt)
         self.assertAlmostEqual(final_val, 2.50)  # 1.0 base + 0.75*2.00
 
@@ -343,7 +343,7 @@ class TestGPUAudio003DiscoveredBinding(unittest.TestCase):
         self.assertEqual(btn_src.text(), "AUDIO: BASS")
         self.assertEqual(lbl_amt.text().strip(), "+2.00")
         self.assertAlmostEqual(win.gpu_canvas.current_params["u_zoom"], 0.80, places=2)
-        self.assertEqual(win.gpu_canvas.audio_bindings["u_zoom"], ("BASS", 2.0))
+        self.assertEqual(win.gpu_canvas.audio_bindings["u_zoom"][:2], ("BASS", 2.0))
 
         # Hot reload via _reload_lab_shader (same path as pressing R).
         win._reload_lab_shader()
@@ -358,7 +358,7 @@ class TestGPUAudio003DiscoveredBinding(unittest.TestCase):
         self.assertEqual(btn_after.text(), "AUDIO: BASS")
         self.assertEqual(lbl_amt_after.text().strip(), "+2.00")
         self.assertAlmostEqual(win.gpu_canvas.current_params["u_zoom"], 0.80, places=2)
-        self.assertEqual(win.gpu_canvas.audio_bindings["u_zoom"], ("BASS", 2.0))
+        self.assertEqual(win.gpu_canvas.audio_bindings["u_zoom"][:2], ("BASS", 2.0))
         # Selector does not need to reopen automatically after a rebuild.
         self.assertIsNone(win._active_audio_selector_frame)
 
@@ -369,7 +369,7 @@ class TestGPUAudio003DiscoveredBinding(unittest.TestCase):
         )
         win.render_frame(active_frame, 0.016)
         base_val = win.gpu_canvas.current_params["u_zoom"]
-        src, amt = win.gpu_canvas.audio_bindings["u_zoom"]
+        src, amt = win.gpu_canvas.audio_bindings["u_zoom"][:2]
         final_val = base_val + (getattr(win.gpu_canvas._current_audio_frame, src.lower()) * amt)
         self.assertAlmostEqual(final_val, 0.80 + (0.75 * 2.0), places=2)  # 2.30
 
@@ -441,7 +441,7 @@ class TestGPUAudio003DiscoveredBinding(unittest.TestCase):
         slider_amt = zoom_card.findChildren(QSlider)[1]
         slider_amt.setValue(200)
         QApplication.processEvents()
-        self.assertEqual(win.gpu_canvas.audio_bindings["u_zoom"], ("BASS", 2.0))
+        self.assertEqual(win.gpu_canvas.audio_bindings["u_zoom"][:2], ("BASS", 2.0))
 
         # 12. Inject bass=0.75.
         active_frame = AudioFrame(
@@ -465,7 +465,7 @@ class TestGPUAudio003DiscoveredBinding(unittest.TestCase):
         btn_after = [c for c in zoom_card_after.findChildren(QPushButton) if "AUDIO:" in c.text()][0]
         self.assertAlmostEqual(win.gpu_canvas.current_params["u_zoom"], base_val, places=2)
         self.assertEqual(btn_after.text(), "AUDIO: BASS")
-        self.assertEqual(win.gpu_canvas.audio_bindings["u_zoom"], ("BASS", 2.0))
+        self.assertEqual(win.gpu_canvas.audio_bindings["u_zoom"][:2], ("BASS", 2.0))
 
         win.close()
 
