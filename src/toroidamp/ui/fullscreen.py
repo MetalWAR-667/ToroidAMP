@@ -44,6 +44,8 @@ from ..visualizers.toroid_identity import ToroidIdentityVisualizer
 from ..visualizers.cyber_bloom import CyberBloomVisualizer
 from .chassis import SeekSlider
 from .marquee import MarqueeLabel
+from .theme import ThemeManager, ThemeDefinition
+
 COLOR_DIALOG_STYLESHEET = """
     QColorDialog {
         background-color: #121520;
@@ -84,10 +86,52 @@ COLOR_DIALOG_STYLESHEET = """
 
 
 def _open_styled_color_dialog(initial_color: QColor, parent: Optional[QWidget] = None, title: str = "Select Color") -> Optional[QColor]:
-    """Opens a QColorDialog styled with ToroidAMP's dark cyberpunk palette to guarantee high-contrast readability."""
+    """Opens a QColorDialog styled with ToroidAMP's high-contrast palette to guarantee readability."""
+    theme = ThemeManager.get_instance().current_theme
+    pal = theme.palette
+    typo = theme.typography
+    mono_font = f"'{typo.monospace_family}', monospace"
+
+    style = f"""
+        QColorDialog {{
+            background-color: {pal.bg_surface};
+        }}
+        QLabel {{
+            color: {pal.text_primary};
+            font-family: {mono_font};
+            font-size: 10px;
+        }}
+        QLineEdit, QSpinBox {{
+            background-color: {pal.bg_surface_alt};
+            color: {pal.primary};
+            border: 1px solid {pal.border_control};
+            border-radius: 3px;
+            padding: 2px 4px;
+            font-family: {mono_font};
+            font-size: 10px;
+        }}
+        QPushButton {{
+            background-color: {pal.bg_control};
+            color: {pal.primary};
+            border: 1px solid {pal.primary};
+            border-radius: 3px;
+            padding: 4px 10px;
+            font-family: {mono_font};
+            font-weight: bold;
+            font-size: 10px;
+        }}
+        QPushButton:hover {{
+            background-color: {pal.primary};
+            color: {pal.bg_lcd};
+        }}
+        QPushButton:pressed {{
+            background-color: {pal.bg_control_pressed};
+            color: {pal.bg_lcd};
+        }}
+    """
     dlg = QColorDialog(initial_color, parent)
     dlg.setWindowTitle(title)
-    dlg.setStyleSheet(COLOR_DIALOG_STYLESHEET)
+    dlg.setStyleSheet(style)
     if dlg.exec() == QColorDialog.Accepted:
         return dlg.selectedColor()
     return None
@@ -116,6 +160,8 @@ class RetinaMeltWindow(QWidget):
         super().__init__(parent, Qt.Window | Qt.FramelessWindowHint)
         self.setStyleSheet("background-color: #000000;")
         self.session_manager = session_manager
+        self._theme_manager = ThemeManager.get_instance()
+        self._current_theme: ThemeDefinition = self._theme_manager.current_theme
 
         # Local shader tracking for current session
         self._local_shader_path: Optional[Path] = None
@@ -144,15 +190,6 @@ class RetinaMeltWindow(QWidget):
         # 2. Floating Cyberpunk HUD Overlay Container
         self.hud = QFrame(self)
         self.hud.setFixedSize(680, 84)
-        self.hud.setStyleSheet(
-            """
-            QFrame#retina_hud {
-                background-color: rgba(10, 11, 16, 230);
-                border: 1px solid #00f0ff;
-                border-radius: 6px;
-            }
-        """
-        )
         self.hud.setObjectName("retina_hud")
 
         hud_layout = QVBoxLayout(self.hud)
@@ -163,15 +200,9 @@ class RetinaMeltWindow(QWidget):
         row1 = QHBoxLayout()
         self.hud_marquee = MarqueeLabel(self.hud)
         self.hud_marquee.set_marquee_text("TOROIDAMP // RETINA MELT")
-        self.hud_marquee.setStyleSheet(
-            "color: #00f0ff; font-family: monospace; font-size: 11px; font-weight: bold; background: transparent;"
-        )
         row1.addWidget(self.hud_marquee, stretch=1)
 
         self.hud_time = QLabel("00:00 / 00:00", self.hud)
-        self.hud_time.setStyleSheet(
-            "color: #7882a0; font-family: monospace; font-size: 10px; background: transparent;"
-        )
         row1.addWidget(self.hud_time)
         hud_layout.addLayout(row1)
 
@@ -185,57 +216,20 @@ class RetinaMeltWindow(QWidget):
         row2 = QHBoxLayout()
         row2.setSpacing(6)
 
-        btn_prev = QPushButton("⏮", self.hud)
-        btn_prev.setFixedSize(28, 22)
-        btn_prev.setStyleSheet(
-            """
-            QPushButton {
-                background-color: #141724;
-                border: 1px solid #222638;
-                border-radius: 3px;
-                color: #ffffff;
-                font-size: 10px;
-            }
-            QPushButton:hover { background-color: #00f0ff; color: #000000; }
-        """
-        )
-        btn_prev.clicked.connect(self.prev_clicked.emit)
-        row2.addWidget(btn_prev)
+        self.hud_btn_prev = QPushButton("⏮", self.hud)
+        self.hud_btn_prev.setFixedSize(28, 22)
+        self.hud_btn_prev.clicked.connect(self.prev_clicked.emit)
+        row2.addWidget(self.hud_btn_prev)
 
         self.hud_btn_play = QPushButton("►", self.hud)
         self.hud_btn_play.setFixedSize(28, 22)
-        self.hud_btn_play.setStyleSheet(
-            """
-            QPushButton {
-                background-color: #141724;
-                border: 1px solid #00f0ff;
-                border-radius: 3px;
-                color: #00f0ff;
-                font-weight: bold;
-                font-size: 11px;
-            }
-            QPushButton:hover { background-color: #00f0ff; color: #000000; }
-        """
-        )
         self.hud_btn_play.clicked.connect(self.play_toggled.emit)
         row2.addWidget(self.hud_btn_play)
 
-        btn_next = QPushButton("⏭", self.hud)
-        btn_next.setFixedSize(28, 22)
-        btn_next.setStyleSheet(
-            """
-            QPushButton {
-                background-color: #141724;
-                border: 1px solid #222638;
-                border-radius: 3px;
-                color: #ffffff;
-                font-size: 10px;
-            }
-            QPushButton:hover { background-color: #00f0ff; color: #000000; }
-        """
-        )
-        btn_next.clicked.connect(self.next_clicked.emit)
-        row2.addWidget(btn_next)
+        self.hud_btn_next = QPushButton("⏭", self.hud)
+        self.hud_btn_next.setFixedSize(28, 22)
+        self.hud_btn_next.clicked.connect(self.next_clicked.emit)
+        row2.addWidget(self.hud_btn_next)
 
         row2.addSpacing(6)
 
@@ -473,9 +467,6 @@ class RetinaMeltWindow(QWidget):
 
         # Active Shader Identity Label
         self.lbl_lab_identity = QLabel("ACTIVE: TOROID IDENTITY (OFFICIAL)", self.lab_panel)
-        self.lbl_lab_identity.setStyleSheet(
-            "color: #00f0ff; font-family: monospace; font-size: 10px; font-weight: bold; background: #131624; padding: 4px 6px; border-radius: 3px; border: 1px solid #20263c;"
-        )
         self.lab_layout.addWidget(self.lbl_lab_identity)
 
         # Shader Command Bar: LOAD, RELOAD, RESET
@@ -483,59 +474,14 @@ class RetinaMeltWindow(QWidget):
         h_lab_actions.setSpacing(4)
 
         self.btn_lab_load = QPushButton("📁 LOAD...", self.lab_panel)
-        self.btn_lab_load.setStyleSheet(
-            """
-            QPushButton {
-                background: #181c2c;
-                border: 1px solid #00f0ff;
-                border-radius: 3px;
-                color: #00f0ff;
-                font-family: monospace;
-                font-size: 9px;
-                font-weight: bold;
-                padding: 3px 5px;
-            }
-            QPushButton:hover { background: #00f0ff; color: #000000; }
-        """
-        )
         self.btn_lab_load.clicked.connect(self._load_local_shader_dialog)
         h_lab_actions.addWidget(self.btn_lab_load)
 
         self.btn_lab_reload = QPushButton("⟳ RELOAD (R)", self.lab_panel)
-        self.btn_lab_reload.setStyleSheet(
-            """
-            QPushButton {
-                background: #181c2c;
-                border: 1px solid #00f0ff;
-                border-radius: 3px;
-                color: #00f0ff;
-                font-family: monospace;
-                font-size: 9px;
-                font-weight: bold;
-                padding: 3px 5px;
-            }
-            QPushButton:hover { background: #00f0ff; color: #000000; }
-        """
-        )
         self.btn_lab_reload.clicked.connect(self._reload_lab_shader)
         h_lab_actions.addWidget(self.btn_lab_reload)
 
         self.btn_lab_reset = QPushButton("↺ RESET", self.lab_panel)
-        self.btn_lab_reset.setStyleSheet(
-            """
-            QPushButton {
-                background: #181c2c;
-                border: 1px solid #ffaa00;
-                border-radius: 3px;
-                color: #ffaa00;
-                font-family: monospace;
-                font-size: 9px;
-                font-weight: bold;
-                padding: 3px 5px;
-            }
-            QPushButton:hover { background: #ffaa00; color: #000000; }
-        """
-        )
         self.btn_lab_reset.clicked.connect(self._reset_tune_parameters)
         h_lab_actions.addWidget(self.btn_lab_reset)
         self.lab_layout.addLayout(h_lab_actions)
@@ -545,40 +491,10 @@ class RetinaMeltWindow(QWidget):
         h_preset_actions.setSpacing(4)
 
         self.btn_lab_save_preset = QPushButton("⇱ SAVE PRESET", self.lab_panel)
-        self.btn_lab_save_preset.setStyleSheet(
-            """
-            QPushButton {
-                background: #1f1b26;
-                border: 1px solid #ff0077;
-                border-radius: 3px;
-                color: #ff0077;
-                font-family: monospace;
-                font-size: 9px;
-                font-weight: bold;
-                padding: 3px 5px;
-            }
-            QPushButton:hover { background: #ff0077; color: #ffffff; }
-        """
-        )
         self.btn_lab_save_preset.clicked.connect(self._save_lab_preset_dialog)
         h_preset_actions.addWidget(self.btn_lab_save_preset)
 
         self.btn_lab_load_preset = QPushButton("⇲ LOAD PRESET", self.lab_panel)
-        self.btn_lab_load_preset.setStyleSheet(
-            """
-            QPushButton {
-                background: #1f1b26;
-                border: 1px solid #ff0077;
-                border-radius: 3px;
-                color: #ff0077;
-                font-family: monospace;
-                font-size: 9px;
-                font-weight: bold;
-                padding: 3px 5px;
-            }
-            QPushButton:hover { background: #ff0077; color: #ffffff; }
-        """
-        )
         self.btn_lab_load_preset.clicked.connect(self._load_lab_preset_dialog)
         h_preset_actions.addWidget(self.btn_lab_load_preset)
         self.lab_layout.addLayout(h_preset_actions)
@@ -586,7 +502,6 @@ class RetinaMeltWindow(QWidget):
         # Scrollable Parameters Area
         self.lab_scroll = QScrollArea(self.lab_panel)
         self.lab_scroll.setWidgetResizable(True)
-        self.lab_scroll.setStyleSheet("background-color: #0b0d14; border: 1px solid #1a1e30; border-radius: 3px;")
         self.lab_controls_widget = QWidget()
         self.lab_controls_layout = QVBoxLayout(self.lab_controls_widget)
         self.lab_controls_layout.setContentsMargins(6, 6, 6, 6)
@@ -597,11 +512,12 @@ class RetinaMeltWindow(QWidget):
 
         # Compact Diagnostic Status View
         self.lab_diag_view = QLabel("[OK] Shader ready.", self.lab_panel)
-        self.lab_diag_view.setStyleSheet(
-            "color: #00ffcc; font-family: monospace; font-size: 9px; background: #0e111a; padding: 4px 6px; border: 1px solid #1a2032; border-radius: 2px;"
-        )
         self.lab_diag_view.setWordWrap(True)
         self.lab_layout.addWidget(self.lab_diag_view)
+
+        # Connect Theme Changes
+        self._theme_manager.theme_changed.connect(self.apply_theme)
+        self.apply_theme(self._current_theme)
 
         # Pygame Fullscreen Render Engine
         pygame.init()
@@ -631,6 +547,195 @@ class RetinaMeltWindow(QWidget):
         # Install event filter on backgrounds to capture Left/Right clicks without stealing child slider events
         self.vis_label.installEventFilter(self)
         self.gpu_canvas.installEventFilter(self)
+
+    def apply_theme(self, theme: ThemeDefinition):
+        """Applies theme styling to RETINA MELT HUD, TUNE, and LAB overlays."""
+        self._current_theme = theme
+        pal = theme.palette
+        typo = theme.typography
+
+        disp_font = f"'{typo.display_family}', monospace"
+        mono_font = f"'{typo.monospace_family}', monospace"
+
+        # HUD Overlay
+        self.hud.setStyleSheet(f"""
+            QFrame#retina_hud {{
+                background-color: {pal.bg_surface}E6;
+                border: 1px solid {pal.primary};
+                border-radius: 6px;
+            }}
+        """)
+        self.hud_marquee.setStyleSheet(f"color: {pal.primary}; font-family: {disp_font}; font-size: 11px; font-weight: bold; background: transparent;")
+        self.hud_time.setStyleSheet(f"color: {pal.text_muted}; font-family: {mono_font}; font-size: 10px; background: transparent;")
+
+        # Seek Slider in HUD
+        self.hud_seek_slider.setStyleSheet(f"""
+            QSlider::groove:horizontal {{ height: 3px; background: {pal.slider_groove}; border-radius: 1px; }}
+            QSlider::sub-page:horizontal {{ background: {pal.slider_subpage}; border-radius: 1px; }}
+            QSlider::handle:horizontal {{ background: {pal.slider_handle}; border: 1px solid {pal.slider_handle_border}; width: 8px; margin: -3px 0; border-radius: 4px; }}
+        """)
+
+        hud_btn_style = f"""
+            QPushButton {{
+                background-color: {pal.bg_control};
+                border: 1px solid {pal.border_control};
+                border-radius: 3px;
+                color: {pal.text_primary};
+                font-family: {mono_font};
+                font-size: 10px;
+            }}
+            QPushButton:hover {{ background-color: {pal.primary}; color: {pal.bg_lcd}; }}
+        """
+        self.hud_btn_prev.setStyleSheet(hud_btn_style)
+        self.hud_btn_play.setStyleSheet(f"""
+            QPushButton {{
+                background-color: {pal.bg_control};
+                border: 1px solid {pal.primary};
+                border-radius: 3px;
+                color: {pal.primary};
+                font-family: {mono_font};
+                font-weight: bold;
+                font-size: 11px;
+            }}
+            QPushButton:hover {{ background-color: {pal.primary}; color: {pal.bg_lcd}; }}
+        """)
+        self.hud_btn_next.setStyleSheet(hud_btn_style)
+
+        self.hud_slider_vol.setStyleSheet(f"""
+            QSlider::groove:horizontal {{ height: 4px; background: {pal.slider_groove}; border-radius: 2px; }}
+            QSlider::sub-page:horizontal {{ background: {pal.slider_subpage}; border-radius: 2px; }}
+            QSlider::handle:horizontal {{ background: {pal.slider_handle}; width: 8px; margin: -2px 0; border-radius: 4px; }}
+        """)
+
+        self.hud_btn_mode.setStyleSheet(f"""
+            QPushButton {{
+                background-color: {pal.bg_control};
+                border: 1px solid {pal.primary};
+                border-radius: 3px;
+                color: {pal.primary};
+                font-family: {mono_font};
+                font-size: 9px;
+                font-weight: bold;
+                padding: 3px 6px;
+            }}
+            QPushButton:hover {{ background-color: {pal.primary}; color: {pal.bg_lcd}; }}
+        """)
+
+        self.hud_btn_tune.setStyleSheet(f"""
+            QPushButton {{
+                background-color: {pal.bg_control};
+                border: 1px solid {pal.primary};
+                border-radius: 3px;
+                color: {pal.primary};
+                font-family: {mono_font};
+                font-size: 9px;
+                font-weight: bold;
+                padding: 3px 6px;
+            }}
+            QPushButton:hover {{ background-color: {pal.primary}; color: {pal.bg_lcd}; }}
+            QPushButton:checked {{ background-color: {pal.primary}; color: {pal.bg_lcd}; }}
+        """)
+
+        self.hud_btn_lab.setStyleSheet(f"""
+            QPushButton {{
+                background-color: {pal.bg_surface_alt};
+                border: 1px solid {pal.warning};
+                border-radius: 3px;
+                color: {pal.warning};
+                font-family: {mono_font};
+                font-size: 9px;
+                font-weight: bold;
+                padding: 3px 6px;
+            }}
+            QPushButton:hover {{ background-color: {pal.warning}; color: {pal.bg_lcd}; }}
+            QPushButton:checked {{ background-color: {pal.warning}; color: {pal.bg_lcd}; }}
+        """)
+
+        # TUNE Panel
+        self.tune_panel.setStyleSheet(f"""
+            QFrame#retina_tune {{
+                background-color: {pal.bg_surface}F2;
+                border: 1px solid {pal.primary};
+                border-radius: 6px;
+            }}
+        """)
+
+        # LAB Panel
+        self.lab_panel.setStyleSheet(f"""
+            QFrame#retina_lab {{
+                background-color: {pal.bg_surface}F8;
+                border: 1px solid {pal.warning};
+                border-radius: 6px;
+            }}
+        """)
+        self.lab_scroll.setStyleSheet(f"background-color: {pal.bg_lcd}; border: 1px solid {pal.border_panel}; border-radius: 3px;")
+        self.lab_diag_view.setStyleSheet(f"color: {pal.text_lcd}; font-family: {mono_font}; font-size: 9px; background: {pal.bg_surface}; padding: 4px 6px; border: 1px solid {pal.border_panel}; border-radius: 2px;")
+
+        self.btn_lab_load.setStyleSheet(f"""
+            QPushButton {{
+                background: {pal.bg_control};
+                border: 1px solid {pal.primary};
+                border-radius: 3px;
+                color: {pal.primary};
+                font-family: {mono_font};
+                font-size: 9px;
+                font-weight: bold;
+                padding: 3px 5px;
+            }}
+            QPushButton:hover {{ background: {pal.primary}; color: {pal.bg_lcd}; }}
+        """)
+        self.btn_lab_reload.setStyleSheet(f"""
+            QPushButton {{
+                background: {pal.bg_control};
+                border: 1px solid {pal.primary};
+                border-radius: 3px;
+                color: {pal.primary};
+                font-family: {mono_font};
+                font-size: 9px;
+                font-weight: bold;
+                padding: 3px 5px;
+            }}
+            QPushButton:hover {{ background: {pal.primary}; color: {pal.bg_lcd}; }}
+        """)
+        self.btn_lab_reset.setStyleSheet(f"""
+            QPushButton {{
+                background: {pal.bg_control};
+                border: 1px solid {pal.warning};
+                border-radius: 3px;
+                color: {pal.warning};
+                font-family: {mono_font};
+                font-size: 9px;
+                font-weight: bold;
+                padding: 3px 5px;
+            }}
+            QPushButton:hover {{ background: {pal.warning}; color: {pal.bg_lcd}; }}
+        """)
+        self.btn_lab_save_preset.setStyleSheet(f"""
+            QPushButton {{
+                background: {pal.bg_surface_alt};
+                border: 1px solid {pal.accent};
+                border-radius: 3px;
+                color: {pal.accent};
+                font-family: {mono_font};
+                font-size: 9px;
+                font-weight: bold;
+                padding: 3px 5px;
+            }}
+            QPushButton:hover {{ background: {pal.accent}; color: #ffffff; }}
+        """)
+        self.btn_lab_load_preset.setStyleSheet(f"""
+            QPushButton {{
+                background: {pal.bg_surface_alt};
+                border: 1px solid {pal.accent};
+                border-radius: 3px;
+                color: {pal.accent};
+                font-family: {mono_font};
+                font-size: 9px;
+                font-weight: bold;
+                padding: 3px 5px;
+            }}
+            QPushButton:hover {{ background: {pal.accent}; color: #ffffff; }}
+        """)
 
     @property
     def current_visualizer(self) -> Visualizer:
@@ -803,17 +908,21 @@ class RetinaMeltWindow(QWidget):
         self._param_sliders.clear()
         self._param_val_labels.clear()
 
+        pal = self._current_theme.palette
+        typo = self._current_theme.typography
+        mono_font = f"'{typo.monospace_family}', monospace"
+
         meta = self.gpu_canvas.metadata
         if not meta or not meta.parameters:
             lbl_none = QLabel("(No tunable parameters)", self.tune_panel)
-            lbl_none.setStyleSheet("color: #606880; font-family: monospace; font-size: 10px; font-style: italic;")
+            lbl_none.setStyleSheet(f"color: {pal.text_dim}; font-family: {mono_font}; font-size: 10px; font-style: italic;")
             self.tune_controls_layout.addWidget(lbl_none)
             self.tune_panel.adjustSize()
             return
 
         for p_name, param in meta.parameters.items():
             card = QFrame(self.tune_panel)
-            card.setStyleSheet("background-color: #141724; border: 1px solid #222638; border-radius: 3px;")
+            card.setStyleSheet(f"background-color: {pal.bg_surface_alt}; border: 1px solid {pal.border_control}; border-radius: 3px;")
             c_layout = QVBoxLayout(card)
             c_layout.setContentsMargins(6, 4, 6, 4)
             c_layout.setSpacing(2)
@@ -822,24 +931,24 @@ class RetinaMeltWindow(QWidget):
                 curr_b = bool(self.gpu_canvas.current_params.get(p_name, param.default_value))
                 chk = QCheckBox(param.display_name, card)
                 chk.setChecked(curr_b)
-                chk.setStyleSheet("""
-                    QCheckBox {
-                        color: #00f0ff;
-                        font-family: monospace;
+                chk.setStyleSheet(f"""
+                    QCheckBox {{
+                        color: {pal.primary};
+                        font-family: {mono_font};
                         font-size: 10px;
                         font-weight: bold;
                         border: none;
-                    }
-                    QCheckBox::indicator {
+                    }}
+                    QCheckBox::indicator {{
                         width: 12px;
                         height: 12px;
-                        background: #181c2c;
-                        border: 1px solid #00f0ff;
+                        background: {pal.bg_surface};
+                        border: 1px solid {pal.primary};
                         border-radius: 2px;
-                    }
-                    QCheckBox::indicator:checked {
-                        background: #00f0ff;
-                    }
+                    }}
+                    QCheckBox::indicator:checked {{
+                        background: {pal.primary};
+                    }}
                 """)
                 def make_chk_cb(name=p_name):
                     def on_chk(checked: bool):
@@ -855,7 +964,7 @@ class RetinaMeltWindow(QWidget):
                 curr_c = str(self.gpu_canvas.current_params.get(p_name, param.default_value))
                 h_row = QHBoxLayout()
                 lbl_name = QLabel(param.display_name, card)
-                lbl_name.setStyleSheet("color: #00f0ff; font-family: monospace; font-size: 10px; font-weight: bold; border: none;")
+                lbl_name.setStyleSheet(f"color: {pal.primary}; font-family: {mono_font}; font-size: 10px; font-weight: bold; border: none;")
                 h_row.addWidget(lbl_name)
                 h_row.addStretch()
 
@@ -864,7 +973,7 @@ class RetinaMeltWindow(QWidget):
                     QPushButton {{
                         background-color: {curr_c};
                         color: #000000;
-                        font-family: monospace;
+                        font-family: {mono_font};
                         font-size: 9px;
                         font-weight: bold;
                         border: 1px solid #ffffff;
@@ -884,7 +993,7 @@ class RetinaMeltWindow(QWidget):
                                 QPushButton {{
                                     background-color: {hex_col};
                                     color: #000000;
-                                    font-family: monospace;
+                                    font-family: {mono_font};
                                     font-size: 9px;
                                     font-weight: bold;
                                     border: 1px solid #ffffff;
@@ -904,25 +1013,23 @@ class RetinaMeltWindow(QWidget):
                 # float parameter
                 h_row = QHBoxLayout()
                 lbl_name = QLabel(param.display_name, card)
-                lbl_name.setStyleSheet("color: #00f0ff; font-family: monospace; font-size: 10px; font-weight: bold; border: none;")
+                lbl_name.setStyleSheet(f"color: {pal.primary}; font-family: {mono_font}; font-size: 10px; font-weight: bold; border: none;")
                 h_row.addWidget(lbl_name)
                 h_row.addStretch()
 
                 curr_v = float(self.gpu_canvas.current_params.get(p_name, param.default_value))
                 lbl_val = QLabel(f"{curr_v:5.2f}", card)
-                lbl_val.setStyleSheet("color: #ffaa00; font-family: monospace; font-size: 10px; border: none;")
+                lbl_val.setStyleSheet(f"color: {pal.warning}; font-family: {mono_font}; font-size: 10px; border: none;")
                 h_row.addWidget(lbl_val)
                 c_layout.addLayout(h_row)
 
                 slider = QSlider(Qt.Horizontal, card)
                 slider.setRange(0, 1000)
-                slider.setStyleSheet(
-                    """
-                    QSlider::groove:horizontal { height: 4px; background: #1c2035; border-radius: 2px; }
-                    QSlider::sub-page:horizontal { background: #00f0ff; border-radius: 2px; }
-                    QSlider::handle:horizontal { background: #ffffff; border: 1px solid #00f0ff; width: 10px; margin: -3px 0; border-radius: 5px; }
-                """
-                )
+                slider.setStyleSheet(f"""
+                    QSlider::groove:horizontal {{ height: 4px; background: {pal.slider_groove}; border-radius: 2px; }}
+                    QSlider::sub-page:horizontal {{ background: {pal.primary}; border-radius: 2px; }}
+                    QSlider::handle:horizontal {{ background: {pal.slider_handle}; border: 1px solid {pal.primary}; width: 10px; margin: -3px 0; border-radius: 5px; }}
+                """)
 
                 val_span = max(0.0001, param.max_value - param.min_value)
                 init_pos = int(round(((curr_v - param.min_value) / val_span) * 1000.0))
@@ -987,17 +1094,22 @@ class RetinaMeltWindow(QWidget):
         self.lab_panel.setGeometry(lab_x, lab_y, 340, min(460, self.lab_panel.sizeHint().height()))
 
     def _rebuild_lab_panel(self):
+        pal = self._current_theme.palette
+        typo = self._current_theme.typography
+        disp_font = f"'{typo.display_family}', monospace"
+        mono_font = f"'{typo.monospace_family}', monospace"
+
         # Update identity badge
         if self._local_shader_active and self._local_shader_path:
             self.lbl_lab_identity.setText(f"MODE: LOCAL — {self._local_shader_path.stem.upper()}")
             self.lbl_lab_identity.setStyleSheet(
-                "color: #ffaa00; font-family: monospace; font-size: 10px; font-weight: bold; background: #261e12; padding: 4px 6px; border-radius: 3px; border: 1px solid #4a361c;"
+                f"color: {pal.warning}; font-family: {mono_font}; font-size: 10px; font-weight: bold; background: {pal.bg_surface_alt}; padding: 4px 6px; border-radius: 3px; border: 1px solid {pal.border_control};"
             )
         else:
             vis = self.current_visualizer
             self.lbl_lab_identity.setText(f"MODE: OFFICIAL — {vis.get_name().upper()}")
             self.lbl_lab_identity.setStyleSheet(
-                "color: #00f0ff; font-family: monospace; font-size: 10px; font-weight: bold; background: #131624; padding: 4px 6px; border-radius: 3px; border: 1px solid #20263c;"
+                f"color: {pal.primary}; font-family: {mono_font}; font-size: 10px; font-weight: bold; background: {pal.bg_surface}; padding: 4px 6px; border-radius: 3px; border: 1px solid {pal.border_panel};"
             )
 
         while self.lab_controls_layout.count() > 0:
@@ -1008,7 +1120,7 @@ class RetinaMeltWindow(QWidget):
         meta = self.gpu_canvas.metadata
         if not meta or not meta.parameters:
             lbl_none = QLabel("(No authoring parameters declared)", self.lab_controls_widget)
-            lbl_none.setStyleSheet("color: #606880; font-family: monospace; font-size: 10px; font-style: italic;")
+            lbl_none.setStyleSheet(f"color: {pal.text_dim}; font-family: {mono_font}; font-size: 10px; font-style: italic;")
             self.lab_controls_layout.addWidget(lbl_none)
             self.lab_controls_layout.addStretch()
             self._position_lab_panel()
@@ -1016,7 +1128,7 @@ class RetinaMeltWindow(QWidget):
 
         for p_name, param in meta.parameters.items():
             card = QFrame(self.lab_controls_widget)
-            card.setStyleSheet("background-color: #141726; border: 1px solid #232840; border-radius: 3px;")
+            card.setStyleSheet(f"background-color: {pal.bg_surface_alt}; border: 1px solid {pal.border_control}; border-radius: 3px;")
             c_layout = QVBoxLayout(card)
             c_layout.setContentsMargins(6, 4, 6, 4)
             c_layout.setSpacing(2)
@@ -1025,24 +1137,24 @@ class RetinaMeltWindow(QWidget):
                 curr_b = bool(self.gpu_canvas.current_params.get(p_name, param.default_value))
                 chk = QCheckBox(param.display_name, card)
                 chk.setChecked(curr_b)
-                chk.setStyleSheet("""
-                    QCheckBox {
-                        color: #00f0ff;
-                        font-family: monospace;
+                chk.setStyleSheet(f"""
+                    QCheckBox {{
+                        color: {pal.primary};
+                        font-family: {mono_font};
                         font-size: 10px;
                         font-weight: bold;
                         border: none;
-                    }
-                    QCheckBox::indicator {
+                    }}
+                    QCheckBox::indicator {{
                         width: 12px;
                         height: 12px;
-                        background: #181c2c;
-                        border: 1px solid #00f0ff;
+                        background: {pal.bg_surface};
+                        border: 1px solid {pal.primary};
                         border-radius: 2px;
-                    }
-                    QCheckBox::indicator:checked {
-                        background: #00f0ff;
-                    }
+                    }}
+                    QCheckBox::indicator:checked {{
+                        background: {pal.primary};
+                    }}
                 """)
                 def make_chk_cb(name=p_name):
                     def on_chk(checked: bool):
@@ -1056,7 +1168,7 @@ class RetinaMeltWindow(QWidget):
                 curr_c = str(self.gpu_canvas.current_params.get(p_name, param.default_value))
                 h_row = QHBoxLayout()
                 lbl_name = QLabel(param.display_name, card)
-                lbl_name.setStyleSheet("color: #00f0ff; font-family: monospace; font-size: 10px; font-weight: bold; border: none;")
+                lbl_name.setStyleSheet(f"color: {pal.primary}; font-family: {mono_font}; font-size: 10px; font-weight: bold; border: none;")
                 h_row.addWidget(lbl_name)
                 h_row.addStretch()
 
@@ -1065,7 +1177,7 @@ class RetinaMeltWindow(QWidget):
                     QPushButton {{
                         background-color: {curr_c};
                         color: #000000;
-                        font-family: monospace;
+                        font-family: {mono_font};
                         font-size: 9px;
                         font-weight: bold;
                         border: 1px solid #ffffff;
@@ -1085,7 +1197,7 @@ class RetinaMeltWindow(QWidget):
                                 QPushButton {{
                                     background-color: {hex_col};
                                     color: #000000;
-                                    font-family: monospace;
+                                    font-family: {mono_font};
                                     font-size: 9px;
                                     font-weight: bold;
                                     border: 1px solid #ffffff;
@@ -1103,22 +1215,22 @@ class RetinaMeltWindow(QWidget):
                 # float parameter
                 h_row = QHBoxLayout()
                 lbl_name = QLabel(param.display_name, card)
-                lbl_name.setStyleSheet("color: #00f0ff; font-size: 10px; font-weight: bold; border: none;")
+                lbl_name.setStyleSheet(f"color: {pal.primary}; font-size: 10px; font-weight: bold; border: none;")
                 h_row.addWidget(lbl_name)
                 h_row.addStretch()
 
                 curr_v = float(self.gpu_canvas.current_params.get(p_name, param.default_value))
                 lbl_val = QLabel(f"{curr_v:5.2f}", card)
-                lbl_val.setStyleSheet("color: #ffaa00; font-size: 10px; border: none;")
+                lbl_val.setStyleSheet(f"color: {pal.warning}; font-size: 10px; border: none;")
                 h_row.addWidget(lbl_val)
                 c_layout.addLayout(h_row)
 
                 slider = QSlider(Qt.Horizontal, card)
                 slider.setRange(0, 1000)
-                slider.setStyleSheet("""
-                    QSlider::groove:horizontal { height: 4px; background: #1c2035; border-radius: 2px; }
-                    QSlider::sub-page:horizontal { background: #00f0ff; border-radius: 2px; }
-                    QSlider::handle:horizontal { background: #ffffff; border: 1px solid #00f0ff; width: 10px; margin: -3px 0; border-radius: 5px; }
+                slider.setStyleSheet(f"""
+                    QSlider::groove:horizontal {{ height: 4px; background: {pal.slider_groove}; border-radius: 2px; }}
+                    QSlider::sub-page:horizontal {{ background: {pal.primary}; border-radius: 2px; }}
+                    QSlider::handle:horizontal {{ background: {pal.slider_handle}; border: 1px solid {pal.primary}; width: 10px; margin: -3px 0; border-radius: 5px; }}
                 """)
                 
                 val_span = max(0.0001, param.max_value - param.min_value)

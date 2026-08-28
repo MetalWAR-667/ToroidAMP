@@ -148,25 +148,85 @@ class VisualizerModule(ModuleShell):
 
         self.main_layout.addWidget(bot_bar)
 
+        self.apply_theme(self._current_theme)
+
+    def apply_theme(self, theme: ThemeDefinition):
+        """Applies theme to visualizer module chrome and placeholder."""
+        super().apply_theme(theme)
+        pal = theme.palette
+        typo = theme.typography
+
+        disp_font = f"'{typo.display_family}', monospace"
+        mono_font = f"'{typo.monospace_family}', monospace"
+
+        self.vis_label.setStyleSheet(f"background-color: {pal.bg_lcd}; border: 1px solid {pal.border_panel};")
+        self.placeholder_widget.setStyleSheet(f"background-color: {pal.bg_surface}; border: 1px solid {pal.border_panel};")
+        self.lbl_placeholder_name.setStyleSheet(f"color: {pal.primary}; font-family: {disp_font}; font-size: 13px; font-weight: bold; border: none; background: transparent;")
+        self.btn_enter_retina.setStyleSheet(f"""
+            QPushButton {{
+                background: {pal.bg_surface_alt};
+                border: 1px solid {pal.accent};
+                color: {pal.accent};
+                font-family: {mono_font};
+                font-size: 10px;
+                font-weight: bold;
+                padding: 5px 14px;
+                border-radius: 3px;
+            }}
+            QPushButton:hover {{
+                background: {pal.accent};
+                color: #ffffff;
+            }}
+        """)
+
+        self.btn_switch.setStyleSheet(f"""
+            QPushButton {{
+                background: {pal.bg_control};
+                border: 1px solid {pal.border_control};
+                color: {pal.primary};
+                font-family: {mono_font};
+                font-size: 9px;
+                padding: 2px 6px;
+            }}
+            QPushButton:hover {{
+                background: {pal.primary};
+                color: {pal.bg_lcd};
+            }}
+        """)
+
+        self.btn_fs.setStyleSheet(f"""
+            QPushButton {{
+                background: {pal.bg_control};
+                border: 1px solid {pal.border_control};
+                color: {pal.accent};
+                font-family: {mono_font};
+                font-size: 9px;
+                padding: 2px 6px;
+            }}
+            QPushButton:hover {{
+                background: {pal.accent};
+                color: #ffffff;
+            }}
+        """)
+
         # Pygame Offscreen Engine — sized from the actual current viewport
-        # rather than a hardcoded constant, so resizing the module resizes
-        # the render target (Part C: no hard dependency on 420x240).
-        pygame.init()
-        self.main_layout.activate()
-        init_size = self.vis_label.size()
-        self.surf_w = max(10, init_size.width())
-        self.surf_h = max(10, init_size.height())
-        self.surface = pygame.Surface((self.surf_w, self.surf_h))
-        self.visualizers: list[Visualizer] = [
-            ToroidVisualizer(self.surf_w, self.surf_h),
-            WaveformRibbonVisualizer(self.surf_w, self.surf_h),
-            DeepFieldVisualizer(self.surf_w, self.surf_h),
-            ToroidAMPFloorVisualizer(self.surf_w, self.surf_h),
-            ToroidIdentityVisualizer(self.surf_w, self.surf_h),
-            CyberBloomVisualizer(self.surf_w, self.surf_h),
-        ]
-        self._vis_idx = 0
-        self.sync_visualizer_presentation()
+        if not hasattr(self, "visualizers") or not self.visualizers:
+            pygame.init()
+            self.main_layout.activate()
+            init_size = self.vis_label.size()
+            self.surf_w = max(10, init_size.width())
+            self.surf_h = max(10, init_size.height())
+            self.surface = pygame.Surface((self.surf_w, self.surf_h))
+            self.visualizers: list[Visualizer] = [
+                ToroidVisualizer(self.surf_w, self.surf_h),
+                WaveformRibbonVisualizer(self.surf_w, self.surf_h),
+                DeepFieldVisualizer(self.surf_w, self.surf_h),
+                ToroidAMPFloorVisualizer(self.surf_w, self.surf_h),
+                ToroidIdentityVisualizer(self.surf_w, self.surf_h),
+                CyberBloomVisualizer(self.surf_w, self.surf_h),
+            ]
+            self._vis_idx = 0
+            self.sync_visualizer_presentation()
 
     @property
     def vis_idx(self) -> int:

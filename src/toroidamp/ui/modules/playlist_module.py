@@ -7,9 +7,9 @@ reorder, clear, shuffle, repeat, and M3U/M3U8 load/save.
 import os
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton,
-    QListWidget, QListWidgetItem, QFileDialog
+    QListWidget, QListWidgetItem, QFileDialog, QMenu
 )
-from PySide6.QtCore import Qt, QSize, Signal
+from PySide6.QtCore import Qt, QSize, Signal, QPoint
 from PySide6.QtGui import QDragEnterEvent, QDropEvent
 
 from .base import ModuleShell
@@ -103,33 +103,45 @@ class PlaylistModule(ModuleShell):
             }
         """
         self.btn_add = QPushButton("+ADD", btn_bar)
+        self.btn_add.setObjectName("playlistBtnAdd")
+        self.btn_add.setProperty("themeRole", "playlistAction")
         self.btn_add.setStyleSheet(btn_style)
         self.btn_add.clicked.connect(self._browse_add_files)
         b_layout.addWidget(self.btn_add)
 
         self.btn_del = QPushButton("-DEL", btn_bar)
+        self.btn_del.setObjectName("playlistBtnDel")
+        self.btn_del.setProperty("themeRole", "playlistAction")
         self.btn_del.setStyleSheet(btn_style)
         self.btn_del.clicked.connect(self._remove_selected)
         b_layout.addWidget(self.btn_del)
 
         self.btn_clear = QPushButton("CLR", btn_bar)
+        self.btn_clear.setObjectName("playlistBtnClear")
+        self.btn_clear.setProperty("themeRole", "playlistAction")
         self.btn_clear.setStyleSheet(btn_style)
         self.btn_clear.clicked.connect(self._clear_playlist)
         b_layout.addWidget(self.btn_clear)
 
         self.btn_shf = QPushButton("SHF", btn_bar)
+        self.btn_shf.setObjectName("playlistBtnShuffle")
+        self.btn_shf.setProperty("themeRole", "playlistAction")
         self.btn_shf.setCheckable(True)
         self.btn_shf.setStyleSheet(btn_style)
         self.btn_shf.clicked.connect(self._toggle_shuffle)
         b_layout.addWidget(self.btn_shf)
 
         self.btn_rep = QPushButton("REP", btn_bar)
+        self.btn_rep.setObjectName("playlistBtnRepeat")
+        self.btn_rep.setProperty("themeRole", "playlistAction")
         self.btn_rep.setCheckable(True)
         self.btn_rep.setStyleSheet(btn_style)
         self.btn_rep.clicked.connect(self._toggle_repeat)
         b_layout.addWidget(self.btn_rep)
 
         self.btn_m3u = QPushButton("M3U", btn_bar)
+        self.btn_m3u.setObjectName("playlistBtnM3u")
+        self.btn_m3u.setProperty("themeRole", "playlistAction")
         self.btn_m3u.setStyleSheet(btn_style)
         self.btn_m3u.clicked.connect(self._m3u_menu)
         b_layout.addWidget(self.btn_m3u)
@@ -142,9 +154,87 @@ class PlaylistModule(ModuleShell):
         f_layout = QHBoxLayout(foot_bar)
         f_layout.setContentsMargins(2, 0, 2, 0)
         self.queue_info = QLabel("TOTAL: 0 TRACKS", foot_bar)
-        self.queue_info.setStyleSheet("color: #4a5270; font-family: monospace; font-size: 9px;")
         f_layout.addWidget(self.queue_info)
         self.main_layout.addWidget(foot_bar)
+
+        self.apply_theme(self._current_theme)
+
+    def apply_theme(self, theme: ThemeDefinition):
+        """Applies theme palette and typography across playlist list and buttons."""
+        super().apply_theme(theme)
+        pal = theme.palette
+        typo = theme.typography
+
+        mono_font = f"'{typo.monospace_family}', monospace"
+
+        self.list_widget.setStyleSheet(f"""
+            QListWidget {{
+                background-color: {pal.list_bg};
+                border: 1px solid {pal.list_border};
+                color: {pal.list_item_text};
+                font-family: {mono_font};
+                font-size: 10px;
+                padding: 2px;
+            }}
+            QListWidget::item {{
+                padding: 3px;
+                border-bottom: 1px solid {pal.list_item_border};
+            }}
+            QListWidget::item:selected {{
+                background-color: {pal.list_selected_bg};
+                color: {pal.list_selected_text};
+                font-weight: bold;
+            }}
+            QListWidget::item:hover {{
+                background-color: {pal.list_hover_bg};
+                color: {pal.list_hover_text};
+            }}
+        """)
+
+        # In Cyber Yellow, playlist action buttons use the canonical red accent (pal.accent); Default uses cyan (pal.primary)
+        pl_btn_accent = pal.accent if theme.id == "cyber_yellow" else pal.primary
+        pl_btn_border_hover = pal.accent if theme.id == "cyber_yellow" else pal.border_control_hover
+
+        base_pl_btn_style = f"""
+            QPushButton[themeRole="playlistAction"] {{
+                background-color: {pal.bg_control};
+                border: 1px solid {pal.border_control};
+                border-radius: 2px;
+                color: {pal.text_muted};
+                font-family: {mono_font};
+                font-size: 9px;
+                font-weight: bold;
+                padding: 2px 4px;
+            }}
+            QPushButton[themeRole="playlistAction"]:hover {{
+                border-color: {pl_btn_border_hover};
+                color: {pl_btn_accent};
+            }}
+            QPushButton[themeRole="playlistAction"]:pressed {{
+                background-color: {pl_btn_accent};
+                color: {pal.bg_lcd};
+                border-color: {pl_btn_accent};
+            }}
+            QPushButton[themeRole="playlistAction"]:checked {{
+                background-color: {pl_btn_accent};
+                color: #ffffff;
+                border-color: {pl_btn_accent};
+            }}
+            QPushButton[themeRole="playlistAction"]:disabled {{
+                color: {pal.text_dim};
+                border-color: {pal.border_control};
+                background-color: {pal.bg_surface};
+            }}
+        """
+        # Clear widget-local overrides so parent/QSS cascade rules win
+        for btn in (self.btn_add, self.btn_del, self.btn_clear, self.btn_shf, self.btn_rep, self.btn_m3u):
+            btn.setStyleSheet("")
+
+        self.queue_info.setStyleSheet(f"color: {pal.text_dim}; font-family: {mono_font}; font-size: 9px;")
+
+        # Apply combined base + optional theme.qss override to the module container
+        combined_mod_qss = base_pl_btn_style + "\n" + (theme.qss_override or "")
+        self.setStyleSheet(combined_mod_qss)
 
     def refresh(self):
         """Refreshes the ListWidget to reflect current PlaylistManager state."""
@@ -191,10 +281,47 @@ class PlaylistModule(ModuleShell):
         self.repeat_toggled.emit(checked)
 
     def _m3u_menu(self):
-        """Handles M3U loading or saving."""
-        path, _ = QFileDialog.getSaveFileName(self, "Save Playlist as M3U8", "", "M3U8 Playlist (*.m3u8);;M3U Playlist (*.m3u)")
-        if path:
-            self.manager.save_m3u(path)
+        """Presents an action chooser menu for loading or saving M3U/M3U8 playlists."""
+        pal = self._current_theme.palette
+        menu = QMenu(self)
+        menu.setStyleSheet(f"""
+            QMenu {{
+                background-color: {pal.bg_surface_alt};
+                border: 1px solid {pal.border_panel};
+                color: {pal.text_primary};
+                font-family: monospace;
+                font-size: 10px;
+                padding: 4px;
+            }}
+            QMenu::item {{
+                padding: 4px 16px 4px 12px;
+                border-radius: 2px;
+            }}
+            QMenu::item:selected {{
+                background-color: {pal.primary};
+                color: {pal.bg_lcd};
+                font-weight: bold;
+            }}
+        """)
+        
+        load_action = menu.addAction("LOAD M3U PLAYLIST")
+        save_action = menu.addAction("SAVE M3U8 PLAYLIST")
+        
+        # Position popup above/at the M3U button
+        btn_pos = self.btn_m3u.mapToGlobal(QPoint(0, self.btn_m3u.height()))
+        selected = menu.exec(btn_pos)
+        
+        if selected == load_action:
+            filter_str = "Playlist Files (*.m3u *.m3u8);;All Files (*.*)"
+            path, _ = QFileDialog.getOpenFileName(self, "Load Playlist", "", filter_str)
+            if path:
+                self.manager.load_m3u(path)
+                self.refresh()
+        elif selected == save_action:
+            filter_str = "M3U8 Playlist (*.m3u8);;M3U Playlist (*.m3u)"
+            path, _ = QFileDialog.getSaveFileName(self, "Save Playlist", "playlist.m3u8", filter_str)
+            if path:
+                self.manager.save_m3u(path)
 
     def dragEnterEvent(self, event: QDragEnterEvent):
         if event.mimeData().hasUrls():

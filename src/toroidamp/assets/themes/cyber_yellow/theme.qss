@@ -1,0 +1,65 @@
+/* ============================================================================
+   TOROIDAMP — CYBER YELLOW THEME STYLESHEET OVERRIDE
+   ============================================================================
+   This stylesheet acts as an OPTIONAL user-editable override layer over the
+   programmatic theme engine.
+   
+   If this file is empty or removed, ToroidAMP falls back to ThemeDefinition
+   defaults cleanly without interruption.
+   
+   Restart ToroidAMP after editing this file to apply your changes.
+   ============================================================================ */
+
+/* ----------------------------------------------------------------------------
+   NORMAL CORE PLAYER
+   ---------------------------------------------------------------------------- */
+
+/* Version label beside the ToroidAMP wordmark */
+QLabel#normalVersion {
+    color: #00ff00;
+}
+
+/* Primary track title / marquee inside the dark LCD rack */
+QLabel#normalTrackTitle {
+    color: #ff2a4b;
+}
+
+/* Elapsed / Total time display in LCD rack */
+QLabel#normalTimeDisplay {
+    color: #ffffff;
+}
+
+/* Volume indicator label */
+QLabel#normalVolumeLabel {
+    color: #ff2a4b;
+}
+
+/* Volume Slider sub-page fill and handle ring */
+QSlider#normalVolumeSlider::sub-page:horizontal {
+    background: #ff2a4b;
+}
+QSlider#normalVolumeSlider::handle:horizontal {
+    border: 1px solid #ff2a4b;
+}
+
+/* ----------------------------------------------------------------------------
+   PLAYLIST MODULE ACTION CONTROLS (+ADD, -DEL, CLR, SHF, REP, M3U)
+   ---------------------------------------------------------------------------- */
+
+/* Button hover highlight */
+QPushButton[themeRole="playlistAction"]:hover {
+    border-color: #ff2a4b;
+    color: #ff2a4b;
+}
+
+/* Button pressed feedback */
+QPushButton[themeRole="playlistAction"]:pressed {
+    background-color: #ff2a4b;
+    color: #0c0d12;
+}
+
+/* Active / Checked state (e.g. repeat or shuffle active) */
+QPushButton[themeRole="playlistAction"]:checked {
+    background-color: #ff2a4b;
+    color: #ffffff;
+}

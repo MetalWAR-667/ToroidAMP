@@ -36,12 +36,30 @@ class ReactiveNeonController:
     CYAN_H = 186.0 / 360.0       # Electric cyan (0.516) - Mids / Neutral baseline
     VIOLET_H = 285.0 / 360.0     # Deep violet / magenta (0.791) - Bass heavy
     ICE_H = 195.0 / 360.0        # Ice blue / white cyan (0.541) - Treble heavy
+    
+    YELLOW_H = 48.0 / 360.0      # Industrial amber / cyber yellow baseline
+    YELLOW_BASS_H = 10.0 / 360.0 # Deep amber / orange on bass
+    YELLOW_TREB_H = 60.0 / 360.0 # Bright electric lemon / white yellow on treble
 
-    def __init__(self):
+    def __init__(self, theme_id: str = "default"):
         self._phase: float = 0.0
         self._beat_decay: float = 0.0
-        self._current_hue: float = self.CYAN_H
-        self._current_state: NeonState = self._compute_state(0.5, self.CYAN_H, 0.0, 0.0, False)
+        self._theme_id = theme_id
+        self._base_hue = self.YELLOW_H if theme_id == "cyber_yellow" else self.CYAN_H
+        self._current_hue: float = self._base_hue
+        self._current_state: NeonState = self._compute_state(0.5, self._current_hue, 0.0, 0.0, False)
+
+    def set_theme_id(self, theme_id: str):
+        self._theme_id = theme_id
+        self._base_hue = self.YELLOW_H if theme_id == "cyber_yellow" else self.CYAN_H
+
+    @property
+    def theme_id(self) -> str:
+        return self._theme_id
+
+    @property
+    def current_theme_id(self) -> str:
+        return self._theme_id
 
     @property
     def current_state(self) -> NeonState:
@@ -65,7 +83,7 @@ class ReactiveNeonController:
         bass = 0.0
         mids = 0.0
         treble = 0.0
-        target_hue = self.CYAN_H
+        target_hue = self._base_hue
         spectral_shift = 0.0
 
         if frame is not None:
@@ -81,10 +99,6 @@ class ReactiveNeonController:
                 self._beat_decay = max(self._beat_decay, 0.75)
 
             # Spectral Color Model:
-            # Calculate spectral balance:
-            # - If bass dominates: shift towards violet/magenta
-            # - If treble dominates: shift towards icy cyan/blue
-            # - If balanced/mids: stay in electric cyan
             total_energy = bass + mids + treble + 1e-5
             b_norm = bass / total_energy
             t_norm = treble / total_energy
@@ -93,16 +107,26 @@ class ReactiveNeonController:
             # Spectral shift in range [-1.0 (Bass), +1.0 (Treble)]
             spectral_shift = (t_norm - b_norm)
 
-            if spectral_shift < -0.15:
-                # Bass dominance -> Blend Cyan -> Violet
-                ratio = min(1.0, (-spectral_shift - 0.15) * 2.0)
-                target_hue = self.CYAN_H + ratio * (self.VIOLET_H - self.CYAN_H)
-            elif spectral_shift > 0.15:
-                # Treble dominance -> Shift to Ice Blue
-                ratio = min(1.0, (spectral_shift - 0.15) * 2.0)
-                target_hue = self.CYAN_H + ratio * (self.ICE_H - self.CYAN_H)
+            if self._theme_id == "cyber_yellow":
+                if spectral_shift < -0.15:
+                    ratio = min(1.0, (-spectral_shift - 0.15) * 2.0)
+                    target_hue = self.YELLOW_H + ratio * (self.YELLOW_BASS_H - self.YELLOW_H)
+                elif spectral_shift > 0.15:
+                    ratio = min(1.0, (spectral_shift - 0.15) * 2.0)
+                    target_hue = self.YELLOW_H + ratio * (self.YELLOW_TREB_H - self.YELLOW_H)
+                else:
+                    target_hue = self.YELLOW_H
             else:
-                target_hue = self.CYAN_H
+                if spectral_shift < -0.15:
+                    # Bass dominance -> Blend Cyan -> Violet
+                    ratio = min(1.0, (-spectral_shift - 0.15) * 2.0)
+                    target_hue = self.CYAN_H + ratio * (self.VIOLET_H - self.CYAN_H)
+                elif spectral_shift > 0.15:
+                    # Treble dominance -> Shift to Ice Blue
+                    ratio = min(1.0, (spectral_shift - 0.15) * 2.0)
+                    target_hue = self.CYAN_H + ratio * (self.ICE_H - self.CYAN_H)
+                else:
+                    target_hue = self.CYAN_H
 
         # Decay beat impulse (~140ms decay)
         if self._beat_decay > 0.0:

@@ -10,6 +10,7 @@ from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QIcon, QPixmap, QPainter, QColor, QFont
 
 from ..branding import resolve_branding_icon
+from .theme import ThemeManager, ThemeDefinition
 
 logger = logging.getLogger("toroidamp.tray")
 
@@ -34,29 +35,38 @@ class ToroidTrayIcon(QSystemTrayIcon):
         self.setIcon(official_icon if official_icon is not None else self._create_procedural_icon())
         self.setToolTip("ToroidAMP // Modular Audio Player")
 
+        self._theme_manager = ThemeManager.get_instance()
         self._menu = QMenu()
-        self._menu.setStyleSheet("""
-            QMenu {
-                background-color: #0d0e15;
-                color: #e0e0e0;
-                border: 1px solid #00f0ff;
-                font-family: monospace;
+        self._theme_manager.theme_changed.connect(self.apply_theme)
+        self.apply_theme(self._theme_manager.current_theme)
+
+    def apply_theme(self, theme: ThemeDefinition):
+        pal = theme.palette
+        typo = theme.typography
+        mono_font = f"'{typo.monospace_family}', monospace"
+
+        self._menu.setStyleSheet(f"""
+            QMenu {{
+                background-color: {pal.bg_surface};
+                color: {pal.text_primary};
+                border: 1px solid {pal.primary};
+                font-family: {mono_font};
                 font-size: 11px;
                 padding: 4px;
-            }
-            QMenu::item {
+            }}
+            QMenu::item {{
                 padding: 4px 16px;
                 border-radius: 2px;
-            }
-            QMenu::item:selected {
-                background-color: #141a2e;
-                color: #00f0ff;
-            }
-            QMenu::separator {
+            }}
+            QMenu::item:selected {{
+                background-color: {pal.bg_surface_alt};
+                color: {pal.primary};
+            }}
+            QMenu::separator {{
                 height: 1px;
-                background: #1a2233;
+                background: {pal.border_panel};
                 margin: 4px 8px;
-            }
+            }}
         """)
 
         # Track Status Title Action

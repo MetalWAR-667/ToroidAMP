@@ -33,6 +33,9 @@ class MarqueeLabel(QLabel):
     # makes "the end is now clearly exposed" perceptible.
     END_REVEAL_MARGIN_PX = 28
 
+    # Short title non-overflow ping-pong travel amplitude
+    NON_OVERFLOW_TRAVEL_PX = 28
+
     _STATIC = "static"
     _PAUSE_START = "pause_start"
     _SCROLL_FWD = "scroll_fwd"
@@ -43,8 +46,8 @@ class MarqueeLabel(QLabel):
         super().__init__(parent)
         self._full_text = ""
         self._offset = 0.0
-        self._overflow_px = 0   # raw overflow — text_width - visible_width; gates activation
-        self._max_offset = 0    # actual scroll travel target — overflow + end_reveal_margin
+        self._overflow_px = 0   # raw overflow — text_width - visible_width
+        self._max_offset = 0    # actual scroll travel target
         self._state = self._STATIC
 
         # A plain QLabel's minimumSizeHint equals its full, unwrapped text
@@ -78,9 +81,6 @@ class MarqueeLabel(QLabel):
         # affects what's actually drawn on screen.
         super().setText(text)
         self._offset = 0.0
-        # Force a full reset through _recompute_overflow — a change mid-scroll
-        # must return to the readable start-pause, not continue whatever
-        # forward/backward motion the previous title was in.
         self._state = self._STATIC
         self._timer.stop()
         self._recompute_overflow()
@@ -96,39 +96,47 @@ class MarqueeLabel(QLabel):
 
     def showEvent(self, event):
         super().showEvent(event)
-        # Re-measure against the current width rather than trusting whatever
-        # was computed earlier: text can be set (via set_marquee_text) before
-        # the surrounding layout has settled on this label's final width —
-        # e.g. the very first track title arriving right after startup, or a
-        # scale switch revealing a page that was hidden mid-layout. Since
-        # set_marquee_text() only recomputes on an actual text *change*, a
-        # stale "fits" verdict from that race would otherwise never be
-        # corrected for as long as the title stays the same.
         self._recompute_overflow()
-        if self._overflow_px > 0 and not self._timer.isActive():
+        if self._max_offset > 0 and not self._timer.isActive():
             interval = self.TICK_MS if self._state in (self._SCROLL_FWD, self._SCROLL_BACK) else self.PAUSE_MS
             self._timer.start(interval)
 
     def _recompute_overflow(self):
         """
-        Reevaluates overflow against the current font metrics and actual
-        visible widget width. `max_offset = text_width - visible_width +
-        end_reveal_margin` — the extra margin is travel, not reveal: the
-        text's last character already touches the viewport edge at
-        `text_width - visible_width`; scrolling a bit further than that is
-        what makes the motion — and the fact that the end was reached —
-        actually perceptible.
+        Reevaluates overflow against font metrics and visible width.
+        - If text overflows (text_w > visible_w):
+            max_offset = (text_w - visible_w) + END_REVEAL_MARGIN_PX
+        - If text fits (text_w <= visible_w and text not empty):
+            max_offset = min(NON_OVERFLOW_TRAVEL_PX, max(0, visible_w - text_w))
+            or restrained drift if there is positive space
+        - If text is empty:
+            max_offset = 0
         """
+        if not self._full_text:
+            self._overflow_px = 0
+            self._max_offset = 0
+            self._state = self._STATIC
+            self._timer.stop()
+            self._offset = 0.0
+            self.update()
+            return
+
         fm = QFontMetrics(self.font())
         text_w = fm.horizontalAdvance(self._full_text)
         visible_width = max(0, self.width())
         overflow = max(0, text_w - visible_width)
 
         self._overflow_px = overflow
-        self._max_offset = overflow + self.END_REVEAL_MARGIN_PX if overflow > 0 else 0
+        if overflow > 0:
+            self._max_offset = overflow + self.END_REVEAL_MARGIN_PX
+        else:
+            # Short / non-overflowing text: restrained ping-pong travel
+            spare_room = max(0, visible_width - text_w)
+            self._max_offset = min(self.NON_OVERFLOW_TRAVEL_PX, spare_room) if spare_room > 4 else self.NON_OVERFLOW_TRAVEL_PX
+
         self._offset = min(self._offset, float(self._max_offset))
 
-        if overflow <= 0:
+        if self._max_offset <= 0:
             self._state = self._STATIC
             self._timer.stop()
             self._offset = 0.0
@@ -139,6 +147,13 @@ class MarqueeLabel(QLabel):
         self.update()
 
     def _tick(self):
+        if self._max_offset <= 0:
+            self._timer.stop()
+            self._state = self._STATIC
+            self._offset = 0.0
+            self.update()
+            return
+
         if self._state == self._PAUSE_START:
             self._state = self._SCROLL_FWD
             self._timer.start(self.TICK_MS)
@@ -167,11 +182,12 @@ class MarqueeLabel(QLabel):
         y = (self.height() + fm.ascent() - fm.descent()) // 2
 
         if self._overflow_px > 0:
+            # Overflow marquee scrolls leftward (negative offset) to reveal trailing text
             x = -int(self._offset)
-        elif self.alignment() & Qt.AlignRight:
-            x = max(0, self.width() - fm.horizontalAdvance(self._full_text))
         else:
-            x = 0
+            # Short text non-overflow drift drifts rightward (positive offset) through spare room
+            base_x = max(0, self.width() - fm.horizontalAdvance(self._full_text)) if (self.alignment() & Qt.AlignRight) else 0
+            x = base_x + int(self._offset)
 
         painter.drawText(x, y, self._full_text)
         painter.end()

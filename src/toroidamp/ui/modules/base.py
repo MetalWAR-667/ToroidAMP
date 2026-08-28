@@ -3,6 +3,7 @@ from PySide6.QtCore import Qt, QPoint, QRect, QSize, Signal
 from PySide6.QtGui import QMouseEvent, QPainter, QPen, QColor
 
 from ..neon import NeonState
+from ..theme import ThemeManager, ThemeDefinition
 
 
 class ModuleShell(QWidget):
@@ -55,6 +56,8 @@ class ModuleShell(QWidget):
         self._resize_start_geom = QRect()
         self._resize_start_pos = QPoint()
         self._current_neon: NeonState | None = None
+        self._theme_manager = ThemeManager.get_instance()
+        self._current_theme: ThemeDefinition = self._theme_manager.current_theme
 
         self.setMinimumSize(self.MIN_SIZE)
         self._user_size = QSize(self.DEFAULT_SIZE)
@@ -67,36 +70,51 @@ class ModuleShell(QWidget):
         # Title Bar
         self.title_bar = QWidget(self)
         self.title_bar.setFixedHeight(22)
-        self.title_bar.setStyleSheet("background-color: #141622; border-bottom: 1px solid #222638; border-radius: 2px;")
         t_layout = QHBoxLayout(self.title_bar)
         t_layout.setContentsMargins(6, 0, 4, 0)
         t_layout.setSpacing(4)
 
         self.title_label = QLabel(self.module_title, self.title_bar)
-        self.title_label.setStyleSheet("color: #00f0ff; font-family: monospace; font-size: 10px; font-weight: bold;")
         t_layout.addWidget(self.title_label)
 
         t_layout.addStretch()
 
-        # UX-003: repurposed from the former dock/undock toggle into an
-        # explicit "Reset size" action. Dock/undock is now purely a function
-        # of dragging the module (magnetic snap docks it; dragging a docked
-        # module away undocks it) — see WindowManager._check_magnetic_snapping.
         self.btn_reset = QPushButton("↺", self.title_bar)
         self.btn_reset.setToolTip("Reset size")
         self.btn_reset.setFixedSize(16, 16)
-        self.btn_reset.setStyleSheet("QPushButton { background: transparent; border: none; color: #8892b0; font-size: 11px; } QPushButton:hover { color: #00f0ff; }")
         self.btn_reset.clicked.connect(self.reset_size)
         t_layout.addWidget(self.btn_reset)
 
         self.btn_close = QPushButton("✕", self.title_bar)
         self.btn_close.setToolTip("Close Module")
         self.btn_close.setFixedSize(16, 16)
-        self.btn_close.setStyleSheet("QPushButton { background: transparent; border: none; color: #8892b0; font-size: 11px; } QPushButton:hover { color: #ff0055; }")
         self.btn_close.clicked.connect(self.close_module)
         t_layout.addWidget(self.btn_close)
 
         self.main_layout.addWidget(self.title_bar)
+
+        # Connect Theme Changes
+        self._theme_manager.theme_changed.connect(self.apply_theme)
+        self._apply_shell_theme(self._current_theme)
+
+    def _apply_shell_theme(self, theme: ThemeDefinition):
+        """Applies theme to module shell framing, titlebar and control buttons."""
+        self._current_theme = theme
+        pal = theme.palette
+        typo = theme.typography
+
+        disp_font = f"'{typo.display_family}', monospace"
+
+        self.title_bar.setStyleSheet(f"background-color: {pal.bg_surface_alt}; border-bottom: 1px solid {pal.border_panel}; border-radius: 2px;")
+        self.title_label.setStyleSheet(f"color: {pal.primary}; font-family: {disp_font}; font-size: 10px; font-weight: bold;")
+        self.btn_reset.setStyleSheet(f"QPushButton {{ background: transparent; border: none; color: {pal.text_muted}; font-size: 11px; }} QPushButton:hover {{ color: {pal.primary}; }}")
+        self.btn_close.setStyleSheet(f"QPushButton {{ background: transparent; border: none; color: {pal.text_muted}; font-size: 11px; }} QPushButton:hover {{ color: {pal.danger}; }}")
+        self.update()
+
+    def apply_theme(self, theme: ThemeDefinition):
+        """Virtual hook for subclasses."""
+        self._apply_shell_theme(theme)
+        self.setStyleSheet(theme.qss_override)
 
     @property
     def user_size(self) -> QSize:
@@ -131,23 +149,36 @@ class ModuleShell(QWidget):
         painter = QPainter(self)
         painter.setRenderHint(QPainter.Antialiasing)
 
-        # Background fill
-        painter.setBrush(QColor(13, 14, 21, 250))
-        painter.setPen(Qt.NoPen)
-        painter.drawRoundedRect(self.rect().adjusted(1, 1, -1, -1), 4, 4)
+        rect = self.rect().adjusted(1, 1, -1, -1)
+        theme = self._current_theme
+        pal = theme.palette
+
+        # Background fill (image-backed panel in Cyber Yellow, solid in Default)
+        if theme.is_image_backed:
+            pm = theme.assets.get_pixmap("panel")
+            if pm:
+                painter.setClipRect(rect)
+                painter.drawPixmap(rect, pm)
+            else:
+                painter.setBrush(pal.bg_module)
+                painter.setPen(Qt.NoPen)
+                painter.drawRoundedRect(rect, 4, 4)
+        else:
+            painter.setBrush(pal.bg_module)
+            painter.setPen(Qt.NoPen)
+            painter.drawRoundedRect(rect, 4, 4)
 
         # Border styling:
-        # Floating: slightly brighter/distinct outline
-        # Docked: sleek cohesive electric edge
         if self._current_neon:
             color = self._current_neon.tier1_chassis_color if not self.is_docked else self._current_neon.tier2_panel_color
             pen = QPen(color, 1.2)
         else:
-            pen = QPen(QColor(0, 240, 255, 180), 1.2)
+            pen = QPen(pal.border_module_default, 1.2)
 
+        painter.setClipping(False)
         painter.setBrush(Qt.NoBrush)
         painter.setPen(pen)
-        painter.drawRoundedRect(self.rect().adjusted(1, 1, -1, -1), 4, 4)
+        painter.drawRoundedRect(rect, 4, 4)
         painter.end()
 
     # ------------------------------------------------------------------
@@ -263,3 +294,10 @@ class ModuleShell(QWidget):
     def close_module(self):
         self.hide()
         self.closed_signal.emit(self)
+
+    def deleteLater(self):
+        try:
+            self._theme_manager.theme_changed.disconnect(self.apply_theme)
+        except Exception:
+            pass
+        super().deleteLater()

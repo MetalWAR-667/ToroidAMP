@@ -18,6 +18,7 @@ from .modules.visualizer_module import VisualizerModule
 from .modules.playlist_module import PlaylistModule
 from .tray import ToroidTrayIcon
 from .neon import ReactiveNeonController
+from .theme import ThemeManager, ThemeDefinition
 
 from ..audio.player import PlayerEngine, PlaybackState
 from ..audio.playlist import PlaylistManager
@@ -49,11 +50,16 @@ class WindowManager(QWidget):
         self.handoff = handoff
         self.playlist = playlist
         self.session_manager = session_manager or SessionManager()
-        self.neon_controller = ReactiveNeonController()
 
         # Load session state
         self.session_state = self.session_manager.load()
 
+        # Initialize ThemeManager with restored theme before constructing UI
+        self.theme_manager = ThemeManager.get_instance()
+        restored_theme = getattr(self.session_state, "theme_id", "default")
+        self.theme_manager.set_theme(restored_theme)
+
+        self.neon_controller = ReactiveNeonController(theme_id=self.theme_manager.active_theme_id)
 
         # 1. Main Unified Chassis (MINI / NORMAL)
         self.chassis = UnifiedChassis()
@@ -101,9 +107,11 @@ class WindowManager(QWidget):
         """Restores window positions, modules, volume, playlist, and visualizer state from session."""
         st = self.session_state
 
-        # 1. Restore Volume
+        # 1. Restore Volume & Playback Settings
         self.player_engine.volume = st.volume
+        self.player_engine.fade_enabled = getattr(st, "fade_enabled", True)
         self.chassis.set_volume(st.volume)
+        self.chassis.chip_fade.setChecked(self.player_engine.fade_enabled)
 
         # 2. Restore Shuffle / Repeat
         self.playlist.shuffle = st.shuffle
@@ -199,9 +207,11 @@ class WindowManager(QWidget):
         self.chassis.stop_clicked.connect(self._stop_playback)
         self.chassis.seek_changed.connect(self._on_seek)
         self.chassis.volume_changed.connect(self._on_volume_changed)
+        self.chassis.toggle_fade_clicked.connect(self._on_fade_toggled)
         self.chassis.toggle_vis_clicked.connect(self._toggle_vis)
         self.chassis.toggle_pl_clicked.connect(self._toggle_pl)
         self.chassis.files_dropped.connect(self._on_files_dropped)
+        self.chassis.theme_toggle_requested.connect(self._on_theme_toggle)
 
 
         # Module Docking & Playlist
@@ -234,6 +244,17 @@ class WindowManager(QWidget):
         self.tray_icon.next_requested.connect(self._play_next)
         self.tray_icon.exit_requested.connect(self.shutdown)
 
+    def _on_fade_toggled(self, enabled: bool):
+        self.player_engine.fade_enabled = enabled
+        self.session_state.fade_enabled = enabled
+        self.session_manager.save()
+
+    def _on_theme_toggle(self):
+        new_theme_id = self.theme_manager.toggle_theme()
+        self.neon_controller.set_theme_id(new_theme_id)
+        self.session_state.theme_id = new_theme_id
+        self.session_manager.save()
+
     def _focus_chassis(self):
         """
         Tray 'Restore Player' action. If MINI, restores full NORMAL via the
@@ -252,7 +273,9 @@ class WindowManager(QWidget):
         """Gathers current runtime state and writes atomically to session JSON."""
         st = self.session_state
         st.scale = self.chassis.mode
+        st.theme_id = self.theme_manager.active_theme_id
         st.volume = self.player_engine.volume
+        st.fade_enabled = self.player_engine.fade_enabled
         st.shuffle = self.playlist.shuffle
         st.repeat = self.playlist.repeat
         st.selected_visualizer_idx = self.vis_mod.vis_idx
@@ -517,8 +540,23 @@ class WindowManager(QWidget):
                 self.dock_module(self.pl_mod, "right")
 
     def _tick(self):
-        # 1. Automatic Track Advancement on EOF
-        if self.player_engine.state == PlaybackState.STOPPED and len(self.playlist) > 0 and self.player_engine.position > 0.0:
+        # 0. Check and Handle Decoder Failure from Audio Thread
+        has_error, failed_path, error_msg = self.player_engine.check_and_clear_error()
+        if has_error:
+            track_name = os.path.basename(failed_path) if failed_path else "Current Track"
+            logger.warning(f"Playback decoder failure on '{track_name}': {error_msg}")
+            # Safely advance to next track if playlist has items
+            if len(self.playlist) > 0:
+                next_idx = self.playlist.get_next_index()
+                if next_idx is not None and next_idx != self.playlist.current_index:
+                    self._play_index(next_idx)
+                else:
+                    self._stop_playback()
+            else:
+                self._stop_playback()
+
+        # 1. Automatic Track Advancement on normal EOF
+        elif self.player_engine.state == PlaybackState.STOPPED and len(self.playlist) > 0 and self.player_engine.position > 0.0:
             next_idx = self.playlist.get_next_index()
             if next_idx is not None and next_idx != self.playlist.current_index:
                 self._play_index(next_idx)
