@@ -25,6 +25,7 @@ class ShaderParameter:
     min_value: float   # Relevant for float
     max_value: float   # Relevant for float
     current_value: any # Current runtime value
+    is_promoted_const: bool = False  # GPU-AUDIO-004: True if this originated from a safely-promoted `const float`, not an authored uniform
 
 
 @dataclass(slots=True)
@@ -106,14 +107,44 @@ uniform float taBarPhase;
 // Packaged Official Texture Sampler
 uniform sampler2D taTexture0;
 
+// Generic Auto React Presentation Layer
+uniform int taAutoReact;
+
 // Shadertoy standard gl_FragCoord emulation
 """
 
 SHADERTOY_WRAPPER_SUFFIX = """
 void main() {
+    if (taAutoReact == 0) {
+        vec4 col = vec4(0.0);
+        mainImage(col, gl_FragCoord.xy);
+        _taFragColorOut = col;
+        return;
+    }
+
+    // --- GENERIC AUTO REACT PRESENTATION LAYER ---
+    // 1. Coordinate breathing/zoom (Bass + Strong Beat)
+    vec2 center = 0.5 * iResolution.xy;
+    vec2 p = gl_FragCoord.xy - center;
+    float pulseZoom = 1.0 + (taBass * 0.08) + (float(taStrongBeat) * 0.05);
+
+    // 2. Subtle rotational/drift perturbation (Mids)
+    float rotAngle = (taMids > 0.0) ? (taMids - 0.5) * 0.035 : 0.0;
+    float s = sin(rotAngle), c = cos(rotAngle);
+    mat2 rot = mat2(c, -s, s, c);
+    vec2 reactiveCoord = (rot * (p / pulseZoom)) + center;
+
+    // 3. Render base shader pixels at reactive coordinate
     vec4 col = vec4(0.0);
-    mainImage(col, gl_FragCoord.xy);
-    _taFragColorOut = col;
+    mainImage(col, reactiveCoord);
+
+    // 4. Output post-modulation (Treble shimmer + Beat transient pulse + RMS exposure)
+    float beatPulse = float(taBeat) * 0.08 + float(taStrongBeat) * 0.12;
+    float trebleShimmer = taTreble * 0.06;
+    float rmsLift = taRms * 0.05;
+
+    vec3 boostedCol = col.rgb * (1.0 + beatPulse + trebleShimmer + rmsLift);
+    _taFragColorOut = vec4(clamp(boostedCol, 0.0, 1.0), col.a);
 }
 """
 
@@ -154,6 +185,178 @@ UNIFORM_TAPARAM_RE = re.compile(
     r"uniform\s+float\s+(taParam\w+)\s*;",
     re.IGNORECASE
 )
+
+SYSTEM_UNIFORMS = {
+    # Shadertoy
+    "iResolution", "iTime", "iTimeDelta", "iFrame", "iMouse", "iDate", "iSampleRate", "iChannelTime", "iChannelResolution",
+    # ToroidAMP Audio & Engine
+    "u_resolution", "u_time", "u_timeDelta", "u_frame",
+    "taRms", "taPeak", "taBass", "taMids", "taTreble", "taBeat", "taStrongBeat",
+    "taSpectrum", "taWaveform", "taBpm", "taBeatPhase", "taBarPhase",
+    "taTexture0", "taAutoReact",
+}
+
+UNIFORM_FLOAT_GENERIC_RE = re.compile(
+    r"uniform\s+float\s+(?P<name>[a-zA-Z_]\w*)\s*;",
+    re.IGNORECASE
+)
+
+# ---------------------------------------------------------------------------
+# GPU-AUDIO-004 — Safe const-float promotion
+#
+# Deliberately narrow grammar: `const float NAME = <numeric literal>;`, one
+# declarator per statement, nothing else on the line. Scientific notation
+# (1e-3) is accepted since it's still a single numeric literal token.
+# Anything more elaborate (multi-declarator lines, expression initializers,
+# trailing comments on the same line) simply fails to match and is never
+# considered a candidate — this is the primary defense, before the explicit
+# exclusion checks below even run.
+# ---------------------------------------------------------------------------
+
+CONST_FLOAT_LITERAL_RE = re.compile(
+    r"^[ \t]*const\s+float\s+(?P<name>[a-zA-Z_]\w*)\s*=\s*"
+    r"(?P<value>[+-]?\d+\.?\d*(?:[eE][+-]?\d+)?)\s*;[ \t]*$",
+    re.MULTILINE
+)
+
+# Broader net used only for the "does another const's initializer depend on
+# this name" exclusion — deliberately matches ANY type (not just float),
+# since promoting NAME would break a dependent const regardless of that
+# dependent const's own type.
+CONST_ANY_RE = re.compile(
+    r"const\s+\w+\s+(?P<name>[a-zA-Z_]\w*)\s*=\s*(?P<expr>[^;]+);"
+)
+
+
+def _const_is_unsafe_to_promote(name: str, source: str) -> bool:
+    """
+    Conservative exclusion checks for GPU-AUDIO-004. Returns True (unsafe —
+    do not promote) if there is any evidence the name is required to remain
+    a compile-time constant, or that its role is structural rather than
+    presentational. When in doubt, this returns True: false negatives
+    (a promotable const that stays const) are acceptable; false positives
+    (breaking a shader) are not.
+    """
+    word = re.compile(rf"\b{re.escape(name)}\b")
+
+    # 1. Array dimension: NAME referenced anywhere inside [ ... ], including
+    #    wrapped in a cast/expression like `arr[int(STEPS)]` — not just a
+    #    bare `[STEPS]`. Matches non-nested bracket groups, which covers
+    #    ordinary GLSL array declarators/subscripts.
+    for bracket_match in re.finditer(r"\[([^\[\]]*)\]", source):
+        if word.search(bracket_match.group(1)):
+            return True
+
+    # 2. Loop bound / compile-time iteration structure: NAME appears
+    #    anywhere inside a for(...) header.
+    for for_match in re.finditer(r"for\s*\(([^)]*)\)", source):
+        if word.search(for_match.group(1)):
+            return True
+
+    # 3. switch/case labels.
+    if re.search(rf"case\s+{re.escape(name)}\s*:", source):
+        return True
+
+    # 4. Preprocessor expressions — NAME referenced on any '#' directive line.
+    for line in source.splitlines():
+        stripped = line.strip()
+        if stripped.startswith("#") and word.search(stripped):
+            return True
+
+    # 5. Const-expression dependency: some OTHER const's initializer
+    #    expression references NAME (e.g. `const float B = A * 2.0;` makes
+    #    A unsafe to promote — promoting A would invalidate B's GLSL
+    #    constant-expression requirement).
+    for m in CONST_ANY_RE.finditer(source):
+        other_name = m.group("name")
+        if other_name == name:
+            continue
+        if word.search(m.group("expr")):
+            return True
+
+    return False
+
+
+def find_safe_promotable_consts(
+    source_code: str, existing_names: set
+) -> Tuple[str, Dict[str, "ShaderParameter"]]:
+    """
+    Scans `source_code` for safely-promotable `const float NAME = literal;`
+    declarations (per the exclusion rules above) that do not collide with
+    an already-discovered parameter name or a SYSTEM_UNIFORMS name.
+
+    Returns (transformed_source, promoted_params):
+    - transformed_source: `source_code` with each promoted const's original
+      declaration line replaced by a same-shape comment (so line numbers in
+      any resulting compile error stay stable). This is an in-memory copy —
+      the caller's original string, and the file it came from, are never
+      touched.
+    - promoted_params: name -> ShaderParameter (is_promoted_const=True),
+      keyed by the const's own original name (never renamed), so the LAB
+      displays e.g. "SPEED" rather than a generated identifier.
+    """
+    promoted: Dict[str, ShaderParameter] = {}
+    transformed = source_code
+
+    # Collect candidates first (against the untouched source), then apply
+    # replacements — mutating `transformed` mid-scan would shift offsets
+    # for subsequent regex matches against the original `source_code`.
+    replacements = []  # list of (match_object, name, value)
+    for match in CONST_FLOAT_LITERAL_RE.finditer(source_code):
+        name = match.group("name")
+        if name in existing_names or name in promoted or name in SYSTEM_UNIFORMS:
+            continue
+        if _const_is_unsafe_to_promote(name, source_code):
+            continue
+        try:
+            value = float(match.group("value"))
+        except ValueError:
+            continue
+        replacements.append((match, name, value))
+
+    # Apply replacements back-to-front so earlier match spans stay valid.
+    for match, name, value in sorted(replacements, key=lambda r: r[0].start(), reverse=True):
+        # Deliberately does NOT quote "float <name>" verbatim — the caller's
+        # generic uniform-injection dedup check (`"float {name}" not in
+        # clean_src`) would otherwise see this comment and wrongly conclude
+        # a real declaration already exists, skipping the actual `uniform
+        # float <name>;` injection.
+        comment = f"// [gpu-audio-004] promoted from const, default={value}: {name}"
+        transformed = transformed[: match.start()] + comment + transformed[match.end():]
+
+        span = _generate_promoted_range(value)
+        promoted[name] = ShaderParameter(
+            name=name,
+            display_name=name,
+            param_type="float",
+            default_value=value,
+            min_value=span[0],
+            max_value=span[1],
+            current_value=value,
+            is_promoted_const=True,
+        )
+
+    return transformed, promoted
+
+
+def _generate_promoted_range(value: float) -> Tuple[float, float]:
+    """
+    GPU-AUDIO-004 range-generation policy for promoted consts (no
+    author-declared min/max exists). Deliberately simple and generic:
+
+        span = max(abs(value) * 2.0, 1.0)
+        min  = value - span
+        max  = value + span
+
+    - The original value always sits well inside the range (never at an edge).
+    - A minimum absolute span of 1.0 on each side guarantees a useful
+      non-zero editing range even for a zero-valued constant.
+    - The span scales with the constant's own magnitude, so it stays
+      proportionate rather than exploding for large constants, while never
+      being so narrow that a small negative excursion is impossible.
+    """
+    span = max(abs(value) * 2.0, 1.0)
+    return (value - span, value + span)
 
 
 def hex_to_rgb_normalized(hex_str: str) -> Optional[Tuple[float, float, float]]:
@@ -235,12 +438,14 @@ def parse_shader_parameters(source_code: str) -> Dict[str, ShaderParameter]:
                     current_value=canon_hex
                 )
 
-    # 2. Parse any unannotated taParam* uniforms with sensible defaults
-    for match in UNIFORM_TAPARAM_RE.finditer(source_code):
-        uname = match.group(1)
-        if uname not in params:
+    # 2. Parse any unannotated custom float uniforms excluding known system uniforms
+    for match in UNIFORM_FLOAT_GENERIC_RE.finditer(source_code):
+        uname = match.group("name")
+        if uname not in params and uname not in SYSTEM_UNIFORMS:
             disp = uname
-            if disp.startswith("taParam"):
+            if disp.startswith("u_"):
+                disp = disp[2:]
+            elif disp.startswith("taParam"):
                 disp = disp[7:]
             params[uname] = ShaderParameter(
                 name=uname,
@@ -266,6 +471,13 @@ def classify_and_wrap_source(raw_source: str, title: str = "Shader") -> Tuple[st
     is_shadertoy = "mainImage" in clean_src
     parameters = parse_shader_parameters(clean_src)
     uses_texture = "taTexture0" in clean_src
+
+    # GPU-AUDIO-004: safe const-float promotion. Operates only on this
+    # in-memory `clean_src` copy — `raw_source` (and the file it was read
+    # from) is never touched. Promoted names are additive: any name already
+    # claimed by an authored uniform/annotation is left alone.
+    clean_src, promoted_params = find_safe_promotable_consts(clean_src, set(parameters.keys()))
+    parameters.update(promoted_params)
 
     param_uniform_lines = []
     for p in parameters.values():

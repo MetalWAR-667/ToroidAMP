@@ -23,6 +23,7 @@ from ...visualizers.toroid_identity import ToroidIdentityVisualizer
 
 
 from ...visualizers.cyber_bloom import CyberBloomVisualizer
+from ...visualizers.audio_reactive_reference import AudioReactiveReferenceVisualizer
 
 
 class VisualizerModule(ModuleShell):
@@ -224,6 +225,7 @@ class VisualizerModule(ModuleShell):
                 ToroidAMPFloorVisualizer(self.surf_w, self.surf_h),
                 ToroidIdentityVisualizer(self.surf_w, self.surf_h),
                 CyberBloomVisualizer(self.surf_w, self.surf_h),
+                AudioReactiveReferenceVisualizer(self.surf_w, self.surf_h),
             ]
             self._vis_idx = 0
             self.sync_visualizer_presentation()

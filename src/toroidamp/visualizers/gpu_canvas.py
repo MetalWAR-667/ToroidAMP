@@ -74,6 +74,23 @@ class GLVisualizerCanvas(QOpenGLWidget):
         self.metadata: Optional[ShaderMetadata] = None
         self.active_shader_name: str = "None"
         self.current_params: Dict[str, float] = {}
+        self.audio_bindings: Dict[str, Tuple[str, float]] = {}  # param_name -> (source_name, amount)
+        self.auto_react: bool = False
+
+    def set_auto_react(self, enabled: bool):
+        """Enables or disables presentation-level generic auto-reactivity."""
+        self.auto_react = bool(enabled)
+
+    def set_param_audio_binding(self, name: str, source: str, amount: float):
+        """Binds a numeric parameter to an audio source with a specified modulation amount."""
+        if not source or source == "NONE":
+            self.audio_bindings.pop(name, None)
+        else:
+            self.audio_bindings[name] = (source, float(amount))
+
+    def get_param_audio_binding(self, name: str) -> Tuple[str, float]:
+        """Returns the (source, amount) binding for a parameter, or ('NONE', 0.0)."""
+        return self.audio_bindings.get(name, ("NONE", 0.0))
 
     def initializeGL(self):
         import numpy as np
@@ -245,18 +262,40 @@ class GLVisualizerCanvas(QOpenGLWidget):
         # Update authoritative program and metadata only upon link success
         self._program = new_prog
         self.current_shader_path = file_path
-        self.metadata = meta
+
+        # Filter parameters to only active uniforms present in the linked GPU program
+        active_parameters = {}
+        for p_name, param in meta.parameters.items():
+            loc = new_prog.uniformLocation(p_name.encode("utf-8"))
+            if loc != -1:
+                active_parameters[p_name] = param
+
+        filtered_meta = ShaderMetadata(
+            name=meta.name,
+            is_shadertoy_style=meta.is_shadertoy_style,
+            description=meta.description,
+            parameters=active_parameters,
+            uses_texture=meta.uses_texture
+        )
+
+        self.metadata = filtered_meta
         self.active_shader_name = meta.name
         self.last_error_log = ""
         self.is_using_fallback = False
 
         new_params = {}
-        for p_name, param in meta.parameters.items():
+        new_bindings = {}
+        for p_name, param in active_parameters.items():
             if p_name in self.current_params:
                 new_params[p_name] = self.current_params[p_name]
             else:
                 new_params[p_name] = param.default_value
+
+            if p_name in self.audio_bindings and param.param_type == "float":
+                new_bindings[p_name] = self.audio_bindings[p_name]
+
         self.current_params = new_params
+        self.audio_bindings = new_bindings
 
         return True
 
@@ -370,6 +409,7 @@ class GLVisualizerCanvas(QOpenGLWidget):
         set_u_float("taBpm", 130.0)
         set_u_float("taBeatPhase", float((elapsed * 2.166) % 1.0))
         set_u_float("taBarPhase", float((elapsed * 0.541) % 1.0))
+        set_u_int("taAutoReact", 1 if self.auto_react else 0)
 
         # Dynamic Authoring Uniform Parameters (float, bool, color)
         param_meta_map = self.metadata.parameters if self.metadata else {}
@@ -390,9 +430,32 @@ class GLVisualizerCanvas(QOpenGLWidget):
                 else:
                     set_u_vec3(p_name, 1.0, 1.0, 1.0)
             else:
-                # Default float
+                # Default float with optional audio parameter modulation
                 try:
-                    set_u_float(p_name, float(p_val))
+                    f_base = float(p_val)
+                    if p_name in self.audio_bindings and frame is not None:
+                        src_name, amount = self.audio_bindings[p_name]
+                        audio_val = 0.0
+                        if src_name == "BASS":
+                            audio_val = float(frame.bass)
+                        elif src_name == "MIDS":
+                            audio_val = float(frame.mids)
+                        elif src_name == "TREBLE":
+                            audio_val = float(frame.treble)
+                        elif src_name == "BEAT":
+                            audio_val = 1.0 if frame.beat else 0.0
+                        elif src_name == "STRONG BEAT":
+                            audio_val = 1.0 if frame.strong_beat else 0.0
+                        elif src_name == "RMS":
+                            audio_val = float(frame.rms)
+                        elif src_name == "PEAK":
+                            audio_val = float(frame.peak)
+                        
+                        f_final = f_base + (audio_val * amount)
+                    else:
+                        f_final = f_base
+
+                    set_u_float(p_name, f_final)
                 except (ValueError, TypeError):
                     set_u_float(p_name, 0.0)
 

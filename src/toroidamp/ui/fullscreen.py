@@ -13,7 +13,9 @@ import pygame
 from PySide6.QtCore import Qt, QTimer, Signal
 from PySide6.QtGui import QGuiApplication, QImage, QKeyEvent, QMouseEvent, QPixmap, QColor
 from PySide6.QtWidgets import (
+    QButtonGroup,
     QFrame,
+    QGridLayout,
     QHBoxLayout,
     QLabel,
     QPushButton,
@@ -41,6 +43,7 @@ from ..visualizers.gpu_compiler import (
 from ..visualizers.ribbon import WaveformRibbonVisualizer
 from ..visualizers.toroid import ToroidVisualizer
 from ..visualizers.toroid_identity import ToroidIdentityVisualizer
+from ..visualizers.audio_reactive_reference import AudioReactiveReferenceVisualizer
 from ..visualizers.cyber_bloom import CyberBloomVisualizer
 from .chassis import SeekSlider
 from .marquee import MarqueeLabel
@@ -166,6 +169,11 @@ class RetinaMeltWindow(QWidget):
         # Local shader tracking for current session
         self._local_shader_path: Optional[Path] = None
         self._local_shader_active = False
+
+        # GPU-AUDIO-003: at most one inline AUDIO source selector expanded at
+        # a time across all LAB parameter cards (opening a new one collapses
+        # whichever was previously open). Reset to None on every panel rebuild.
+        self._active_audio_selector_frame: Optional[QFrame] = None
 
         # Root layout holding the stacked visualizer surface and floating HUD
         self.root_stack = QStackedLayout(self)
@@ -484,6 +492,12 @@ class RetinaMeltWindow(QWidget):
         self.btn_lab_reset = QPushButton("↺ RESET", self.lab_panel)
         self.btn_lab_reset.clicked.connect(self._reset_tune_parameters)
         h_lab_actions.addWidget(self.btn_lab_reset)
+
+        self.btn_lab_auto_react = QPushButton("⚡ AUTO REACT", self.lab_panel)
+        self.btn_lab_auto_react.setCheckable(True)
+        self.btn_lab_auto_react.setChecked(False)
+        self.btn_lab_auto_react.toggled.connect(self._on_auto_react_toggled)
+        h_lab_actions.addWidget(self.btn_lab_auto_react)
         self.lab_layout.addLayout(h_lab_actions)
 
         # Preset Actions Bar: SAVE PRESET, LOAD PRESET
@@ -530,6 +544,7 @@ class RetinaMeltWindow(QWidget):
             ToroidAMPFloorVisualizer(self.surf_w, self.surf_h),
             ToroidIdentityVisualizer(self.surf_w, self.surf_h),
             CyberBloomVisualizer(self.surf_w, self.surf_h),
+            AudioReactiveReferenceVisualizer(self.surf_w, self.surf_h),
         ]
         self.vis_idx = 0
         self._apply_visualizer_selection()
@@ -709,6 +724,20 @@ class RetinaMeltWindow(QWidget):
                 padding: 3px 5px;
             }}
             QPushButton:hover {{ background: {pal.warning}; color: {pal.bg_lcd}; }}
+        """)
+        self.btn_lab_auto_react.setStyleSheet(f"""
+            QPushButton {{
+                background: {pal.bg_control};
+                border: 1px solid {pal.primary};
+                border-radius: 3px;
+                color: {pal.text_primary};
+                font-family: {mono_font};
+                font-size: 9px;
+                font-weight: bold;
+                padding: 3px 5px;
+            }}
+            QPushButton:hover {{ background: {pal.primary}; color: {pal.bg_lcd}; }}
+            QPushButton:checked {{ background: {pal.accent}; border: 1px solid {pal.accent}; color: #ffffff; }}
         """)
         self.btn_lab_save_preset.setStyleSheet(f"""
             QPushButton {{
@@ -1012,7 +1041,8 @@ class RetinaMeltWindow(QWidget):
             else:
                 # float parameter
                 h_row = QHBoxLayout()
-                lbl_name = QLabel(param.display_name, card)
+                name_text = f"{param.display_name} [CONST]" if getattr(param, "is_promoted_const", False) else param.display_name
+                lbl_name = QLabel(name_text, card)
                 lbl_name.setStyleSheet(f"color: {pal.primary}; font-family: {mono_font}; font-size: 10px; font-weight: bold; border: none;")
                 h_row.addWidget(lbl_name)
                 h_row.addStretch()
@@ -1117,6 +1147,11 @@ class RetinaMeltWindow(QWidget):
             if item.widget():
                 item.widget().deleteLater()
 
+        # Rebuilding destroys every card (and any expanded selector inside
+        # one) — drop the dangling reference rather than pointing at a
+        # deleted widget. The selector does not need to reopen automatically.
+        self._active_audio_selector_frame = None
+
         meta = self.gpu_canvas.metadata
         if not meta or not meta.parameters:
             lbl_none = QLabel("(No authoring parameters declared)", self.lab_controls_widget)
@@ -1214,7 +1249,8 @@ class RetinaMeltWindow(QWidget):
             else:
                 # float parameter
                 h_row = QHBoxLayout()
-                lbl_name = QLabel(param.display_name, card)
+                name_text = f"{param.display_name} [CONST]" if getattr(param, "is_promoted_const", False) else param.display_name
+                lbl_name = QLabel(name_text, card)
                 lbl_name.setStyleSheet(f"color: {pal.primary}; font-size: 10px; font-weight: bold; border: none;")
                 h_row.addWidget(lbl_name)
                 h_row.addStretch()
@@ -1248,10 +1284,149 @@ class RetinaMeltWindow(QWidget):
                 slider.valueChanged.connect(make_slider_cb())
                 c_layout.addWidget(slider)
 
+                # Audio Modulation Binding Row (GPU-AUDIO-003)
+                curr_src, curr_amt = self.gpu_canvas.get_param_audio_binding(p_name)
+                h_audio = QHBoxLayout()
+                h_audio.setSpacing(4)
+
+                # GPU-AUDIO-003: AUDIO source selector — inline, embedded in the
+                # normal QWidget hierarchy (no QMenu/QComboBox/Qt.Popup). A
+                # floating popup was tried twice (a combo box, then
+                # QPushButton+QMenu) and both were unreliable inside this
+                # frameless fullscreen LAB in real use — see
+                # docs/design/10_gpu_audio_003.md. Clicking the button
+                # expands a small grid of checkable source buttons directly
+                # below it, inside this same card.
+                btn_src = QPushButton(f"AUDIO: {curr_src}", card)
+                btn_src.setStyleSheet(f"""
+                    QPushButton {{
+                        background: {pal.bg_control};
+                        color: {pal.primary};
+                        font-family: {mono_font};
+                        font-size: 8px;
+                        font-weight: bold;
+                        border: 1px solid {pal.border_control};
+                        border-radius: 2px;
+                        padding: 2px 4px;
+                    }}
+                    QPushButton:hover {{
+                        background: {pal.primary};
+                        color: {pal.bg_lcd};
+                    }}
+                """)
+
+                lbl_amt = QLabel(f"{curr_amt:+4.2f}", card)
+                lbl_amt.setStyleSheet(f"color: {pal.accent}; font-family: {mono_font}; font-size: 8px; border: none;")
+
+                slider_amt = QSlider(Qt.Horizontal, card)
+                slider_amt.setRange(-200, 200)  # -2.00 .. +2.00
+                slider_amt.setValue(int(round(curr_amt * 100.0)))
+                slider_amt.setStyleSheet(f"""
+                    QSlider::groove:horizontal {{ height: 3px; background: {pal.slider_groove}; border-radius: 1px; }}
+                    QSlider::sub-page:horizontal {{ background: {pal.accent}; border-radius: 1px; }}
+                    QSlider::handle:horizontal {{ background: {pal.accent}; border: 1px solid #ffffff; width: 8px; margin: -2px 0; border-radius: 4px; }}
+                """)
+
+                h_audio.addWidget(btn_src)
+                h_audio.addWidget(lbl_amt)
+                h_audio.addWidget(slider_amt)
+                c_layout.addLayout(h_audio)
+
+                sources = ["NONE", "BASS", "MIDS", "TREBLE", "BEAT", "STRONG BEAT", "RMS", "PEAK"]
+
+                selector = QFrame(card)
+                selector.setStyleSheet(f"""
+                    QFrame {{
+                        background-color: {pal.bg_surface_alt};
+                        border: 1px solid {pal.primary};
+                        border-radius: 2px;
+                    }}
+                """)
+                selector_grid = QGridLayout(selector)
+                selector_grid.setContentsMargins(3, 3, 3, 3)
+                selector_grid.setSpacing(2)
+
+                src_btn_style = f"""
+                    QPushButton {{
+                        background: {pal.bg_control};
+                        color: {pal.text_primary};
+                        font-family: {mono_font};
+                        font-size: 8px;
+                        font-weight: bold;
+                        border: 1px solid {pal.border_control};
+                        border-radius: 2px;
+                        padding: 3px 4px;
+                    }}
+                    QPushButton:hover {{
+                        border-color: {pal.primary};
+                    }}
+                    QPushButton:checked {{
+                        background: {pal.primary};
+                        color: {pal.bg_lcd};
+                        border-color: {pal.primary};
+                    }}
+                """
+                src_group = QButtonGroup(selector)
+                src_group.setExclusive(True)
+
+                def make_audio_source_cb(name=p_name, btn=btn_src, s_amt=slider_amt, sel=selector):
+                    def on_source_select(src: str):
+                        btn.setText(f"AUDIO: {src}")
+                        amt = s_amt.value() / 100.0
+                        self.gpu_canvas.set_param_audio_binding(name, src, amt)
+                        sel.setVisible(False)
+                        if self._active_audio_selector_frame is sel:
+                            self._active_audio_selector_frame = None
+                    return on_source_select
+
+                src_handler = make_audio_source_cb()
+                for idx, s in enumerate(sources):
+                    src_btn = QPushButton(s, selector)
+                    src_btn.setCheckable(True)
+                    src_btn.setStyleSheet(src_btn_style)
+                    src_btn.setChecked(s == curr_src)
+
+                    def make_select_cb(s_val=s, h=src_handler):
+                        return lambda checked: h(s_val) if checked else None
+                    src_btn.toggled.connect(make_select_cb())
+
+                    src_group.addButton(src_btn)
+                    selector_grid.addWidget(src_btn, idx // 2, idx % 2)
+
+                selector.setVisible(False)
+                c_layout.addWidget(selector)
+
+                def make_toggle_selector_cb(sel=selector):
+                    def on_toggle_selector():
+                        opening = not sel.isVisible()
+                        prev = self._active_audio_selector_frame
+                        if prev is not None and prev is not sel:
+                            prev.setVisible(False)
+                        sel.setVisible(opening)
+                        self._active_audio_selector_frame = sel if opening else None
+                    return on_toggle_selector
+
+                btn_src.clicked.connect(make_toggle_selector_cb())
+
+                def make_audio_amt_cb(name=p_name, btn=btn_src, s_amt=slider_amt, l_amt=lbl_amt):
+                    def on_amt_change():
+                        src, _ = self.gpu_canvas.get_param_audio_binding(name)
+                        amt = s_amt.value() / 100.0
+                        l_amt.setText(f"{amt:+4.2f}")
+                        self.gpu_canvas.set_param_audio_binding(name, src, amt)
+                    return on_amt_change
+
+                slider_amt.valueChanged.connect(make_audio_amt_cb())
+
             self.lab_controls_layout.addWidget(card)
 
         self.lab_controls_layout.addStretch()
         self._position_lab_panel()
+
+    def _on_auto_react_toggled(self, checked: bool):
+        """Toggles presentation-level generic auto-reactivity on GPU canvas."""
+        self.gpu_canvas.set_auto_react(checked)
+        self.gpu_canvas.update()
 
     def _load_local_shader_dialog(self):
         """Loads a local GLSL shader into RETINA MELT from user_shaders/."""
@@ -1274,6 +1449,8 @@ class RetinaMeltWindow(QWidget):
             self._local_shader_path = p
             self._local_shader_active = True
             self.surface_layout.setCurrentIndex(1)
+            self.btn_lab_auto_react.setChecked(False)
+            self.gpu_canvas.set_auto_react(False)
             self._update_mode_button_text()
             self._rebuild_lab_panel()
             self.lab_diag_view.setText(f"[OK] Loaded '{p.name}' successfully.")

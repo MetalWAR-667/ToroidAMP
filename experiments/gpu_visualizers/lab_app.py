@@ -31,7 +31,7 @@ from PySide6.QtGui import QSurfaceFormat, QMouseEvent, QKeyEvent, QPainter, QCol
 from PySide6.QtWidgets import (
     QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
     QPushButton, QLabel, QFrame, QTextEdit, QFileDialog, QSlider,
-    QComboBox, QScrollArea, QProgressBar, QGridLayout, QSizePolicy
+    QComboBox, QScrollArea, QProgressBar, QGridLayout, QSizePolicy, QButtonGroup
 )
 from PySide6.QtOpenGLWidgets import QOpenGLWidget
 from PySide6.QtOpenGL import (
@@ -123,6 +123,10 @@ class GPUAuthoringLabWindow(QMainWindow):
         }
         self._manual_beat_trigger = False
         self._manual_strong_beat_trigger = False
+
+        # GPU-AUDIO-003: at most one inline AUDIO source selector expanded at
+        # a time across all parameter cards. Reset on every panel rebuild.
+        self._active_audio_selector_frame: Optional[QFrame] = None
 
         central = QWidget(self)
         self.setCentralWidget(central)
@@ -223,6 +227,17 @@ class GPUAuthoringLabWindow(QMainWindow):
         self.btn_reload.setStyleSheet(btn_style)
         self.btn_reload.clicked.connect(self.reload_shader)
         t_layout.addWidget(self.btn_reload)
+
+        self.btn_auto_react = QPushButton("⚡ AUTO REACT", top_bar)
+        self.btn_auto_react.setCheckable(True)
+        self.btn_auto_react.setChecked(False)
+        self.btn_auto_react.setStyleSheet("""
+            QPushButton { background-color: #1a1e2e; color: #a0aab8; border: 1px solid #2e384d; border-radius: 3px; font-family: monospace; font-size: 10px; padding: 4px 8px; }
+            QPushButton:hover { background-color: #252b42; color: #ffffff; }
+            QPushButton:checked { background-color: #ff0077; border: 1px solid #ff0077; color: #ffffff; font-weight: bold; }
+        """)
+        self.btn_auto_react.toggled.connect(self.toggle_auto_react)
+        t_layout.addWidget(self.btn_auto_react)
 
         self.btn_broken = QPushButton("⚠ BREAK", top_bar)
         self.btn_broken.setStyleSheet(btn_pink_style)
@@ -363,7 +378,13 @@ class GPUAuthoringLabWindow(QMainWindow):
             self._initial_load_done = True
             self.switch_shader_path(self.official_shader_dir / "toroid_identity.frag")
 
+    def toggle_auto_react(self, checked: bool):
+        self.canvas.set_auto_react(checked)
+        self.canvas.update()
+
     def switch_shader_path(self, target_path: Path):
+        self.btn_auto_react.setChecked(False)
+        self.canvas.set_auto_react(False)
         ok = self.canvas.load_shader_file(target_path)
         self._rebuild_parameter_ui()
         self._update_ui_state(ok)
@@ -497,6 +518,11 @@ class GPUAuthoringLabWindow(QMainWindow):
         self._param_slider_widgets.clear()
         self._param_val_labels.clear()
 
+        # Rebuilding destroys every card (and any expanded selector inside
+        # one) — drop the dangling reference rather than pointing at a
+        # deleted widget. The selector does not need to reopen automatically.
+        self._active_audio_selector_frame = None
+
         if not self.canvas.metadata or not self.canvas.metadata.parameters:
             lbl_none = QLabel("(No exposed parameters declared)", self.param_container)
             lbl_none.setStyleSheet("color: #606880; font-style: italic; font-size: 10px;")
@@ -592,7 +618,10 @@ class GPUAuthoringLabWindow(QMainWindow):
             else:
                 # float parameter
                 h_row = QHBoxLayout()
-                lbl_name = QLabel(param.display_name, card)
+                # GPU-AUDIO-004: identify promoted-const provenance inline —
+                # no separate "CONST PANEL", same card, same as the Integrated LAB.
+                name_text = f"{param.display_name} [CONST]" if getattr(param, "is_promoted_const", False) else param.display_name
+                lbl_name = QLabel(name_text, card)
                 lbl_name.setStyleSheet("color: #00f0ff; font-size: 10px; font-weight: bold; border: none;")
                 h_row.addWidget(lbl_name)
                 h_row.addStretch()
@@ -624,6 +653,139 @@ class GPUAuthoringLabWindow(QMainWindow):
 
                 slider.valueChanged.connect(make_slider_cb())
                 c_layout.addWidget(slider)
+
+                # Audio Modulation Binding Row (GPU-AUDIO-003)
+                curr_src, curr_amt = self.canvas.get_param_audio_binding(p_name)
+                h_audio = QHBoxLayout()
+                h_audio.setSpacing(4)
+
+                # GPU-AUDIO-003: AUDIO source selector — inline, embedded in
+                # the normal QWidget hierarchy (no QMenu/QComboBox/Qt.Popup).
+                # A floating popup was tried twice (QComboBox, then
+                # QPushButton+QMenu) and both were unreliable inside the
+                # Integrated RETINA LAB in real use — see
+                # docs/design/10_gpu_audio_003.md. Same interaction model as
+                # the Integrated LAB (src/toroidamp/ui/fullscreen.py).
+                btn_src = QPushButton(f"AUDIO: {curr_src}", card)
+                btn_src.setStyleSheet("""
+                    QPushButton {
+                        background: #1a1e2e;
+                        color: #00f0ff;
+                        font-family: monospace;
+                        font-size: 8px;
+                        font-weight: bold;
+                        border: 1px solid #2e384d;
+                        border-radius: 2px;
+                        padding: 2px 4px;
+                    }
+                    QPushButton:hover {
+                        background: #00f0ff;
+                        color: #000000;
+                    }
+                """)
+
+                lbl_amt = QLabel(f"{curr_amt:+4.2f}", card)
+                lbl_amt.setStyleSheet("color: #ff0077; font-family: monospace; font-size: 8px; border: none;")
+
+                slider_amt = QSlider(Qt.Horizontal, card)
+                slider_amt.setRange(-200, 200)  # -2.00 .. +2.00
+                slider_amt.setValue(int(round(curr_amt * 100.0)))
+                slider_amt.setStyleSheet("""
+                    QSlider::groove:horizontal { height: 3px; background: #1c2035; border-radius: 1px; }
+                    QSlider::sub-page:horizontal { background: #ff0077; border-radius: 1px; }
+                    QSlider::handle:horizontal { background: #ff0077; border: 1px solid #ffffff; width: 8px; margin: -2px 0; border-radius: 4px; }
+                """)
+
+                h_audio.addWidget(btn_src)
+                h_audio.addWidget(lbl_amt)
+                h_audio.addWidget(slider_amt)
+                c_layout.addLayout(h_audio)
+
+                sources = ["NONE", "BASS", "MIDS", "TREBLE", "BEAT", "STRONG BEAT", "RMS", "PEAK"]
+
+                selector = QFrame(card)
+                selector.setStyleSheet("""
+                    QFrame {
+                        background-color: #121520;
+                        border: 1px solid #00f0ff;
+                        border-radius: 2px;
+                    }
+                """)
+                selector_grid = QGridLayout(selector)
+                selector_grid.setContentsMargins(3, 3, 3, 3)
+                selector_grid.setSpacing(2)
+
+                src_btn_style = """
+                    QPushButton {
+                        background: #1a1e2e;
+                        color: #ffffff;
+                        font-family: monospace;
+                        font-size: 8px;
+                        font-weight: bold;
+                        border: 1px solid #2e384d;
+                        border-radius: 2px;
+                        padding: 3px 4px;
+                    }
+                    QPushButton:hover {
+                        border-color: #00f0ff;
+                    }
+                    QPushButton:checked {
+                        background: #00f0ff;
+                        color: #000000;
+                        border-color: #00f0ff;
+                    }
+                """
+                src_group = QButtonGroup(selector)
+                src_group.setExclusive(True)
+
+                def make_audio_source_cb(name=p_name, btn=btn_src, s_amt=slider_amt, sel=selector):
+                    def on_source_select(src: str):
+                        btn.setText(f"AUDIO: {src}")
+                        amt = s_amt.value() / 100.0
+                        self.canvas.set_param_audio_binding(name, src, amt)
+                        sel.setVisible(False)
+                        if self._active_audio_selector_frame is sel:
+                            self._active_audio_selector_frame = None
+                    return on_source_select
+
+                src_handler = make_audio_source_cb()
+                for idx, s in enumerate(sources):
+                    src_btn = QPushButton(s, selector)
+                    src_btn.setCheckable(True)
+                    src_btn.setStyleSheet(src_btn_style)
+                    src_btn.setChecked(s == curr_src)
+
+                    def make_select_cb(s_val=s, h=src_handler):
+                        return lambda checked: h(s_val) if checked else None
+                    src_btn.toggled.connect(make_select_cb())
+
+                    src_group.addButton(src_btn)
+                    selector_grid.addWidget(src_btn, idx // 2, idx % 2)
+
+                selector.setVisible(False)
+                c_layout.addWidget(selector)
+
+                def make_toggle_selector_cb(sel=selector):
+                    def on_toggle_selector():
+                        opening = not sel.isVisible()
+                        prev = self._active_audio_selector_frame
+                        if prev is not None and prev is not sel:
+                            prev.setVisible(False)
+                        sel.setVisible(opening)
+                        self._active_audio_selector_frame = sel if opening else None
+                    return on_toggle_selector
+
+                btn_src.clicked.connect(make_toggle_selector_cb())
+
+                def make_audio_amt_cb(name=p_name, btn=btn_src, s_amt=slider_amt, l_amt=lbl_amt):
+                    def on_amt_change():
+                        src, _ = self.canvas.get_param_audio_binding(name)
+                        amt = s_amt.value() / 100.0
+                        l_amt.setText(f"{amt:+4.2f}")
+                        self.canvas.set_param_audio_binding(name, src, amt)
+                    return on_amt_change
+
+                slider_amt.valueChanged.connect(make_audio_amt_cb())
 
                 self._param_slider_widgets[p_name] = slider
                 self._param_val_labels[p_name] = lbl_val
