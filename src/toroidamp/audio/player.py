@@ -39,9 +39,13 @@ class PlayerEngine:
 
     FADE_DURATION_SECONDS = 0.200 # 200 ms smooth envelope
 
-    def __init__(self, handoff: AnalysisHandoff, custom_modplug_path: str | None = None):
+    def __init__(self, handoff: AnalysisHandoff, custom_tracker_lib_path: str | None = None):
         self.handoff = handoff
-        self._custom_modplug_path = custom_modplug_path
+        # RC-069-002B: renamed from custom_modplug_path — tracker playback
+        # now uses libxmp, not libmodplug (which was never actually
+        # available in this project's toolchain; see
+        # docs/release/RC_069_002B_tracker_libxmp.md).
+        self._custom_tracker_lib_path = custom_tracker_lib_path
 
         self._conventional_decoder = ConventionalDecoder()
         self._tracker_decoder: TrackerDecoder | None = None
@@ -148,7 +152,7 @@ class PlayerEngine:
 
     def _get_tracker_decoder(self) -> TrackerDecoder:
         if self._tracker_decoder is None:
-            self._tracker_decoder = TrackerDecoder(self._custom_modplug_path)
+            self._tracker_decoder = TrackerDecoder(self._custom_tracker_lib_path)
         return self._tracker_decoder
 
     def load(self, filepath: str) -> None:
@@ -163,12 +167,29 @@ class PlayerEngine:
             self._current_filepath = filepath
             ext = os.path.splitext(filepath)[1].lower()
 
-            if ext in [".mod", ".xm", ".it", ".s3m"]:
-                decoder = self._get_tracker_decoder()
-            else:
-                decoder = self._conventional_decoder
-
             try:
+                # RC-069-002: tracker-decoder CONSTRUCTION (which raises
+                # RuntimeError when the native tracker library is
+                # unavailable — no longer true in this dev environment as
+                # of RC-069-002B's migration to libxmp, but this failure
+                # path still matters on any machine where it genuinely is
+                # missing) now shares the exact same try/except as
+                # decoder.load() below, instead of being constructed
+                # before this block. Previously, a missing
+                # native tracker backend bypassed `_decoder_failed`/
+                # `_last_error_msg` entirely — invisible to `_tick()`'s
+                # normal decoder-failure poll (window_manager.py), which is
+                # what drives the existing clean "log + auto-advance/stop"
+                # behavior every other decode failure already gets. This
+                # was a real, silent product gap: playlist selection would
+                # visibly move to the failed track with no playback, no
+                # error surfaced, and no auto-advance — exactly the
+                # "mysterious failure with no clear diagnostic" this cut's
+                # tracker-failure-semantics requirement exists to close.
+                if ext in [".mod", ".xm", ".it", ".s3m"]:
+                    decoder = self._get_tracker_decoder()
+                else:
+                    decoder = self._conventional_decoder
                 decoder.load(filepath)
                 self._active_decoder = decoder
                 self._sample_rate = decoder.get_sample_rate()

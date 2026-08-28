@@ -30,13 +30,33 @@ dependencies = [
     "numpy>=1.24.0",
     "sounddevice>=0.4.6",
     "soundfile>=0.12.0",
-    "miniaudio>=1.59",
+    # RC-069-002: voice.py's startup identity line (part of the documented
+    # core startup/shutdown lifecycle) actually imports pyttsx3 — previously
+    # undeclared, "working" only because it happened to be installed
+    # out-of-band in every development venv so far. pyttsx3 itself is
+    # cross-platform (different native TTS backends per OS); pywin32/comtypes
+    # are specifically its Windows SAPI5 backend's own dependencies, so they
+    # carry an explicit platform marker rather than being forced onto every
+    # OS. voice.py's existing `try/except ImportError` (TTS_AVAILABLE flag)
+    # is left completely unchanged — this declaration makes the currently-
+    # working dev experience reproducible on a clean install, it does not
+    # remove the defensive fallback.
+    "pyttsx3>=2.90",
+    "pywin32>=305; sys_platform == 'win32'",
+    "comtypes>=1.1.14; sys_platform == 'win32'",
 ]
+# RC-069-002: `miniaudio` was previously declared here but is never imported
+# anywhere in src/toroidamp (verified by direct search) — ConventionalDecoder
+# uses `soundfile`/libsndfile exclusively for MP3/WAV/OGG/FLAC. Removed as a
+# genuinely dead dependency, not merely unused-by-convention.
 
 [project.optional-dependencies]
 # Only needed to run tools/generate_ico.py (regenerating the Windows .ico
 # from the branding master) — never required to run ToroidAMP itself.
 dev = ["Pillow>=10.0"]
+# RC-069-002: the pytest suite was previously installed ad hoc (not declared
+# anywhere), making a clean-environment test run non-reproducible.
+test = ["pytest>=8.0"]
 
 [project.scripts]
 toroidamp = "toroidamp.__main__:main"
@@ -45,9 +65,29 @@ toroidamp = "toroidamp.__main__:main"
 where = ["src"]
 
 [tool.setuptools.package-data]
-# BRAND-001: ships the operational branding master (and its Windows .ico
-# derivative) inside the installed package, so the application icon
-# resolves correctly for a real wheel/sdist install, not only an editable
-# checkout. The full-resolution creative source (assets/images/) is
-# intentionally excluded — it is never loaded at runtime.
-toroidamp = ["assets/branding/*.png", "assets/branding/*.ico"]
+# RC-069-001/002: every runtime resource actually opened by the application
+# at runtime must be declared here, or a real (non-editable) wheel/sdist
+# install — and, downstream, a PyInstaller/Nuitka build driven from one —
+# silently ships without it. This was previously incomplete (branding only),
+# which worked only because every development/test run in this project uses
+# an editable install (`importlib.resources.files("toroidamp")` then finds
+# everything directly on disk regardless of this manifest).
+#
+#   assets/branding/*.png, *.ico   -> application/tray/taskbar icon (BRAND-001)
+#   assets/images/*.png            -> gpu_canvas.py's packaged GPU texture
+#   assets/official_shaders/*.frag -> the 4 official GPU visualizer shaders
+#   assets/themes/**/*             -> DEFAULT + CYBER YELLOW theme.qss,
+#                                      bundled font, and theme images
+#
+# The full-resolution creative source at the REPO ROOT (../../assets/, one
+# level above src/toroidamp/) is intentionally excluded — it is never loaded
+# at runtime, only branding.py's own separate, deliberate "authoritative
+# master" checkout-fallback path (see branding.py) ever reads it, and only
+# in a source checkout.
+toroidamp = [
+    "assets/branding/*.png",
+    "assets/branding/*.ico",
+    "assets/images/*.png",
+    "assets/official_shaders/*.frag",
+    "assets/themes/**/*",
+]

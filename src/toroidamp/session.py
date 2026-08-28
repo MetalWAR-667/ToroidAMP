@@ -12,7 +12,7 @@ from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any, Optional
 
-from PySide6.QtCore import QStandardPaths
+from .paths import get_app_data_dir
 
 logger = logging.getLogger("toroidamp.session")
 
@@ -85,17 +85,14 @@ class SessionManager:
         - Windows: %LOCALAPPDATA%/ToroidAMP/session.json
         - Linux: ~/.config/ToroidAMP/session.json
         Migrates legacy nested paths gracefully if present.
+
+        RC-069-002: the shared root-directory resolution (QStandardPaths +
+        the anti-double-nesting guard) now lives in `paths.get_app_data_dir()`
+        — the same root logs/ and shaders/ also resolve under (paths.py) —
+        so this method only adds its own session.json-specific concerns
+        (the exact filename, legacy-path migration) on top.
         """
-        base_dir = QStandardPaths.writableLocation(QStandardPaths.StandardLocation.AppConfigLocation)
-        if not base_dir:
-            base_dir = os.path.expanduser("~/.config/ToroidAMP")
-        
-        target_dir = Path(base_dir)
-        # Prevent duplicate nested 'ToroidAMP/ToroidAMP'
-        if target_dir.name != "ToroidAMP":
-            target_dir = target_dir / "ToroidAMP"
-            
-        target_dir.mkdir(parents=True, exist_ok=True)
+        target_dir = get_app_data_dir()
         canonical_file = target_dir / "session.json"
 
         # Check for legacy nested session file from earlier builds and migrate

@@ -6,12 +6,13 @@ custom font registration, and reactive theme switching for bundled themes.
 
 import logging
 from dataclasses import dataclass, field
-from importlib.resources import files as _pkg_files
 from pathlib import Path
 from typing import Optional, Dict
 
 from PySide6.QtCore import QObject, Signal, Qt
 from PySide6.QtGui import QColor, QFontDatabase, QImage, QPixmap
+
+from ..resources import resolve_package_asset
 
 logger = logging.getLogger("toroidamp.theme")
 
@@ -137,30 +138,9 @@ class ThemeDefinition:
 
 
 def resolve_theme_asset_path(theme_id: str, relative_subpath: str | Path) -> Optional[Path]:
-    """Resolves a theme-specific asset path safely."""
+    """Resolves a theme-specific asset path safely (RC-069-002: delegates to the shared package-asset resolver)."""
     rel = Path(f"assets/themes/{theme_id}") / relative_subpath
-    return _resolve_asset_path(rel)
-
-
-def _resolve_asset_path(relative_subpath: Path) -> Optional[Path]:
-    """Resolves packaged or checkout asset paths safely without raising."""
-    try:
-        candidate = _pkg_files("toroidamp") / relative_subpath.as_posix()
-        if candidate.is_file():
-            return Path(str(candidate))
-    except Exception:
-        pass
-    
-    try:
-        # Fallback to repo checkout root
-        checkout_root = Path(__file__).resolve().parents[2]
-        candidate = checkout_root / "src" / "toroidamp" / relative_subpath
-        if candidate.is_file():
-            return candidate
-    except Exception:
-        pass
-    
-    return None
+    return resolve_package_asset(rel)
 
 
 class ThemeManager(QObject):
@@ -190,7 +170,7 @@ class ThemeManager(QObject):
 
     def _load_custom_fonts(self):
         """Loads and registers packaged TrueType fonts via QFontDatabase."""
-        quantum_path = _resolve_asset_path(Path("assets/themes/cyber_yellow/fonts/quantum.ttf"))
+        quantum_path = resolve_package_asset(Path("assets/themes/cyber_yellow/fonts/quantum.ttf"))
         if quantum_path and quantum_path.is_file():
             font_id = QFontDatabase.addApplicationFont(str(quantum_path))
             if font_id != -1:
@@ -222,7 +202,7 @@ class ThemeManager(QObject):
     def _register_bundled_themes(self):
         """Builds and registers DEFAULT and CYBER YELLOW ThemeDefinitions."""
         # 1. DEFAULT THEME
-        def_qss_path = _resolve_asset_path(Path("assets/themes/default/theme.qss"))
+        def_qss_path = resolve_package_asset(Path("assets/themes/default/theme.qss"))
         default_def = ThemeDefinition(
             id="default",
             display_name="DEFAULT",
@@ -239,13 +219,13 @@ class ThemeManager(QObject):
         self._themes["default"] = default_def
 
         # 2. CYBER YELLOW THEME
-        cy_qss_path = _resolve_asset_path(Path("assets/themes/cyber_yellow/theme.qss"))
+        cy_qss_path = resolve_package_asset(Path("assets/themes/cyber_yellow/theme.qss"))
         cy_assets = ThemeAssets(
-            chassis_image_path=_resolve_asset_path(Path("assets/themes/cyber_yellow/images/chassis.png")),
-            panel_image_path=_resolve_asset_path(Path("assets/themes/cyber_yellow/images/panel_brushed_metal.png")),
-            hazard_strip_path=_resolve_asset_path(Path("assets/themes/cyber_yellow/images/hazard_strip.png")),
-            logo_image_path=_resolve_asset_path(Path("assets/themes/cyber_yellow/images/logo.png")),
-            wordmark_image_path=_resolve_asset_path(Path("assets/themes/cyber_yellow/images/wordmark.png")),
+            chassis_image_path=resolve_package_asset(Path("assets/themes/cyber_yellow/images/chassis.png")),
+            panel_image_path=resolve_package_asset(Path("assets/themes/cyber_yellow/images/panel_brushed_metal.png")),
+            hazard_strip_path=resolve_package_asset(Path("assets/themes/cyber_yellow/images/hazard_strip.png")),
+            logo_image_path=resolve_package_asset(Path("assets/themes/cyber_yellow/images/logo.png")),
+            wordmark_image_path=resolve_package_asset(Path("assets/themes/cyber_yellow/images/wordmark.png")),
             qss_path=cy_qss_path
         )
 

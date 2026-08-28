@@ -7,6 +7,7 @@ from typing import Dict, Optional
 from .base import Visualizer
 from .gpu_compiler import ShaderMetadata, ShaderParameter, parse_shader_parameters
 from ..analysis.audio_frame import AudioFrame
+from ..resources import resolve_package_asset
 
 
 class CyberBloomVisualizer(Visualizer):
@@ -41,9 +42,7 @@ class CyberBloomVisualizer(Visualizer):
         return self._metadata
 
     def _resolve_shader_path(self) -> Optional[Path]:
-        pkg_dir = Path(__file__).resolve().parent.parent
-        shader_file = pkg_dir / "assets" / "official_shaders" / "cyber_bloom.frag"
-        return shader_file if shader_file.exists() else None
+        return resolve_package_asset("assets/official_shaders/cyber_bloom.frag")
 
     def _load_metadata(self):
         if self._shader_path and self._shader_path.exists():

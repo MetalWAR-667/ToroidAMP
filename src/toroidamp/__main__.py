@@ -6,6 +6,7 @@ Supports execution via 'python -m toroidamp' or the 'toroidamp' console script.
 import logging
 import os
 import sys
+from logging.handlers import RotatingFileHandler
 
 from PySide6.QtWidgets import QApplication
 
@@ -15,16 +16,59 @@ from toroidamp.analysis.audio_frame import AnalysisHandoff
 from toroidamp.audio.player import PlayerEngine
 from toroidamp.audio.playlist import PlaylistManager
 from toroidamp.audio.voice import VoiceService
+from toroidamp.paths import get_logs_dir
 from toroidamp.session import SessionManager
 from toroidamp.ui.window_manager import WindowManager
 
+_LOG_FORMAT = "[%(asctime)s] [%(name)s] [%(levelname)s] %(message)s"
+_LOG_DATEFMT = "%H:%M:%S"
+_HANDLER_MARKER = "_toroidamp_handler"
+
 
 def setup_logging():
-    logging.basicConfig(
-        level=logging.INFO,
-        format="[%(asctime)s] [%(name)s] [%(levelname)s] %(message)s",
-        datefmt="%H:%M:%S"
-    )
+    """
+    Configures console logging (unchanged, dev-friendly) plus a durable,
+    modestly-sized rotating file log for release troubleshooting
+    (RC-069-002) — `%LOCALAPPDATA%\\ToroidAMP\\logs\\toroidamp.log`, 2 MiB
+    per file, 3 backups kept (~8 MiB ceiling; never unbounded growth).
+
+    Idempotent: safe to call more than once (e.g. across tests importing
+    this module repeatedly in one process) — re-invocation is a no-op
+    rather than accumulating duplicate handlers on the root logger.
+
+    ToroidAMP's logging is LOCAL ONLY: nothing here writes anywhere but this
+    process's own console and this one local file. No network reporting, no
+    telemetry, no external service of any kind — see
+    docs/release/RC_069_002_runtime_hygiene.md for the explicit privacy
+    statement this implementation follows (no file contents, no secrets).
+    """
+    root_logger = logging.getLogger()
+    if any(getattr(h, _HANDLER_MARKER, False) for h in root_logger.handlers):
+        return
+
+    root_logger.setLevel(logging.INFO)
+    formatter = logging.Formatter(_LOG_FORMAT, datefmt=_LOG_DATEFMT)
+
+    console_handler = logging.StreamHandler()
+    console_handler.setFormatter(formatter)
+    setattr(console_handler, _HANDLER_MARKER, True)
+    root_logger.addHandler(console_handler)
+
+    # File logging must never prevent startup — a permissions/disk issue
+    # here is logged (to the console handler above, which is already live)
+    # and otherwise swallowed; the application keeps running console-only.
+    try:
+        log_path = get_logs_dir() / "toroidamp.log"
+        file_handler = RotatingFileHandler(
+            log_path, maxBytes=2 * 1024 * 1024, backupCount=3, encoding="utf-8"
+        )
+        file_handler.setFormatter(formatter)
+        setattr(file_handler, _HANDLER_MARKER, True)
+        root_logger.addHandler(file_handler)
+    except Exception as e:
+        logging.getLogger("toroidamp.main").warning(
+            f"Could not initialize persistent file logging (continuing with console logging only): {e}"
+        )
 
 
 def main():
@@ -32,6 +76,23 @@ def main():
     logger = logging.getLogger("toroidamp.main")
     logger.info(f"Starting ToroidAMP v{__version__}")
 
+    try:
+        _run(logger)
+    except SystemExit:
+        raise
+    except Exception:
+        # RC-069-002: minimal startup-failure capture — not a crash
+        # reporter, just a guarantee that an uncaught failure reaches the
+        # persistent log file (already configured above) before the
+        # process exits, since a packaged --windowed build has no console
+        # for a bare traceback to land on. Never swallowed — re-raised
+        # unchanged after logging so the process's actual exit behavior
+        # (and exit code) is completely unchanged.
+        logger.exception("ToroidAMP failed to start")
+        raise
+
+
+def _run(logger: logging.Logger):
     app = QApplication(sys.argv)
     app.setApplicationName("ToroidAMP")
     app.setOrganizationName("")  # Clean single canonical path: %LOCALAPPDATA%/ToroidAMP

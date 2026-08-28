@@ -64,7 +64,7 @@ def test_tracker_decoder():
     if not os.path.exists(xm_path):
         pytest.skip(f"Test tracker asset missing: {xm_path}")
     if not TrackerDecoder.is_available():
-        pytest.skip("libmodplug native library not found in this environment — tracker playback is a real "
+        pytest.skip("libxmp native library not found in this environment — tracker playback is a real "
                      "ToroidAMP feature, this is an environmental gap, not a production regression")
 
     decoder = TrackerDecoder()

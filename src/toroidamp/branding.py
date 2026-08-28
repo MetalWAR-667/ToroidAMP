@@ -10,11 +10,12 @@ what to do without an icon — the application always keeps running.
 """
 
 import logging
-from importlib.resources import files as _pkg_files
 from pathlib import Path
 from typing import Optional
 
 from PySide6.QtGui import QIcon
+
+from .resources import resolve_package_asset
 
 logger = logging.getLogger("toroidamp.branding")
 
@@ -26,22 +27,24 @@ def resolve_branding_icon_path() -> Optional[Path]:
     Resolves the official branding master PNG, packaging-safe:
 
     1. Inside the `toroidamp` package itself (`assets/branding/toroidamp_icon.png`
-       relative to the package). This works identically for an editable dev
+       relative to the package) via the shared `resolve_package_asset()`
+       resolver (RC-069-002) — works identically for an editable dev
        install and a real installed wheel/sdist that ships the asset as
        package data (see pyproject.toml `[tool.setuptools.package-data]`) —
        no filesystem layout assumptions either way.
-    2. Falls back to the repo-root checkout location, for a development
-       tree where the package-internal copy hasn't been synced from the
-       human-facing authoritative master yet.
+    2. Falls back to the repo-root checkout location — deliberately a
+       SEPARATE concept from `resolve_package_asset()`'s own internal
+       fallback: this is the human-facing, full-resolution "authoritative
+       master" mirror that lives outside the package entirely
+       (`<repo_root>/assets/branding/`, regenerated into the package copy
+       by `tools/generate_ico.py`), for a development tree where the
+       package-internal copy hasn't been synced yet.
 
     Returns None (never raises) if neither resolves.
     """
-    try:
-        candidate = _pkg_files("toroidamp") / "assets" / "branding" / "toroidamp_icon.png"
-        if candidate.is_file():
-            return Path(str(candidate))
-    except Exception:
-        pass
+    candidate = resolve_package_asset(_ICON_RELATIVE)
+    if candidate is not None:
+        return candidate
 
     try:
         checkout_root = Path(__file__).resolve().parents[2]

@@ -720,8 +720,8 @@ They should also not accumulate casually.
 
 ### Established & Closed Decisions (Foundation I & II Evidence)
 
-* **AUDIO-001 — Conventional Playback Backend**: **CLOSED -> `sounddevice` + `soundfile`/`miniaudio` stream callback**. Delivers continuous float32 PCM blocks with zero audio thread latency.
-* **AUDIO-002 — Tracker Decoder Engine**: **CLOSED -> Native `libmodplug` ctypes Decoder (CONFIRMED)**; `libopenmpt` remains a PROVISIONAL / ALTERNATIVE engine. Decodes MOD, XM, IT, S3M directly into the normalized float32 PCM pipeline.
+* **AUDIO-001 — Conventional Playback Backend**: **CLOSED -> `sounddevice` + `soundfile` stream callback**. Delivers continuous float32 PCM blocks with zero audio thread latency. (RC-069-002: `miniaudio` was removed from declared dependencies — it was never actually imported anywhere; `soundfile`/libsndfile alone handles MP3/WAV/OGG/FLAC.)
+* **AUDIO-002 — Tracker Decoder Engine**: **CLOSED -> Native `libxmp` ctypes Decoder (CONFIRMED, RC-069-002B)**. The originally-planned `libmodplug` backend was found to have never actually been available in this project's toolchain; `libxmp` (already bundled by the existing `pygame-ce` dependency) replaces it. Decodes MOD, XM, IT, S3M directly into the normalized float32 PCM pipeline.
 * **AUDIO-003 — PCM Access & Analysis Handoff**: **CLOSED -> Circular Snapshot Buffer (`AnalysisHandoff`)**. Ultra-fast thread decoupling (~17us push, ~0.8us snapshot).
 * **ANALYSIS-001 — AudioFrame Contract**: **CLOSED -> Normalized `AudioFrame`**. Exposes `rms`, `peak`, `bass`, `mids`, `treble`, `spectrum` (64 log bins), `waveform` (128 points), `beat`, and `strong_beat`.
 * **ANALYSIS-002 — Beat Detection**: **CLOSED -> Dynamic Energy Variance Transient Detector**. Fast, robust thresholding; explicit BPM excluded from V1.

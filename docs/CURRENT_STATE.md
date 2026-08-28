@@ -281,8 +281,8 @@ The following decisions currently block or influence implementation architecture
 * **Status:** CLOSED (Validated with WAV, MP3, OGG, FLAC).
 
 ### AUDIO-002 — Tracker Module Decoder Engine
-* **Decision**: Native `libmodplug` / `libopenmpt` CFFI stream decoder rendering tracker files to normalized float32 PCM.
-* **Status:** CLOSED (Validated with MOD, XM, IT, S3M).
+* **Decision**: Native `libxmp` ctypes decoder rendering tracker files to normalized float32 PCM. RC-069-002B (see `docs/release/RC_069_002B_tracker_libxmp.md`): the originally-planned `libmodplug` backend was found to have never actually been available anywhere in this project's toolchain and was replaced with `libxmp`, which pygame-ce (an existing required dependency) already bundles as a real, present Windows DLL.
+* **Status:** CLOSED (Validated with real MOD, XM, IT files; S3M architecturally supported by libxmp but untested — no real S3M fixture was available).
 
 ### AUDIO-003 — PCM Access & Analysis Handoff
 * **Decision**: Thread-safe circular snapshot buffer (`AnalysisHandoff`) isolating audio callback from UI/analysis.
@@ -321,7 +321,7 @@ The following decisions currently block or influence implementation architecture
 ## 11. Current Risks
 
 ### Cross-Platform Library Loading
-`libmodplug` and PortAudio must be resolved reliably on both Windows and Linux via automatic wheel fallback or `ctypes.util.find_library`.
+`libxmp` and PortAudio must be resolved reliably on both Windows and Linux via automatic wheel fallback or `ctypes.util.find_library`.
 
 ---
 

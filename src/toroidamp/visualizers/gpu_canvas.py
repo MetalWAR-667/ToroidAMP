@@ -28,6 +28,7 @@ from PySide6.QtOpenGL import (
 )
 
 from ..analysis.audio_frame import AudioFrame
+from ..resources import resolve_package_asset
 from .gpu_compiler import (
     FALLBACK_FRAG_SOURCE,
     VERTEX_SHADER_SOURCE,
@@ -317,15 +318,11 @@ class GLVisualizerCanvas(QOpenGLWidget):
         super().closeEvent(event)
 
     def _resolve_packaged_texture_path(self) -> Optional[Path]:
-        """Resolves the canonical packaged ToroidAMP master artwork."""
-        pkg_dir = Path(__file__).resolve().parent.parent  # src/toroidamp
-        candidates = [
-            pkg_dir / "assets" / "images" / "ToroidAMP.png",
-            pkg_dir / "assets" / "branding" / "toroidamp_icon.png",
-        ]
-        for c in candidates:
-            if c.exists():
-                return c
+        """Resolves the canonical packaged ToroidAMP master artwork (RC-069-002: shared package-asset resolver)."""
+        for rel in ("assets/images/ToroidAMP.png", "assets/branding/toroidamp_icon.png"):
+            candidate = resolve_package_asset(rel)
+            if candidate is not None:
+                return candidate
         return None
 
     def _load_packaged_texture(self):

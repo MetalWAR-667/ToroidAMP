@@ -122,7 +122,7 @@ Decoding is provided through `soundfile` / `miniaudio`.
 * IT
 * S3M
 
-Tracker playback uses native `libmodplug` integration through `ctypes`.
+Tracker playback uses native `libxmp` integration through `ctypes`.
 
 ### Real-Time Audio Analysis
 

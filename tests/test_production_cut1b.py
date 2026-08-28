@@ -99,7 +99,7 @@ def test_audio_and_decoders():
         assert t_pcm.shape == (512, 2)
         assert t_pcm.dtype == np.float32
         t_dec.close()
-    # If libmodplug isn't present, tracker coverage is skipped here rather
+    # If libxmp isn't present, tracker coverage is skipped here rather
     # than failing this otherwise-independent (mp3/AudioFrame) test — see
     # test_production_core.py::test_tracker_decoder for the dedicated,
     # explicitly-skipping tracker regression test.

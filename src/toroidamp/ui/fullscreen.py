@@ -30,6 +30,7 @@ from PySide6.QtWidgets import (
 )
 
 from ..analysis.audio_frame import AudioFrame
+from ..paths import get_user_shaders_dir
 from ..session import SessionManager
 from ..visualizers.base import Visualizer
 from ..visualizers.deep_field import DeepFieldVisualizer
@@ -1503,10 +1504,14 @@ class RetinaMeltWindow(QWidget):
         self.lab_diag_view.setStyleSheet("color: #00ffcc; font-family: monospace; font-size: 9px; background: #0e111a; padding: 4px 6px; border: 1px solid #1a2032; border-radius: 2px;")
 
     def _load_local_shader_dialog(self):
-        """Loads a local GLSL shader into RETINA MELT from user_shaders/."""
-        pkg_root = Path(__file__).resolve().parent.parent.parent.parent
-        user_dir = pkg_root / "user_shaders"
-        start_dir = str(user_dir) if user_dir.exists() else str(pkg_root)
+        """
+        Loads a local GLSL shader into RETINA MELT. RC-069-002: defaults to
+        the user-owned %LOCALAPPDATA%\\ToroidAMP\\shaders\\ directory (never
+        a repo-checkout-relative `user_shaders/`, which does not exist in
+        any real install — see docs/release/RC_069_002_runtime_hygiene.md)
+        — the user may still browse anywhere via the standard file dialog.
+        """
+        start_dir = str(get_user_shaders_dir())
 
         file_path, _ = QFileDialog.getOpenFileName(
             self,
@@ -1556,10 +1561,8 @@ class RetinaMeltWindow(QWidget):
         shader_id = self.gpu_canvas.active_shader_name or "shader"
         preset_data = create_shader_preset(shader_id, self.gpu_canvas.current_params)
 
-        pkg_root = Path(__file__).resolve().parent.parent.parent.parent
-        user_dir = pkg_root / "user_shaders"
         default_fn = f"{shader_id}_preset.json"
-        start_path = str(user_dir / default_fn) if user_dir.exists() else default_fn
+        start_path = str(get_user_shaders_dir() / default_fn)
 
         file_path, _ = QFileDialog.getSaveFileName(
             self,
@@ -1579,9 +1582,7 @@ class RetinaMeltWindow(QWidget):
 
     def _load_lab_preset_dialog(self):
         """Loads and applies a JSON preset file to the active visualizer."""
-        pkg_root = Path(__file__).resolve().parent.parent.parent.parent
-        user_dir = pkg_root / "user_shaders"
-        start_dir = str(user_dir) if user_dir.exists() else str(pkg_root)
+        start_dir = str(get_user_shaders_dir())
 
         file_path, _ = QFileDialog.getOpenFileName(
             self,
