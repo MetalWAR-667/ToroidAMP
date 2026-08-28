@@ -16,20 +16,35 @@ GPU-AUDIO-001 formalizes and documents ToroidAMP's canonical external fragment s
 
 Any external or local GLSL fragment shader (`.frag` / `.glsl`) loaded via RETINA MELT Shader Lab or Standalone GPU Lab can declare any subset of the following uniforms:
 
+### A. STABLE / PRODUCTION MUSICAL SIGNALS (Level-1 Verified)
+
+These values derive strictly from real-time FFT and time-domain PCM analysis in `AnalysisHandoff`:
+
 | Uniform Name | GLSL Type | Range / Semantics | Musical Description |
 | :--- | :--- | :--- | :--- |
 | `taBass` | `float` | `0.0 .. 1.0` | Sub & bass band energy (20 – 250 Hz) |
 | `taMids` | `float` | `0.0 .. 1.0` | Midrange harmonic band energy (250 – 4000 Hz) |
 | `taTreble` | `float` | `0.0 .. 1.0` | High-frequency shimmer band energy (4000 – 20000 Hz) |
-| `taBeat` | `int` or `float` | `0` or `1` (`0.0` or `1.0`) | Dynamic general musical beat transient trigger |
-| `taStrongBeat` | `int` or `float` | `0` or `1` (`0.0` or `1.0`) | Heavy low-end kick / transient trigger |
-| `taRms` | `float` | `0.0 .. 1.0` | Normalized RMS overall energy envelope |
+| `taBeat` | `int` or `float` | `0` or `1` (`0.0` or `1.0`) | Dynamic energy-variance transient trigger (Attack > 180 ms threshold) |
+| `taStrongBeat` | `int` or `float` | `0` or `1` (`0.0` or `1.0`) | Dynamic transient trigger with heavy bass energy (`taBass > 0.35`) |
+| `taRms` | `float` | `0.0 .. 1.0` | Normalized root-mean-square overall volume/energy |
 | `taPeak` | `float` | `0.0 .. 1.0` | Instantaneous peak sample magnitude |
-| `taSpectrum` | `float[64]` | `0.0 .. 1.0` | 64-bin normalized log-spaced spectral amplitudes |
-| `taWaveform` | `float[128]` | `-1.0 .. 1.0` | 128 normalized time-domain PCM waveform samples |
-| `taBpm` | `float` | Reference BPM | Approximate track tempo (default `130.0`) |
-| `taBeatPhase` | `float` | `0.0 .. 1.0` | Continuous cyclic quarter-note phase ramp |
-| `taBarPhase` | `float` | `0.0 .. 1.0` | Continuous cyclic 4-bar measure phase ramp |
+| `taSpectrum` | `float[64]` | `0.0 .. 1.0` | 64-bin normalized log-spaced spectral amplitudes (Array) |
+| `taWaveform` | `float[128]` | `-1.0 .. 1.0` | 128 subsampled time-domain PCM waveform samples (Array) |
+
+### B. EXPERIMENTAL / SYNTHETIC PLACEHOLDERS (Non-Guaranteed)
+
+These uniforms are currently uploaded for backward compatibility, but are **NOT** derived from live tempo/BPM tracking:
+
+| Uniform Name | GLSL Type | Current Value / Formula | Note / Limitation |
+| :--- | :--- | :--- | :--- |
+| `taBpm` | `float` | `130.0` (constant) | Constant dummy placeholder. ToroidAMP does NOT perform live BPM estimation. |
+| `taBeatPhase` | `float` | `(elapsed * 2.166) % 1.0` | Wall-clock phase assuming 130 BPM. Not synchronized to musical beats. |
+| `taBarPhase` | `float` | `(elapsed * 0.541) % 1.0` | Wall-clock 4-bar phase assuming 130 BPM. Not synchronized to musical bars. |
+
+> [!WARNING]
+> **Transient Detection $\neq$ Rhythm / Tempo Tracking**:
+> `taBeat` and `taStrongBeat` indicate instantaneous transient spikes in energy. They do NOT imply that ToroidAMP knows the track BPM, musical meter, or downbeat alignment. Do not rely on `taBpm`, `taBeatPhase`, or `taBarPhase` for tempo-synchronized musical logic.
 
 ---
 
@@ -100,8 +115,21 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord) {
 
 ---
 
-## 6. Future Extension Boundaries (Deferred)
+## 6. Future Extension Boundaries (Explicitly Deferred)
 
-- **Level 3 (iChannel0..3, texture buffers, 2D spectrogram textures)**: Strictly deferred.
-- **Level 4 (Multipass Buffer A/B/C/D, temporal feedback, FBO pipelines)**: Strictly deferred.
-- Current scope is strictly Level 1 single-pass fragment execution with typed parameters and AudioFrame uniform binding.
+### A. Rhythm Analysis Foundation (Deferred)
+Live musical rhythm tracking is not part of Level 1. Future work may include:
+- Real-time tempo / BPM estimation and confidence scoring;
+- Beat-grid synchronization and phase tracking;
+- Downbeat / measure / bar phase alignment;
+- Tracker-native tempo / speed extraction from module playback.
+
+### B. GPU Texture Inputs (Deferred)
+Uniform arrays (`taSpectrum[64]`, `taWaveform[128]`) are supported. Texture-backed audio sources are separate capabilities deferred to Level 3:
+- Dynamic 2D audio spectrogram / waterfall textures;
+- Dynamic 1D / 2D PCM oscilloscope textures;
+- Shadertoy `iChannel0..3` audio stream binding.
+
+### C. Multipass & Temporal Feedback (Deferred)
+- Multipass rendering (Buffer A / B / C / D);
+- Framebuffer object (FBO) feedback ping-pong loops.

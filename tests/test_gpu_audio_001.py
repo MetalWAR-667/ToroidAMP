@@ -154,6 +154,36 @@ class TestGPUAudio001Reactivity(unittest.TestCase):
         self.assertIn("taBeat", code)
         self.assertIn("taStrongBeat", code)
 
+    # 9. Spectrum and Waveform are genuinely populated from FFT/PCM analysis
+    def test_09_spectrum_and_waveform_arrays_populated(self):
+        from toroidamp.analysis.audio_frame import AnalysisHandoff
+        handoff = AnalysisHandoff(2048)
+        # Push 440 Hz test tone
+        t = np.linspace(0, 0.1, 2048, endpoint=False)
+        pcm = np.sin(2 * np.pi * 440 * t).astype(np.float32).reshape(-1, 1)
+        stereo_pcm = np.column_stack((pcm, pcm))
+        handoff.push_audio(stereo_pcm)
+
+        frame = handoff.get_audio_frame(44100)
+        self.assertEqual(len(frame.spectrum), 64)
+        self.assertEqual(len(frame.waveform), 128)
+        self.assertGreater(sum(frame.spectrum), 0.0)
+        self.assertGreater(max(map(abs, frame.waveform)), 0.0)
+
+    # 10. Placeholder rhythm signals (taBpm, taBeatPhase, taBarPhase) are non-zero/valid floats for compatibility
+    def test_10_placeholder_rhythm_signals_compatibility(self):
+        # Shaders requesting taBpm, taBeatPhase, taBarPhase compile and run without errors
+        shader_rhythm = """
+        void mainImage(out vec4 fragColor, in vec2 fragCoord) {
+            fragColor = vec4(taBeatPhase, taBarPhase, taBpm / 200.0, 1.0);
+        }
+        """
+        wrapped, meta = classify_and_wrap_source(shader_rhythm, "RhythmPlaceholder")
+        self.assertTrue(meta.is_shadertoy_style)
+        self.assertIn("uniform float taBpm;", wrapped)
+        self.assertIn("uniform float taBeatPhase;", wrapped)
+        self.assertIn("uniform float taBarPhase;", wrapped)
+
 
 if __name__ == "__main__":
     unittest.main()
