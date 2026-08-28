@@ -307,6 +307,14 @@ class GLVisualizerCanvas(QOpenGLWidget):
             if loc != -1:
                 gl.glUniform1i(loc, int(val))
 
+        def set_u_trigger(name_str: str, active: bool):
+            """Uploads a trigger/beat uniform whether the shader authors it as int or float."""
+            loc = prog.uniformLocation(name_str.encode("utf-8"))
+            if loc != -1:
+                # glUniform1i works for int and bool uniforms, glUniform1f works for float uniforms
+                gl.glUniform1i(loc, 1 if active else 0)
+                gl.glUniform1f(loc, 1.0 if active else 0.0)
+
         def set_u_vec2(name_str: str, x: float, y: float):
             loc = prog.uniformLocation(name_str.encode("utf-8"))
             if loc != -1:
@@ -340,8 +348,8 @@ class GLVisualizerCanvas(QOpenGLWidget):
             set_u_float("taBass", float(frame.bass))
             set_u_float("taMids", float(frame.mids))
             set_u_float("taTreble", float(frame.treble))
-            set_u_int("taBeat", 1 if frame.beat else 0)
-            set_u_int("taStrongBeat", 1 if frame.strong_beat else 0)
+            set_u_trigger("taBeat", frame.beat)
+            set_u_trigger("taStrongBeat", frame.strong_beat)
 
             if len(frame.spectrum) == 64:
                 set_u_array("taSpectrum", list(frame.spectrum), 64)
@@ -354,8 +362,8 @@ class GLVisualizerCanvas(QOpenGLWidget):
             set_u_float("taBass", 0.0)
             set_u_float("taMids", 0.0)
             set_u_float("taTreble", 0.0)
-            set_u_int("taBeat", 0)
-            set_u_int("taStrongBeat", 0)
+            set_u_trigger("taBeat", False)
+            set_u_trigger("taStrongBeat", False)
             set_u_array("taSpectrum", [0.0] * 64, 64)
             set_u_array("taWaveform", [0.0] * 128, 128)
 

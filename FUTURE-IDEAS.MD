@@ -40,5 +40,54 @@ Porque el motor visual ya está bastante por encima del “reproductor con tema 
 
 ---
 
+## GPU Visualizer — Future Audio Texture Inputs
 
+### Spectrum Texture
+Expose the real-time FFT spectrum to GLSL as a GPU texture instead of limiting
+audio-reactive shaders to scalar `ta*` uniforms.
+
+Potential uses:
+- arbitrary frequency-bin sampling;
+- frequency-dependent geometry deformation;
+- spectral landscapes;
+- equalizer-like procedural structures;
+- shader-defined band analysis.
+
+### Waveform Texture
+Expose the current PCM waveform / analysis window as a GPU texture.
+
+Potential uses:
+- oscilloscopes entirely implemented in GLSL;
+- waveform-driven displacement;
+- radial waveform geometry;
+- temporal interference patterns;
+- direct sample-domain visualization.
+
+### iChannel Audio Integration
+Explore integration of ToroidAMP audio textures with the future Shadertoy-style
+`iChannel0..3` system.
+
+Possible model:
+
+    iChannel0 → static/user texture
+    iChannel1 → spectrum texture
+    iChannel2 → waveform texture
+    iChannel3 → optional future source
+
+Exact channel assignment must NOT be hardcoded yet.
+
+Goal:
+Allow advanced external shaders to combine image textures, procedural rendering,
+FFT spectrum and waveform data through a familiar Shadertoy-compatible input
+model.
+
+Status: FUTURE / DEFERRED
+
+Dependencies:
+- GPU-AUDIO-001 scalar Audio Uniform Contract
+- future Level 3 iChannel architecture
+
+Explicitly separate from:
+- Level 4 multipass / Buffer A/B/C/D
+- temporal feedback / ping-pong FBOs
 
