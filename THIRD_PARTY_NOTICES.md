@@ -6,9 +6,9 @@ of third-party open-source components. This file lists them.
 
 Full license texts for each component are in [`licenses/`](licenses/).
 This document is **not legal advice** — see
-[`docs/release/RC_069_003B_license_and_docs.md`](docs/release/RC_069_003B_license_and_docs.md)
-for the full audit trail, evidence sources, and a few items still marked
-`NEEDS VERIFICATION`.
+[`docs/release/RC_069_003C_final_license_closure.md`](docs/release/RC_069_003C_final_license_closure.md)
+(and the earlier [`docs/release/RC_069_003B_license_and_docs.md`](docs/release/RC_069_003B_license_and_docs.md))
+for the full audit trail and evidence sources.
 
 Only components genuinely **redistributed** with ToroidAMP (i.e. present
 in the packaged Windows build) are listed — build-time-only tools
@@ -20,7 +20,7 @@ distributed product.
 | Component | Version | Purpose | License | Full text |
 |---|---|---|---|---|
 | Python | 3.14 | Interpreter/runtime the frozen build embeds | PSF License (permissive) | [`licenses/Python.txt`](licenses/Python.txt) |
-| PySide6 / Qt6 | 6.11.2 | GUI toolkit, OpenGL widget host | LGPL-3.0-only (dynamically linked; see the Qt/PySide6 review in the RC-069-003B design doc) | [`licenses/Qt-PySide6-LGPL-3.0.txt`](licenses/Qt-PySide6-LGPL-3.0.txt) *(reference only — see status note in that file)* |
+| PySide6 / Qt6 | 6.11.2 | GUI toolkit, OpenGL widget host | LGPL-3.0-only (dynamically linked; see the Qt/PySide6 review in the RC-069-003C design doc) | [`licenses/Qt-PySide6-LGPL-3.0.txt`](licenses/Qt-PySide6-LGPL-3.0.txt) *(full LGPLv3+GPLv3 text embedded as of RC-069-003C)* |
 | NumPy | 2.5.2 | Audio analysis, PCM/geometry math | BSD-3-Clause (+ a few permissive sub-component licenses within NumPy itself) | [`licenses/NumPy.txt`](licenses/NumPy.txt) |
 
 ## Visualizer / Media Engine
@@ -28,7 +28,16 @@ distributed product.
 | Component | Version | Purpose | License | Full text |
 |---|---|---|---|---|
 | pygame-ce | 2.5.8 | CPU visualizer rendering, voice-line WAV playback, tracker DLL host directory | LGPL v2.1 (dynamically linked) | [`licenses/pygame-ce-LGPL-2.1.txt`](licenses/pygame-ce-LGPL-2.1.txt) |
-| SDL2 (+ SDL2_image, SDL2_mixer, SDL2_ttf and their own codec helpers: libjpeg, libpng, libtiff, libwebp, libogg, libopus, libwavpack, FreeType) | bundled by pygame-ce | pygame-ce's underlying multimedia layer | zlib License (SDL2 core, verified); helper codec libraries are established permissively-licensed projects, exact texts `NEEDS VERIFICATION` — see matrix | [`licenses/SDL2.txt`](licenses/SDL2.txt) |
+| SDL2 (core) | bundled by pygame-ce | pygame-ce's underlying multimedia layer | zlib License | [`licenses/SDL2.txt`](licenses/SDL2.txt) |
+| FreeType | bundled by pygame-ce (SDL2_ttf) | Font rendering used by SDL2_ttf | FreeType License (FTL) | [`licenses/FreeType-FTL.txt`](licenses/FreeType-FTL.txt) |
+| libpng | bundled by pygame-ce (SDL2_image) | PNG decode | libpng License | [`licenses/libpng.txt`](licenses/libpng.txt) |
+| libjpeg (IJG-API-compatible) | bundled by pygame-ce (SDL2_image) | JPEG decode | IJG License + Modified BSD License | [`licenses/libjpeg-IJG-and-BSD.txt`](licenses/libjpeg-IJG-and-BSD.txt) |
+| libtiff | bundled by pygame-ce (SDL2_image) | TIFF decode | libtiff License (permissive) | [`licenses/libtiff.txt`](licenses/libtiff.txt) |
+| libwebp / libwebpdemux | bundled by pygame-ce (SDL2_image) | WebP decode | BSD-3-Clause | [`licenses/libwebp-BSD-3-Clause.txt`](licenses/libwebp-BSD-3-Clause.txt) |
+| libogg | bundled by pygame-ce (SDL2_mixer) | Ogg container support | BSD-3-Clause | [`licenses/libogg-BSD-3-Clause.txt`](licenses/libogg-BSD-3-Clause.txt) |
+| libopus / libopusfile | bundled by pygame-ce (SDL2_mixer) | Opus audio decode | BSD-3-Clause-style | [`licenses/libopus-and-opusfile-BSD.txt`](licenses/libopus-and-opusfile-BSD.txt) |
+| WavPack | bundled by pygame-ce (SDL2_mixer) | WavPack audio decode | BSD-3-Clause | [`licenses/WavPack-BSD-3-Clause.txt`](licenses/WavPack-BSD-3-Clause.txt) |
+| PortMidi | bundled by pygame-ce | pygame's MIDI backend (not used directly by ToroidAMP, but present in the ONEDIR) | MIT-style (PortMedia project) | [`licenses/PortMidi.txt`](licenses/PortMidi.txt) |
 
 ## Audio Playback — Conventional (MP3/WAV/OGG/FLAC)
 
@@ -66,16 +75,16 @@ distributed product.
 |---|---|---|---|
 | PyInstaller | 6.22.2 | Freezes the application into the ONEDIR distribution | GPL-2.0-or-later, **with an explicit bootloader/runtime exception** that means applications it builds are not themselves subject to the GPL — PyInstaller's own stated project policy. Never shipped inside `dist/ToroidAMP/`. Reference text: [`licenses/PyInstaller-BUILD-TOOL-ONLY.txt`](licenses/PyInstaller-BUILD-TOOL-ONLY.txt) |
 
-## Additional Native Libraries Present in the Frozen Build (observed, not yet fully attributed)
+## Additional Native Libraries
 
-| Component | Likely origin | Status |
-|---|---|---|
-| OpenSSL (`libcrypto-3*.dll`, `libssl-3*.dll`) | Not conclusively traced this cut — likely Python 3.14's own bundled TLS support or a transitive Qt/networking hook | License is well-established as Apache License 2.0 for OpenSSL 3.x; exact provenance/attribution `NEEDS VERIFICATION` |
+| Component | Version | Purpose | License | Full text |
+|---|---|---|---|---|
+| OpenSSL — `libcrypto-3.dll`/`libssl-3.dll` | 3.5.7 | Python 3.14's own bundled TLS/crypto support (backs the stdlib `ssl`/`hashlib` modules); traced to `C:\Python314\DLLs\` on the build machine (RC-069-003C) | Apache License 2.0 | [`licenses/OpenSSL-Apache-2.0.txt`](licenses/OpenSSL-Apache-2.0.txt) |
+| OpenSSL — `libcrypto-3-x64.dll`/`libssl-3-x64.dll` | 3.5.4 | Satisfies the filename Qt's `qopensslbackend.dll` TLS plugin expects; traced to the build machine's Git for Windows mingw64 OpenSSL build (RC-069-003C) — a build-environment artifact of where PyInstaller's dependency walker found a matching filename on PATH, not a deliberately chosen ToroidAMP dependency | Apache License 2.0 | [`licenses/OpenSSL-Apache-2.0.txt`](licenses/OpenSSL-Apache-2.0.txt) |
 
 ---
 
 **This is a good-faith, evidence-based inventory — not a legal
 guarantee.** See the legal-readiness matrix in
-`docs/release/RC_069_003B_license_and_docs.md` for exactly which items
-are `READY` versus `ACTION REQUIRED` versus `NEEDS VERIFICATION` before
-any public release.
+`docs/release/RC_069_003C_final_license_closure.md` for the final
+per-component status of every redistributed component.

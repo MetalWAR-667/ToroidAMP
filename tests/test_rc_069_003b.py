@@ -56,6 +56,17 @@ REQUIRED_LICENSE_FILES = [
     "Quantum-font-OFL-1.1.txt",
     "Qt-PySide6-LGPL-3.0.txt",
     "PyInstaller-BUILD-TOOL-ONLY.txt",
+    # RC-069-003C additions
+    "OpenSSL-Apache-2.0.txt",
+    "FreeType-FTL.txt",
+    "libpng.txt",
+    "libjpeg-IJG-and-BSD.txt",
+    "libtiff.txt",
+    "libwebp-BSD-3-Clause.txt",
+    "libogg-BSD-3-Clause.txt",
+    "libopus-and-opusfile-BSD.txt",
+    "WavPack-BSD-3-Clause.txt",
+    "PortMidi.txt",
 ]
 
 

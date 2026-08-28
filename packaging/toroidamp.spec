@@ -138,3 +138,41 @@ coll = COLLECT(
     upx_exclude=[],
     name="ToroidAMP",
 )
+
+# --- Public portable-layout doc copies (RC-069-003C) ------------------------
+# PyInstaller 6+ ONEDIR nests everything COLLECT()-ed (including the
+# `datas` entries above) under `_internal/`, by design, to keep the
+# top-level dist folder clean -- there is no `datas` destination that
+# resolves outside `_internal/` short of reverting the whole build to the
+# legacy flat `contents_directory=''` layout, which would move every DLL
+# and not just these docs (a real architectural change, out of scope for
+# a documentation cut). So a user opening the portable ONEDIR folder only
+# sees ToroidAMP.exe at the top level; the release docs are one level
+# down in _internal/.
+#
+# To make LICENSE/HOWTOUSE/THIRD_PARTY_NOTICES/licenses/ actually visible
+# next to ToroidAMP.exe (what a user opening the folder will look for
+# first), this step copies them a second time directly into the
+# top-level dist/ToroidAMP/ folder, after COLLECT has already written it.
+# This runs after `coll` above, so dist/ToroidAMP/ already exists. The
+# _internal/ copies from the `datas` mechanism are left in place too
+# (harmless, and keeps _internal/ self-contained); this is a deliberate
+# duplication, not a move.
+import shutil
+
+_DIST_ROOT = os.path.join(DISTPATH, "ToroidAMP")
+_PUBLIC_LAYOUT_DOCS = [
+    ("LICENSE", "file"),
+    ("THIRD_PARTY_NOTICES.md", "file"),
+    ("HOWTOUSE.md", "file"),
+    ("CHANGELOG.md", "file"),
+    ("licenses", "dir"),
+]
+if os.path.isdir(_DIST_ROOT):
+    for _name, _kind in _PUBLIC_LAYOUT_DOCS:
+        _src = os.path.join(REPO_ROOT, _name)
+        _dst = os.path.join(_DIST_ROOT, _name)
+        if _kind == "file" and os.path.isfile(_src):
+            shutil.copy2(_src, _dst)
+        elif _kind == "dir" and os.path.isdir(_src):
+            shutil.copytree(_src, _dst, dirs_exist_ok=True)
