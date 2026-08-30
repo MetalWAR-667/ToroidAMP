@@ -267,14 +267,26 @@ class TestRCPolish001(unittest.TestCase):
         player.volume = 0.75
         player.play()
 
-        self.assertEqual(player.state, PlaybackState.PLAYING)
-        self.assertEqual(player.fade_state, FadeState.PLAYING)
+        try:
+            self.assertEqual(player.state, PlaybackState.PLAYING)
+            self.assertEqual(player.fade_state, FadeState.PLAYING)
 
-        outdata = np.zeros((512, 2), dtype=np.float32)
-        player._audio_callback(outdata, 512, None, None)
-        # First sample should immediately be at full user volume (0.75) without ramping
-        self.assertAlmostEqual(outdata[0, 0], 0.75, places=4)
-        self.assertAlmostEqual(outdata[-1, 0], 0.75, places=4)
+            outdata = np.zeros((512, 2), dtype=np.float32)
+            player._audio_callback(outdata, 512, None, None)
+            # First sample should immediately be at full user volume (0.75) without ramping
+            self.assertAlmostEqual(outdata[0, 0], 0.75, places=4)
+            self.assertAlmostEqual(outdata[-1, 0], 0.75, places=4)
+        finally:
+            # player.play() opens a real sounddevice OutputStream with a
+            # background PortAudio callback thread (unlike every other test
+            # in this file, which drives player._audio_callback() directly
+            # without a real stream). Left open, that native thread keeps
+            # calling back into the interpreter indefinitely, racing later
+            # tests' Qt/GL work on the main thread -- this was tracked down
+            # as the cause of an intermittent native crash (access
+            # violation on Windows, segfault on Linux) deep in unrelated
+            # code several tests later in a full-suite run.
+            player.stop_immediate()
 
     def test_17_disabled_stop_terminates_immediately(self):
         player = PlayerEngine(handoff=self.handoff)

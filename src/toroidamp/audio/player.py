@@ -349,14 +349,23 @@ class PlayerEngine:
             if num_read < frames:
                 outdata[:num_read] = chunk * gain
                 outdata[num_read:].fill(0)
+                # Analysis handoff must stay independent of the user's
+                # listening volume (self._volume) -- reactivity should
+                # reflect musical content, not how loudly the user chose
+                # to hear it. Push the decoded chunk unscaled by gain,
+                # shaped like outdata (zero-padded past num_read, which
+                # correctly reads as silence for a partial/EOF chunk).
+                analysis_pcm = np.zeros_like(outdata)
+                analysis_pcm[:num_read] = chunk
                 self._state = PlaybackState.STOPPED
                 self._fade_state = FadeState.IDLE
                 self._fade_envelope = 0.0
             else:
                 outdata[:] = chunk * gain
+                analysis_pcm = chunk
 
             self._position_seconds += num_read / float(self._sample_rate)
-            self.handoff.push_audio(outdata)
+            self.handoff.push_audio(analysis_pcm)
             return
 
         # Compute gain envelope interpolation across this chunk
@@ -386,11 +395,19 @@ class PlayerEngine:
         if num_read < frames:
             outdata[:num_read] = chunk * gain
             outdata[num_read:].fill(0)
+            # Analysis handoff tracks the fade envelope (real audio
+            # presence -- silent during an actual fade-out/fade-in edge)
+            # but never the user's listening volume (self._volume), so
+            # reactivity reflects musical content rather than how loudly
+            # the user chose to hear it.
+            analysis_pcm = np.zeros_like(outdata)
+            analysis_pcm[:num_read] = chunk * envelope_curve
             self._state = PlaybackState.STOPPED
             self._fade_state = FadeState.IDLE
             self._fade_envelope = 0.0
         else:
             outdata[:] = chunk * gain
+            analysis_pcm = chunk * envelope_curve
 
         self._position_seconds += num_read / float(self._sample_rate)
 
@@ -399,4 +416,4 @@ class PlayerEngine:
             self._state = PlaybackState.STOPPED
 
         # Push to analysis handoff
-        self.handoff.push_audio(outdata)
+        self.handoff.push_audio(analysis_pcm)

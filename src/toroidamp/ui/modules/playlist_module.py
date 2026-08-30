@@ -7,13 +7,14 @@ reorder, clear, shuffle, repeat, and M3U/M3U8 load/save.
 import os
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton,
-    QListWidget, QListWidgetItem, QFileDialog, QMenu
+    QListWidget, QListWidgetItem, QFileDialog, QMenu, QAbstractItemView
 )
-from PySide6.QtCore import Qt, QSize, Signal, QPoint
+from PySide6.QtCore import Qt, QSize, Signal, QPoint, QEvent, QItemSelectionModel
 from PySide6.QtGui import QDragEnterEvent, QDropEvent
 
 from .base import ModuleShell
 from ..neon import NeonState
+from ..theme import ThemeDefinition
 from ...audio.playlist import PlaylistManager, PlaylistItem
 
 
@@ -49,6 +50,10 @@ class PlaylistModule(ModuleShell):
         # Playlist ListWidget
         self.list_widget = QListWidget(self)
         self.list_widget.setAcceptDrops(True)
+        # v0.666: native Qt multi-selection -- single click / Ctrl+click
+        # (additive/discontinuous) / Shift+click (range) all come free with
+        # ExtendedSelection, no custom selection tracking needed.
+        self.list_widget.setSelectionMode(QAbstractItemView.ExtendedSelection)
         self.list_widget.setStyleSheet("""
             QListWidget {
                 background-color: #06070a;
@@ -73,6 +78,7 @@ class PlaylistModule(ModuleShell):
             }
         """)
         self.list_widget.itemDoubleClicked.connect(self._on_item_double_clicked)
+        self.list_widget.installEventFilter(self)
         self.main_layout.addWidget(self.list_widget, stretch=1)
 
         # Action Toolbar (Add, Del, Clear, M3U)
@@ -238,15 +244,28 @@ class PlaylistModule(ModuleShell):
 
     def refresh(self):
         """Refreshes the ListWidget to reflect current PlaylistManager state."""
+        # v0.666: "currently playing" and "currently selected" are distinct
+        # states. refresh() can fire for reasons unrelated to selection
+        # (track advance, a bulk edit elsewhere) -- preserve whichever rows
+        # the user had selected instead of letting the playing-row indicator
+        # silently steal the selection out from under them.
+        selected_rows = {self.list_widget.row(i) for i in self.list_widget.selectedItems()}
+
         self.list_widget.clear()
         for idx, item in enumerate(self.manager.items):
             prefix = "▶ " if idx == self.manager.current_index else "  "
             list_item = QListWidgetItem(f"{prefix}[{idx+1:02d}] {item.title:<18} {item.display_duration}")
             self.list_widget.addItem(list_item)
-        
+
         self.queue_info.setText(f"TOTAL: {len(self.manager)} TRACKS")
         if 0 <= self.manager.current_index < len(self.manager):
-            self.list_widget.setCurrentRow(self.manager.current_index)
+            # NoUpdate: move the keyboard/"now playing" cursor without also
+            # selecting the row -- selection is a separate, user-owned state.
+            self.list_widget.setCurrentRow(self.manager.current_index, QItemSelectionModel.NoUpdate)
+
+        for row in selected_rows:
+            if 0 <= row < self.list_widget.count():
+                self.list_widget.item(row).setSelected(True)
 
     def _on_item_double_clicked(self, item: QListWidgetItem):
         row = self.list_widget.row(item)
@@ -263,10 +282,25 @@ class PlaylistModule(ModuleShell):
             self.refresh()
 
     def _remove_selected(self):
-        row = self.list_widget.currentRow()
-        if row >= 0:
+        """Removes every selected row in one operation (falls back to the
+        current row when nothing is explicitly selected)."""
+        rows = sorted({self.list_widget.row(i) for i in self.list_widget.selectedItems()}, reverse=True)
+        if not rows:
+            row = self.list_widget.currentRow()
+            if row >= 0:
+                rows = [row]
+        if not rows:
+            return
+        for row in rows:
             self.manager.remove_at(row)
-            self.refresh()
+        self.refresh()
+
+    def eventFilter(self, obj, event):
+        if obj is self.list_widget and event.type() == QEvent.KeyPress:
+            if event.key() in (Qt.Key_Delete, Qt.Key_Backspace):
+                self._remove_selected()
+                return True
+        return super().eventFilter(obj, event)
 
     def _clear_playlist(self):
         self.manager.clear()

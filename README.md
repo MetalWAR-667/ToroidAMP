@@ -36,6 +36,26 @@ DEMOSCENE SOUL.
 * Windows, Linux, or macOS
 * OpenGL-capable GPU for hardware GLSL visualizers
 
+#### Linux native packages
+
+`pip install` pulls in every Python dependency (PySide6, sounddevice,
+soundfile, pyttsx3, etc.) including their bundled native libraries, but Qt's
+`xcb` platform plugin itself links against a system library that PySide6's
+wheel does not bundle:
+
+```bash
+# Debian / Ubuntu / Linux Mint
+sudo apt install libxcb-cursor0
+```
+
+Without it, startup fails with `Could not load the Qt platform plugin
+"xcb"`. No other Linux system packages have been found necessary — PortAudio
+and libsndfile ship inside the `sounddevice`/`soundfile` wheels, and audio
+output goes through whatever PipeWire/PulseAudio/ALSA stack the distro
+already provides. System TTS uses whatever `pyttsx3` backend the platform
+exposes (e.g. `espeak`/`speech-dispatcher` on Linux); voice selection is
+expected to differ from the Windows SAPI5 voice.
+
 ### Installation
 
 From the repository root:

@@ -70,12 +70,17 @@ class WindowManager(QWidget):
         #    on Windows; only the chassis (the owner) appears.  The Qt.Window
         #    flag in ModuleShell keeps them as independently positionable
         #    top-level windows — spatial independence is preserved; taskbar
-        #    identity is not.
+        #    identity is not. On Linux/X11, the same Qt parent relationship
+        #    makes Qt set the WM_TRANSIENT_FOR hint, which window managers
+        #    that support it (v0.666: verified informally under Cinnamon)
+        #    use for the equivalent single-application taskbar grouping.
         self.vis_mod = VisualizerModule(parent=self.chassis)
         self.pl_mod = PlaylistModule(self.playlist, parent=self.chassis)
 
-        # 3. Retina Melt Fullscreen Window
-        self.retina_melt = RetinaMeltWindow(session_manager=self.session_manager)
+        # 3. Retina Melt Fullscreen Window — same owned-window relationship
+        # as the modules above (v0.666: previously created with no parent,
+        # so it got no taskbar-grouping hint on either platform).
+        self.retina_melt = RetinaMeltWindow(session_manager=self.session_manager, parent=self.chassis)
 
         # 4. System Tray Icon
         self.tray_icon = ToroidTrayIcon(self)

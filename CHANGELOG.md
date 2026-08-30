@@ -3,11 +3,20 @@
 All notable user-facing changes to ToroidAMP are documented here.
 Format loosely inspired by [Keep a Changelog](https://keepachangelog.com/).
 
-ToroidAMP has **not yet had a formal 0.69 release**. Everything below
-describes work currently heading toward that release, not something
-already shipped.
+ToroidAMP has **not yet had a formal public release**.
 
-## [Unreleased] — heading toward v0.69 "Sexy Initial Release"
+**A note on the version number:** ToroidAMP has been downgraded from the
+internal working version 0.69 to **v0.666**. This is intentional, not a
+typo and not a mistake by whatever tooling generated this file. Development
+briefly got ahead of itself before Linux support, packaging, and basic UX
+polish actually existed; the version number now reflects that honestly.
+Progress will resume when morale improves.
+
+## [Unreleased]
+
+Nothing yet.
+
+## [0.666] — Post Launch Hell & Welcome Linux Users
 
 ### Added
 
@@ -60,6 +69,13 @@ already shipped.
 - **Licensing**: ToroidAMP is released under the MIT License; a
   [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md) inventories the
   open-source components the packaged build redistributes.
+- **Linux support**: ToroidAMP now runs on Linux (validated on Linux Mint
+  under VirtualBox) — startup, audio playback, system TTS, the PySide6 UI,
+  and the official GPU/GLSL visualizers all confirmed working.
+- **Playlist multi-selection**: standard desktop selection semantics in the
+  playlist — click, Ctrl+click (additive), Shift+click (range) — with
+  Delete/Backspace and the existing -DEL button now removing the entire
+  selected set in one action instead of one track at a time.
 
 ### Changed
 
@@ -67,6 +83,28 @@ already shipped.
   originally-planned `libmodplug` — `libxmp` is already bundled by the
   existing `pygame-ce` dependency, so tracker playback requires no
   additional native library to source or install.
+- Packaged Windows builds now launch windowed (no console window) —
+  diagnostics remain fully available via the existing rotating log file at
+  `%LOCALAPPDATA%\ToroidAMP\logs\toroidamp.log`. Running from source
+  (`python -m toroidamp`, the `toroidamp` console script) is unaffected.
+- NORMAL mode's breathing chassis border is noticeably more perceptible
+  (wider amplitude swing plus a soft outer glow), so the window is easier
+  to spot in peripheral vision among other desktop windows. MINI mode's
+  deliberately understated presence is unchanged.
+- Visualizer/reactivity analysis (RMS, bass/mids/treble, beat detection) is
+  now derived from the decoded audio signal independent of the playback
+  volume slider and independent of the fade-in/out envelope's amplitude
+  contribution beyond true silence — lowering the volume no longer sedates
+  the visualizers; genuine silence (e.g. a completed fade-out) still reads
+  as silence.
+- RETINA MELT is now an owned/transient window of the main chassis (like
+  the Visualizer and Playlist modules already were), improving taskbar/dock
+  grouping — a single ToroidAMP presence rather than one entry per window,
+  where the desktop environment honors that relationship.
+- The project version is now set consistently everywhere from one source
+  (`pyproject.toml`'s `[project].version`, already the sole source
+  `toroidamp/_version.py` reads at runtime) instead of drifting between the
+  repository, the running application, and packaging metadata.
 
 ### Fixed
 
@@ -75,6 +113,23 @@ already shipped.
   skip to the next track). It now fails exactly like any other bad file:
   a clear log entry, and a clean automatic advance to the next playlist
   entry.
+- `ThemeDefinition` was used in two UI modules' type annotations without
+  being imported — invisible on newer Python (3.14's deferred annotation
+  evaluation) but a hard `NameError` on Python ≤3.13, including on Linux.
+- Two official GPU shaders were checked in with a UTF-8 byte-order mark,
+  which strict GLSL compilers (Mesa, used on Linux) rejected as an invalid
+  token after ToroidAMP's own header got prepended to the shader source,
+  while lenient Windows GPU drivers silently tolerated it. Shader files are
+  now read BOM-safely regardless of platform.
+- Running bare `pytest` from the repository root (rather than
+  `python -m pytest`) failed to collect three experimental test modules;
+  the project's pytest configuration now makes both invocations equivalent.
+- A rare native crash (observed as an access violation on Windows, a
+  segfault on Linux) during a full test-suite run was traced to a test
+  leaving a real background audio thread running unattended, racing later
+  GUI/GL work on the main thread. Also hardened: OpenGL cleanup could run
+  twice per visualizer widget; the process-wide `ThemeManager` singleton
+  could retain a live signal connection to an already-destroyed window.
 
 ### Known Limitations
 
@@ -94,3 +149,13 @@ already shipped.
   pass, a public license text for two third-party components is not yet
   fully finalized (see `THIRD_PARTY_NOTICES.md`), and no installer or
   single-file (`ONEFILE`) build has been produced.
+- **Playlist drag-and-drop reordering is not yet implemented.** Multi-
+  selection and bulk removal are; reordering by dragging a selection
+  within the list was evaluated for this cut but intentionally deferred —
+  `PlaylistManager` is a plain ordered list, not a Qt item model, so
+  wiring Qt's native multi-item drag-reorder to it safely (without risking
+  playback identity or playlist-order correctness) is a small architecture
+  change in its own right, not a bounded polish item.
+- **Linux requires one manually-installed system package**: `libxcb-cursor0`
+  (see the README's Linux prerequisites) for Qt's `xcb` platform plugin.
+  This cannot be resolved via `pip`.

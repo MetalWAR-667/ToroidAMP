@@ -141,9 +141,11 @@ class ReactiveNeonController:
             # MINI: quiet, ultra-low amplitude, barely noticeable atmosphere
             intensity = 0.40 + (breath * 0.14) + (rms * 0.10) + (self._beat_decay * 0.06)
         else:
-            # NORMAL: clearly perceptible breathing and musical responsiveness
-            # Base breathing range ~0.45 -> 0.78 + spectral RMS and beat kicks
-            intensity = 0.46 + (breath * 0.32) + (rms * 0.22) + (self._beat_decay * 0.12)
+            # NORMAL: clearly perceptible breathing and musical responsiveness.
+            # Base breathing range ~0.40 -> 0.86 (widened from ~0.46 -> 0.78 --
+            # v0.666 UX polish: the original swing was too subtle to register
+            # in peripheral vision) + spectral RMS and beat kicks.
+            intensity = 0.40 + (breath * 0.46) + (rms * 0.22) + (self._beat_decay * 0.12)
 
         intensity = max(0.25, min(1.0, intensity))
         self._current_state = self._compute_state(intensity, self._current_hue, spectral_shift, self._beat_decay, is_mini)

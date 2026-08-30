@@ -10,7 +10,7 @@ from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QIcon, QPixmap, QPainter, QColor, QFont
 
 from ..branding import resolve_branding_icon
-from .theme import ThemeManager, ThemeDefinition
+from .theme import ThemeManager, ThemeDefinition, disconnect_theme_listener
 
 logger = logging.getLogger("toroidamp.tray")
 
@@ -37,6 +37,16 @@ class ToroidTrayIcon(QSystemTrayIcon):
 
         self._theme_manager = ThemeManager.get_instance()
         self._menu = QMenu()
+        # ThemeManager is a process-wide singleton; disconnect via the
+        # QObject-level `destroyed` signal (fires for every destruction
+        # path) so it never retains a connection to an already-destroyed
+        # tray icon. Captured as locals so the slot never touches `self`
+        # while its C++ side is mid-destruction.
+        theme_manager = self._theme_manager
+        apply_theme_slot = self.apply_theme
+        self.destroyed.connect(
+            lambda: disconnect_theme_listener(theme_manager.theme_changed, apply_theme_slot)
+        )
         self._theme_manager.theme_changed.connect(self.apply_theme)
         self.apply_theme(self._theme_manager.current_theme)
 

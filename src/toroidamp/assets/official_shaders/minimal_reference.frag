@@ -1,4 +1,4 @@
-﻿// ============================================================
+// ============================================================
 // ToroidAMP Official Reference :: Minimal Procedural (GPU-OFFICIAL-001)
 // Author: ToroidAMP Team
 // License: MIT

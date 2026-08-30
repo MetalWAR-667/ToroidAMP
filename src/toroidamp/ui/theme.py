@@ -143,6 +143,24 @@ def resolve_theme_asset_path(theme_id: str, relative_subpath: str | Path) -> Opt
     return resolve_package_asset(rel)
 
 
+def disconnect_theme_listener(signal_instance, slot) -> None:
+    """
+    Best-effort disconnect of a `ThemeManager.theme_changed` listener.
+
+    ThemeManager is a process-wide singleton (ThemeManager.get_instance()),
+    so a widget's connection to it is the only thing keeping the singleton
+    aware the widget exists. Intended for use as a QObject.destroyed slot
+    (guaranteed to fire for every destruction path, including Qt's own
+    parent-child cascade, unlike a Python-level deleteLater() override)
+    so the singleton never retains a connection to an already-destroyed
+    C++ object.
+    """
+    try:
+        signal_instance.disconnect(slot)
+    except Exception:
+        pass
+
+
 class ThemeManager(QObject):
     """
     Central Registry and Lifecycle Controller for ToroidAMP themes.

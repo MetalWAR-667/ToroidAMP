@@ -298,7 +298,21 @@ class GLVisualizerCanvas(QOpenGLWidget):
             self.load_shader_file(self.current_shader_path)
 
     def cleanupGL(self):
-        """Cleanly releases OpenGL textures, VAO, and VBO while the context is active."""
+        """Cleanly releases OpenGL textures, VAO, and VBO while the context is active.
+
+        Reachable twice for the same widget: once explicitly from
+        closeEvent(), and again later from the context's own
+        aboutToBeDestroyed signal (initializeGL connects it for the case
+        where the context goes away without a closeEvent, e.g. the owning
+        window being destroyed outright). The first call already frees
+        every tracked resource, so the second call has nothing left to do
+        -- skip it before touching makeCurrent()/doneCurrent(), since
+        calling those again while the context is mid-teardown is unsafe
+        and has been observed to crash natively when many widgets are
+        torn down together.
+        """
+        if self._texture0 is None and self._vao is None and self._vbo is None:
+            return
         if not self.isValid():
             return
         self.makeCurrent()
@@ -356,7 +370,13 @@ class GLVisualizerCanvas(QOpenGLWidget):
             return False
 
         try:
-            with open(file_path, "r", encoding="utf-8") as f:
+            # utf-8-sig strips a leading BOM if present (some editors save
+            # .frag files with one). A BOM left in raw_code would land
+            # mid-source once classify_and_wrap_source prepends the
+            # ToroidAMP header, and strict GLSL compilers (e.g. Mesa) treat
+            # the stray byte sequence as an invalid token and fail to link,
+            # even though lenient vendor drivers silently ignore it.
+            with open(file_path, "r", encoding="utf-8-sig") as f:
                 raw_code = f.read()
         except Exception as e:
             self.last_error_log = f"Failed to read file: {e}"

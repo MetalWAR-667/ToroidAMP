@@ -3,7 +3,7 @@ from PySide6.QtCore import Qt, QPoint, QRect, QSize, Signal
 from PySide6.QtGui import QMouseEvent, QPainter, QPen, QColor
 
 from ..neon import NeonState
-from ..theme import ThemeManager, ThemeDefinition
+from ..theme import ThemeManager, ThemeDefinition, disconnect_theme_listener
 
 
 class ModuleShell(QWidget):
@@ -93,7 +93,20 @@ class ModuleShell(QWidget):
 
         self.main_layout.addWidget(self.title_bar)
 
-        # Connect Theme Changes
+        # Connect Theme Changes. ThemeManager is a process-wide singleton, so
+        # deleteLater() below already disconnects it for direct deletion,
+        # but Qt's own parent-child cascade bypasses that Python-level
+        # override entirely. Also disconnecting via the QObject-level
+        # `destroyed` signal -- guaranteed to fire for every destruction
+        # path -- keeps the singleton from retaining a connection to an
+        # already-destroyed C++ object. Captured as locals (not `self.foo`)
+        # so the slot never touches `self` while its C++ side is
+        # mid-destruction.
+        theme_manager = self._theme_manager
+        apply_theme_slot = self.apply_theme
+        self.destroyed.connect(
+            lambda: disconnect_theme_listener(theme_manager.theme_changed, apply_theme_slot)
+        )
         self._theme_manager.theme_changed.connect(self.apply_theme)
         self._apply_shell_theme(self._current_theme)
 

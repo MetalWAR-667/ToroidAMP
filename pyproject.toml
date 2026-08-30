@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "toroidamp"
-version = "0.3.1"
+version = "0.666"
 description = "Compact, modular, musically reactive audio player with demoscene visualizer engine"
 readme = "README.md"
 requires-python = ">=3.11"
@@ -69,6 +69,15 @@ toroidamp = "toroidamp.__main__:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+# Bare `pytest` invoked from the repo root does not put the cwd on
+# sys.path (only `python -m pytest` does that automatically), so
+# tests/ that import the top-level experiments/ package fail with
+# ModuleNotFoundError unless PYTHONPATH=. is set manually. Declaring
+# the repo root here makes `pytest` and `python -m pytest` behave
+# identically without turning experiments/ into an installed package.
+[tool.pytest.ini_options]
+pythonpath = ["."]
 
 [tool.setuptools.package-data]
 # RC-069-001/002: every runtime resource actually opened by the application

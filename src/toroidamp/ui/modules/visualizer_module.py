@@ -11,6 +11,7 @@ import pygame
 
 from .base import ModuleShell
 from ..neon import NeonState
+from ..theme import ThemeDefinition
 from ...analysis.audio_frame import AudioFrame
 
 

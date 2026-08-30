@@ -395,8 +395,12 @@ FIX-001 — Startup Lifecycle & Voice Identity      CLOSED
 Production Cut 3 — Visualizer Expansion           ACTIVE
   - VIS-001: Deep Field & Floor Promotion         CLOSED
   - VIS-002: Production Visual Polish & RETINA    CLOSED
+v0.666 — NORMAL UX & Interaction Polish           CLOSED
+  (bounded side-cut: consoleless packaged build, breathing border,
+   volume-independent reactivity, playlist multi-select, Linux taskbar
+   grouping, version single-source-of-truth; not visualizer/RETINA work)
 
-Next: EXP-GL-001 — GPU Visualizer Foundation Probe (PySide6 + QtOpenGL / GLSL).
+Next: return to Production Cut 3 — GPU-PROD-002 final human micro-gate.
 ```
 
 

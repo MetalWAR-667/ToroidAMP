@@ -1,4 +1,4 @@
-﻿// ============================================================
+// ============================================================
 // ToroidAMP Official Reference :: Cyber Bloom (EXP-VISLAB-003)
 // Author: Jack (Demoscene Visual Engineer) & ToroidAMP Team
 // License: MIT

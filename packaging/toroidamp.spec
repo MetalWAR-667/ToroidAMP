@@ -8,10 +8,19 @@ Reproducible build:
 Output:
     dist/ToroidAMP/ToroidAMP.exe   (+ its supporting ONEDIR payload)
 
-This is a first, honest PROOF-OF-CONCEPT spec — console-enabled for
-diagnostics, ONEDIR (not ONEFILE), no size optimization, no aggressive Qt
-pruning. It documents ONLY what PyInstaller cannot reliably infer on its
-own:
+v0.666: windowed (console=False) for normal packaged launch -- ToroidAMP is
+a music player, not a diagnostic console. This is safe now that
+`__main__.py::setup_logging()` (RC-069-002) writes a durable rotating log
+file (`%LOCALAPPDATA%\ToroidAMP\logs\toroidamp.log`) independent of the
+console handler; a packaged build with no console still has full startup/
+runtime diagnostics on disk. Console output itself is untouched -- running
+from source (`python -m toroidamp`, the `toroidamp` console script) still
+prints to whatever terminal invoked it, exactly as before; only the frozen
+.exe's own window changes.
+
+This spec is otherwise still a first, honest PROOF-OF-CONCEPT: ONEDIR (not
+ONEFILE), no size optimization, no aggressive Qt pruning. It documents ONLY
+what PyInstaller cannot reliably infer on its own:
 
   - product runtime assets (RC-069-002's package-data set — themes,
     official shaders, images, branding);
@@ -124,7 +133,7 @@ exe = EXE(
     bootloader_ignore_signals=False,
     strip=False,
     upx=False,  # RC-069-003 explicit non-goal: no UPX merely to reduce size
-    console=True,  # PoC: visible diagnostics preferred over --windowed for this cut
+    console=False,  # v0.666: windowed release build; see module docstring
     icon=ICON_PATH if os.path.isfile(ICON_PATH) else None,
 )
 

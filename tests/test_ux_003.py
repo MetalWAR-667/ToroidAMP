@@ -483,6 +483,16 @@ class TestTaskbarOwnershipIntact(unittest.TestCase):
         self.assertIs(wm.pl_mod.parentWidget(), wm.chassis)
         wm.shutdown()
 
+    def test_retina_melt_is_also_an_owned_window_of_chassis(self):
+        # v0.666: RETINA MELT previously had no Qt parent at all, so it got
+        # no owned-window/WM_TRANSIENT_FOR taskbar-grouping hint on either
+        # platform (Task 6) -- it should follow the same pattern as the
+        # dockable modules above.
+        wm = _make_window_manager()
+        self.assertTrue(bool(wm.retina_melt.windowFlags() & Qt.Window))
+        self.assertIs(wm.retina_melt.parentWidget(), wm.chassis)
+        wm.shutdown()
+
 
 if __name__ == "__main__":
     unittest.main()

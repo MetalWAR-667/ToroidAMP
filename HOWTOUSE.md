@@ -24,6 +24,10 @@ and make it look ridiculous.
 Add files via the playlist panel, or drop files directly onto the
 window. Playlists can be saved and reloaded as M3U/M3U8.
 
+Standard multi-selection works in the playlist: Ctrl+click to add/remove
+individual tracks, Shift+click to select a range, then Delete/Backspace or
+the -DEL button removes every selected track in one action.
+
 ## 3. Playback Controls
 
 Play/Pause, Stop, Previous/Next, a seek bar, and a volume slider — all

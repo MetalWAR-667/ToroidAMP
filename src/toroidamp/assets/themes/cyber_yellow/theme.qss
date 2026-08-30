@@ -16,12 +16,12 @@
 
 /* Version label beside the ToroidAMP wordmark */
 QLabel#normalVersion {
-    color: #00ff00;
+    color: #000000;
 }
 
 /* Primary track title / marquee inside the dark LCD rack */
 QLabel#normalTrackTitle {
-    color: #ff2a4b;
+    color: #FFFFFF;
 }
 
 /* Elapsed / Total time display in LCD rack */
@@ -31,7 +31,7 @@ QLabel#normalTimeDisplay {
 
 /* Volume indicator label */
 QLabel#normalVolumeLabel {
-    color: #ff2a4b;
+    color: #800080;
 }
 
 /* Volume Slider sub-page fill and handle ring */

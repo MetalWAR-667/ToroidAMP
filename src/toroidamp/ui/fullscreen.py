@@ -48,7 +48,7 @@ from ..visualizers.audio_reactive_reference import AudioReactiveReferenceVisuali
 from ..visualizers.cyber_bloom import CyberBloomVisualizer
 from .chassis import SeekSlider
 from .marquee import MarqueeLabel
-from .theme import ThemeManager, ThemeDefinition
+from .theme import ThemeManager, ThemeDefinition, disconnect_theme_listener
 
 COLOR_DIALOG_STYLESHEET = """
     QColorDialog {
@@ -543,7 +543,17 @@ class RetinaMeltWindow(QWidget):
         self.lab_diag_view.setWordWrap(True)
         self.lab_layout.addWidget(self.lab_diag_view)
 
-        # Connect Theme Changes
+        # Connect Theme Changes. ThemeManager is a process-wide singleton;
+        # disconnect via the QObject-level `destroyed` signal (fires for
+        # every destruction path, including Qt's own parent-child cascade)
+        # so it never retains a connection to an already-destroyed window.
+        # Captured as locals so the slot never touches `self` while its
+        # C++ side is mid-destruction.
+        theme_manager = self._theme_manager
+        apply_theme_slot = self.apply_theme
+        self.destroyed.connect(
+            lambda: disconnect_theme_listener(theme_manager.theme_changed, apply_theme_slot)
+        )
         self._theme_manager.theme_changed.connect(self.apply_theme)
         self.apply_theme(self._current_theme)
 

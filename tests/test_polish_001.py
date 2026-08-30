@@ -31,11 +31,13 @@ def test_neon_controller_breathing_cycle():
 
     min_i = min(intensities)
     max_i = max(intensities)
-    # NORMAL breathing range: ~0.46 to ~0.78
-    assert min_i >= 0.44, f"Expected min intensity >= 0.44, got {min_i}"
-    assert max_i <= 0.80, f"Expected max intensity <= 0.80, got {max_i}"
-    # Verify perceptible breathing depth (> 0.25 swing)
-    assert (max_i - min_i) >= 0.25, f"Breathing must be clearly perceptible, swing was {max_i - min_i}"
+    # NORMAL breathing range: ~0.40 to ~0.86 (v0.666: widened from ~0.46 ->
+    # 0.78 for stronger peripheral-vision presence).
+    assert min_i >= 0.38, f"Expected min intensity >= 0.38, got {min_i}"
+    assert max_i <= 0.88, f"Expected max intensity <= 0.88, got {max_i}"
+    # Verify perceptible breathing depth (> 0.40 swing, widened from the
+    # previous >0.25 floor to match the stronger v0.666 amplitude).
+    assert (max_i - min_i) >= 0.40, f"Breathing must be clearly perceptible, swing was {max_i - min_i}"
 
 
 def test_mini_mode_subtle_restraint():

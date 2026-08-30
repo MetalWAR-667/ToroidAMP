@@ -148,7 +148,11 @@ class TestRC069003BReleaseDocs(unittest.TestCase):
     def test_09_changelog_has_unreleased_structure(self):
         self.assertTrue(CHANGELOG_PATH.is_file(), "CHANGELOG.md must exist")
         self.assertIn("[Unreleased]", self.changelog_text)
-        self.assertIn("not yet had a formal 0.69 release", self.changelog_text)
+        # v0.666: the "not yet had a formal 0.69 release" framing was
+        # retired along with the intentional 0.69 -> 0.666 version
+        # regression -- this now asserts the current (still pre-release)
+        # framing instead of the stale 0.69-specific wording.
+        self.assertIn("not yet had a formal public release", self.changelog_text)
 
     # -- 10: packaging spec collects release docs -----------------------------
 

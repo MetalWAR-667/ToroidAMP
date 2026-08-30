@@ -7,7 +7,7 @@ from PySide6.QtGui import QMouseEvent, QDragEnterEvent, QDropEvent, QCloseEvent,
 
 from .neon import NeonState
 from .marquee import MarqueeLabel
-from .theme import ThemeManager, ThemeDefinition
+from .theme import ThemeManager, ThemeDefinition, disconnect_theme_listener
 from .. import __version__
 from ..branding import resolve_branding_icon
 
@@ -112,7 +112,22 @@ class UnifiedChassis(QWidget):
         self._init_normal_view()
         self._init_mini_view()
 
-        # Connect theme changes
+        # Connect theme changes. ThemeManager is a process-wide singleton
+        # (ThemeManager.get_instance()), so this connection is the only
+        # thing keeping it aware of this window; deleteLater() below
+        # already disconnects it for direct deletion, but Qt's own
+        # parent-child cascade (e.g. this chassis being destroyed as a
+        # child of some other owner) bypasses that Python-level override
+        # entirely. Also disconnecting via the QObject-level `destroyed`
+        # signal -- guaranteed to fire for every destruction path -- keeps
+        # the singleton from ever holding a connection to an already-gone
+        # C++ object. Captured as locals (not `self.foo`) so the slot
+        # never touches `self` while its C++ side is mid-destruction.
+        theme_manager = self._theme_manager
+        apply_theme_slot = self.apply_theme
+        self.destroyed.connect(
+            lambda: disconnect_theme_listener(theme_manager.theme_changed, apply_theme_slot)
+        )
         self._theme_manager.theme_changed.connect(self.apply_theme)
         self.apply_theme(self._current_theme)
 
@@ -465,14 +480,33 @@ class UnifiedChassis(QWidget):
             painter.setPen(Qt.NoPen)
             painter.drawRoundedRect(rect, 4, 4)
 
+        painter.setClipping(False)
+        painter.setBrush(Qt.NoBrush)
+
         # Electric Neon Border (Tier 1)
         if self._current_neon:
-            pen = QPen(self._current_neon.tier1_chassis_color, 1.5)
+            border_color = self._current_neon.tier1_chassis_color
+            pen = QPen(border_color, 2.0)
+
+            # NORMAL-mode-only soft outer glow halo: the breathing effect's
+            # purpose is peripheral-vision presence, but a single crisp
+            # ~1.5px line barely registers outside foveal vision. Two
+            # progressively wider, more transparent rings drawn behind the
+            # crisp line simulate a soft glow bleed -- still driven by the
+            # exact same smooth ~3.2s breathing signal, so it stays
+            # atmospheric rather than becoming a flashing/strobing effect.
+            # MINI keeps its original, deliberately understated presence.
+            if self.mode == "normal":
+                intensity = self._current_neon.intensity_factor
+                for ring_offset, alpha_scale in ((4.0, 0.20), (2.0, 0.35)):
+                    glow_color = QColor(border_color)
+                    glow_color.setAlpha(int(border_color.alpha() * alpha_scale * intensity))
+                    glow_pen = QPen(glow_color, 2.0 + ring_offset)
+                    painter.setPen(glow_pen)
+                    painter.drawRoundedRect(rect, 4, 4)
         else:
             pen = QPen(pal.border_chassis_default, 1.5)
 
-        painter.setClipping(False)
-        painter.setBrush(Qt.NoBrush)
         painter.setPen(pen)
         painter.drawRoundedRect(rect, 4, 4)
         painter.end()
@@ -609,21 +643,32 @@ class UnifiedChassis(QWidget):
         """
         self.normal_btn_prev = QPushButton("◄◄", ctrl_bar)
         self.normal_btn_prev.setObjectName("normalBtnPrev")
+        self.normal_btn_prev.setToolTip("Previous Track")
         self.normal_btn_prev.clicked.connect(self.prev_clicked.emit)
         c_layout.addWidget(self.normal_btn_prev)
 
         self.normal_btn_play = QPushButton("►", ctrl_bar)
         self.normal_btn_play.setObjectName("normalBtnPlay")
+        self.normal_btn_play.setToolTip("Play / Pause")
         self.normal_btn_play.clicked.connect(self.play_toggled.emit)
         c_layout.addWidget(self.normal_btn_play)
 
+        # v0.666 ("Botón Engendro" investigation): this is a genuine, non-
+        # redundant Stop -- unlike the Play/Pause toggle above (which only
+        # pauses and resumes, never resets playback position), this fully
+        # stops playback and returns to position 0. No other NORMAL-mode
+        # control exposes that. Kept; a tooltip was the actual fix needed
+        # (it previously had none, unlike every other chassis control),
+        # since the complaint was discoverability, not the control itself.
         self.normal_btn_stop = QPushButton("■", ctrl_bar)
         self.normal_btn_stop.setObjectName("normalBtnStop")
+        self.normal_btn_stop.setToolTip("Stop Playback (resets position)")
         self.normal_btn_stop.clicked.connect(self.stop_clicked.emit)
         c_layout.addWidget(self.normal_btn_stop)
 
         self.normal_btn_next = QPushButton("►►", ctrl_bar)
         self.normal_btn_next.setObjectName("normalBtnNext")
+        self.normal_btn_next.setToolTip("Next Track")
         self.normal_btn_next.clicked.connect(self.next_clicked.emit)
         c_layout.addWidget(self.normal_btn_next)
 
