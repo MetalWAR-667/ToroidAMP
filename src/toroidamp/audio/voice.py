@@ -7,6 +7,7 @@ Reuses the proven robotic dual-channel stereo delay recipe.
 
 import logging
 import os
+import sys
 import tempfile
 import threading
 import numpy as np
@@ -67,10 +68,22 @@ class VoiceService:
         """
         Synthesizes and plays the startup identity line asynchronously.
         Non-blocking: returns immediately so UI remains responsive.
+
+        LINUX-TTS-001 (Deferred Platform Feature for v0.667):
+        On Linux, native TTS synthesis via pyttsx3's eSpeak driver operates
+        asynchronously in C/ctypes without synchronizing WAV file generation to
+        the main thread before event pump termination, resulting in intermittent
+        silence, /tmp pollution, and native ctypes callback lifecycle races.
+        Automatic startup voice is cleanly deferred on Linux for v0.667 while
+        remaining fully enabled and supported on Windows (SAPI5).
         """
         text = phrase or self.STARTUP_LINE
         if not TTS_AVAILABLE:
             logger.info(f"TTS engine not available. Skipping voice line: '{text}'")
+            return
+
+        if sys.platform.startswith("linux"):
+            logger.info("Startup voice disabled on Linux (deferred platform support).")
             return
 
         self._thread = threading.Thread(
