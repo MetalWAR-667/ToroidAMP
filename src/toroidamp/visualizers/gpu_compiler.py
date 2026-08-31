@@ -204,6 +204,13 @@ UNIFORM_FLOAT_GENERIC_RE = re.compile(
     re.IGNORECASE
 )
 
+# LINUX-GLSL-001: Shadertoy entry-point output parameter normalizer.
+# Matches `mainImage(out vec4 ...)` (including optional precision qualifiers
+# such as `highp`/`mediump`/`lowp`) for replacement with `inout`.
+MAIN_IMAGE_OUT_PARAM_RE = re.compile(
+    r"(\bmainImage\s*\(\s*)out\s+((?:(?:highp|mediump|lowp)\s+)?vec4\b)"
+)
+
 # ---------------------------------------------------------------------------
 # GPU-AUDIO-004 — Safe const-float promotion
 #
@@ -596,6 +603,166 @@ def find_runtime_literal_candidates(
     return transformed, generated
 
 
+DEFAULT_ZERO_INITIALIZERS: Dict[str, str] = {
+    "float": "0.0",
+    "vec2": "vec2(0.0)",
+    "vec3": "vec3(0.0)",
+    "vec4": "vec4(0.0)",
+    "int": "0",
+    "ivec2": "ivec2(0)",
+    "ivec3": "ivec3(0)",
+    "ivec4": "ivec4(0)",
+    "uint": "0u",
+    "uvec2": "uvec2(0u)",
+    "uvec3": "uvec3(0u)",
+    "uvec4": "uvec4(0u)",
+    "bool": "false",
+    "bvec2": "bvec2(false)",
+    "bvec3": "bvec3(false)",
+    "bvec4": "bvec4(false)",
+    "mat2": "mat2(0.0)",
+    "mat3": "mat3(0.0)",
+    "mat4": "mat4(0.0)",
+}
+
+DECLARATION_TYPE_NAMES = sorted(DEFAULT_ZERO_INITIALIZERS.keys(), key=len, reverse=True)
+DECLARATION_TYPE_RE = re.compile(rf"(?<!\w)({'|'.join(DECLARATION_TYPE_NAMES)})\b")
+INVALID_DECL_PREFIXES = {
+    "uniform", "attribute", "in", "out", "inout", "const",
+    "struct", "layout", "#define", "return", "precision",
+    "highp", "mediump", "lowp",
+}
+
+
+def normalize_uninitialized_declarations(source: str) -> str:
+    """
+    LINUX-GLSL-001: Normalizes uninitialized local variable declarations
+    in Shadertoy shaders to explicit zero initializers.
+
+    In the native Shadertoy browser sandbox (WebGL / ANGLE / D3D11 on Windows),
+    all variables are guaranteed by the WebGL specification to be zero-initialized
+    upon entry. Shadertoy / demoscene authors frequently declare uninitialized
+    variables (e.g. `float n, i, s, t=iTime*.2, d, v;` or `vec3 q, p = iResolution, c;`)
+    and immediately accumulate into them or use them as loop counters (`i++ < 50.`).
+
+    Under desktop GLSL 3.30 Core on Linux (Mesa / Intel Broadwell/Iris/Crocus),
+    uninitialized local variables produce `nir_ssa_undef` / uninitialized GPU
+    registers (NaN / hardware garbage), causing loop conditions to fail or NaN
+    poisoning to spread through arithmetic, rendering the entire framebuffer black.
+
+    This function safely scans declaration statements (excluding function signatures,
+    uniforms, consts, struct members, and arrays) and assigns standard zero defaults
+    to uninitialized declarators.
+    """
+    masked = _mask_comments_preserve_offsets(source)
+    n = len(source)
+    replacements = []
+
+    for match in DECLARATION_TYPE_RE.finditer(masked):
+        tname = match.group(1)
+        type_start, type_end = match.span(1)
+
+        pre = masked[:type_start].rstrip()
+        if pre:
+            last_word_match = re.search(r"([#A-Za-z_]\w*|\S)$", pre)
+            if last_word_match:
+                token = last_word_match.group(1)
+                if token in INVALID_DECL_PREFIXES or token == ".":
+                    continue
+                if token == "(":
+                    before_paren = pre[:-1].rstrip()
+                    if not re.search(r"\bfor\s*$", before_paren):
+                        continue
+                elif token not in (";", "{", "}", ","):
+                    continue
+
+        idx = type_end
+        paren_depth = 0
+        bracket_depth = 0
+        brace_depth = 0
+        found_end = False
+        is_for_header = (pre.endswith("(") if pre else False)
+
+        while idx < n:
+            ch = masked[idx]
+            if ch == "(":
+                paren_depth += 1
+            elif ch == ")":
+                if paren_depth > 0:
+                    paren_depth -= 1
+                elif is_for_header:
+                    found_end = True
+                    break
+                else:
+                    break
+            elif ch == "[":
+                bracket_depth += 1
+            elif ch == "]":
+                if bracket_depth > 0:
+                    bracket_depth -= 1
+            elif ch == "{":
+                brace_depth += 1
+                break
+            elif ch == "}":
+                break
+            elif ch == ";" and paren_depth == 0 and bracket_depth == 0 and brace_depth == 0:
+                found_end = True
+                break
+            idx += 1
+
+        if not found_end:
+            continue
+
+        stmt_end = idx
+        decls_str = masked[type_end:stmt_end]
+        decls_start = type_end
+
+        parts = []
+        p_depth = 0
+        b_depth = 0
+        part_start = 0
+
+        for p_idx, ch in enumerate(decls_str):
+            if ch == "(":
+                p_depth += 1
+            elif ch == ")":
+                if p_depth > 0:
+                    p_depth -= 1
+            elif ch == "[":
+                b_depth += 1
+            elif ch == "]":
+                if b_depth > 0:
+                    b_depth -= 1
+            elif ch == "," and p_depth == 0 and b_depth == 0:
+                parts.append((part_start, p_idx, decls_str[part_start:p_idx]))
+                part_start = p_idx + 1
+        parts.append((part_start, len(decls_str), decls_str[part_start:]))
+
+        default_val = DEFAULT_ZERO_INITIALIZERS.get(tname, "0.0")
+        modified = False
+        new_parts_str = []
+
+        for p_s, p_e, part in parts:
+            p_strip = part.strip()
+            if re.fullmatch(r"[A-Za-z_]\w*", p_strip):
+                leading = part[:len(part) - len(part.lstrip())]
+                trailing = part[len(part.rstrip()):]
+                new_parts_str.append(f"{leading}{p_strip} = {default_val}{trailing}")
+                modified = True
+            else:
+                new_parts_str.append(part)
+
+        if modified:
+            new_decls = ",".join(new_parts_str)
+            replacements.append((decls_start, stmt_end, new_decls))
+
+    result = source
+    for start, end, repl in sorted(replacements, key=lambda r: r[0], reverse=True):
+        result = result[:start] + repl + result[end:]
+
+    return result
+
+
 def hex_to_rgb_normalized(hex_str: str) -> Optional[Tuple[float, float, float]]:
     """Converts #RRGGBB or #RGB to normalized float tuple (0.0 .. 1.0)."""
     s = hex_str.strip()
@@ -743,6 +910,16 @@ def classify_and_wrap_source(raw_source: str, title: str = "Shader") -> Tuple[st
     param_header = "\n// Exposed Authoring Parameters\n" + "\n".join(param_uniform_lines) + "\n" if param_uniform_lines else ""
 
     if is_shadertoy:
+        # LINUX-GLSL-001: Normalize Shadertoy shaders for portable GLSL 3.30 execution:
+        # 1. Normalize uninitialized local variable declarations to zero initializers.
+        #    In Shadertoy's native WebGL/ANGLE environment, all variable memory is
+        #    guaranteed to be zero-initialized. Under desktop GLSL 3.30 (Mesa on Linux),
+        #    uninitialized variables evaluate to `nir_ssa_undef` / uninitialized GPU
+        #    registers (NaN / hardware garbage) that break loop conditions and arithmetic.
+        # 2. Normalize mainImage's output parameter from `out vec4` to `inout vec4`
+        #    so caller's `vec4(0.0)` in SHADERTOY_WRAPPER_SUFFIX is copied into mainImage.
+        clean_src = normalize_uninitialized_declarations(clean_src)
+        clean_src = MAIN_IMAGE_OUT_PARAM_RE.sub(r"\g<1>inout \g<2>", clean_src)
         full_source = SHADERTOY_WRAPPER_PREFIX + param_header + clean_src + SHADERTOY_WRAPPER_SUFFIX
         meta = ShaderMetadata(
             name=title,
