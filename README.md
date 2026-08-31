@@ -49,24 +49,18 @@ sudo apt install libxcb-cursor0
 ```
 
 Without it, startup fails with `Could not load the Qt platform plugin
-"xcb"`. No other Linux system packages have been found necessary — PortAudio
+"xcb"`. No other Linux system packages are necessary — PortAudio
 and libsndfile ship inside the `sounddevice`/`soundfile` wheels, and audio
-output goes through whatever PipeWire/PulseAudio/ALSA stack the distro
-already provides. System TTS uses whatever `pyttsx3` backend the platform
-exposes (e.g. `espeak`/`speech-dispatcher` on Linux); voice selection is
-expected to differ from the Windows SAPI5 voice.
+output routes through whatever PipeWire/PulseAudio/ALSA stack the distribution
+provides.
 
-**Audio output device**: on a modern PipeWire desktop, ToroidAMP prefers a
-device literally named `pipewire` over PortAudio's ALSA `default` device
-when one is present — this is a capability check (`sounddevice.query_devices()`
-by name), not a distro branch, and falls straight through to PortAudio's
-own default everywhere else (Windows, macOS, non-PipeWire Linux). The
-chosen device, sample rate, and negotiated buffer/latency are logged once
-at startup (`toroidamp.player`) in the same rotating log file used for
-every other diagnostic — useful to include when reporting a Linux audio
-issue. Official validation baseline: Mint/Ubuntu family, Intel/Mesa,
-x86-64, PipeWire/PulseAudio/ALSA desktop stack; other distributions and
-GPU vendors are best-effort.
+**Supported Platforms & Platform Differences**:
+* **Windows**: Fully supported (conventional/tracker playback, official & user GLSL visualizers, floating/docking modules, SAPI5 robotic startup voice).
+* **Linux**: Supported with documented platform behavior:
+  - **Audio**: Automatic preference for named `pipewire` output devices with negotiated blocksize (`blocksize=0`) and low latency.
+  - **Wayland Composition**: Under Wayland/xdg-shell, auxiliary Playlist and Visualizer modules are embedded cleanly inside the Unified Chassis to provide deterministic positioning and user-controlled edge-resizing without window manager placement conflicts.
+  - **Startup Voice**: The demoscene startup voice announcement is deferred/disabled on Linux for v0.667 due to upstream asynchronous eSpeak library lifecycle desynchronization; Windows SAPI5 voice is fully enabled.
+  - **Validated Reference Environment**: Ubuntu 24.04/26.04 LTS, GNOME / Wayland / Mutter, Intel HD Graphics / Mesa / i915, PipeWire.
 
 ### Installation
 

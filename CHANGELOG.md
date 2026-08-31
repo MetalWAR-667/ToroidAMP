@@ -12,16 +12,20 @@ briefly got ahead of itself before Linux support, packaging, and basic UX
 polish actually existed; the version number now reflects that honestly.
 Progress will resume when morale improves.
 
-## [Unreleased]
+## [0.667] — Cross-Platform Stabilization & Packaging Readiness
 
 ### Added
-- Official GPU/GLSL visualizers (Toroid Identity, Cyber Bloom, Audio
-  Reactive Reference) now render directly in NORMAL mode, right alongside
-  the CPU visualizers, instead of showing a RETINA-only placeholder.
-  Arbitrary user shaders remain exclusive to RETINA MELT and the GLSL Lab.
-- Playlist and Visualizer now compose into a single ToroidAMP window on
-  Wayland instead of independent, separately-positioned top-level windows
-  (RELEASE-BLOCKERS-001, see Fixed below for the root cause).
+- Canonical Linux desktop integration file `packaging/toroidamp.desktop` defining application category, icon mapping, and non-terminal execution.
+- Windows diagnostic launcher `ToroidAMP-Debug.bat` for console-attached troubleshooting.
+- Unified Wayland child-widget layout support for auxiliary `PlaylistModule` and `VisualizerModule` inside `UnifiedChassis`.
+- Interactive edge-resizing support for embedded Wayland modules with zero geometry drift across `NORMAL <-> MINI` transitions.
+- Canonical non-native file dialog options helper `platform_file_dialog_options()` specifically for Wayland across all 9 playlist, preset, and shader file dialogs.
+
+### Fixed
+- **Linux GLSL Shaders (LINUX-GLSL-001)**: Normalized uninitialized local variable declarations and Shadertoy `inout vec4` parameter signatures that caused black rendering on Intel Mesa / Broadwell GT2 drivers.
+- **Wayland File Dialogs (LINUX-DIALOG-001)**: Resolved slow and non-responsive file dialogs under GNOME/Wayland by cleanly delegating to Qt's built-in file dialogs rather than hanging on DBus portal roundtrips.
+- **Wayland Chassis Resizing (LINUX-CHASSIS-001)**: Fixed static sizing and lack of edge-resizing on embedded Playlist and Visualizer child widgets under Wayland, locking the top-left NORMAL anchor and adjusting parent grid layout dynamically.
+- **Linux Startup Voice (LINUX-TTS-001)**: Cleanly deferred startup voice announcement on Linux due to upstream `pyttsx3` eSpeak asynchronous event loop flaws, preventing background thread overhead, `/tmp` leaks, and native ctypes `ReferenceError` callback crashes on Linux while preserving Windows SAPI5 voice.
 
 ### Fixed
 - Startup voice playback no longer depends on pygame.mixer/SDL: that

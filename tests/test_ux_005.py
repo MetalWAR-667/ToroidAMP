@@ -215,9 +215,9 @@ class TestPlaylistWidgetSelection(unittest.TestCase):
 class TestVersionConsistency(unittest.TestCase):
     """Task 7: a single authoritative version source."""
 
-    def test_07_version_is_0_666(self):
+    def test_07_version_is_0_667(self):
         from toroidamp import __version__
-        self.assertEqual(__version__, "0.666")
+        self.assertEqual(__version__, "0.667")
 
     def test_08_pyproject_version_matches_package_version(self):
         import tomllib

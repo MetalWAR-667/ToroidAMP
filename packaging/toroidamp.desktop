@@ -1,0 +1,13 @@
+[Desktop Entry]
+Type=Application
+Name=ToroidAMP
+GenericName=Audio Player & Demoscene Visualizer
+Comment=Compact, modular, musically reactive audio player with demoscene visualizer engine
+Exec=toroidamp %F
+Icon=toroidamp
+Terminal=false
+Categories=AudioVideo;Audio;Player;Qt;
+MimeType=audio/x-wav;audio/mpeg;audio/ogg;audio/flac;audio/x-mod;audio/x-xm;audio/x-it;audio/x-s3m;
+Keywords=audio;player;music;demoscene;visualizer;tracker;mod;xm;
+StartupNotify=true
+StartupWMClass=toroidamp

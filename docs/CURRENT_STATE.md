@@ -27,13 +27,13 @@ Current architectural truth belongs in `ARCHITECTURE.md`.
 ## 2. Project Status
 
 **Project:** ToroidAMP
-**Stage:** Core Implementation & Desktop Lifecycle
-**Current Phase:** FIX-001 — Startup, Lifecycle & Voice Identity
-**Status:** CLOSED (Next: Production Cut 3 — Visualizer Expansion & Effects)
-**Implementation:** PRODUCTION APPLICATION WITH REFINED LIFECYCLE & VOICE (`toroidamp`)
+**Stage:** Release Preparation & Packaging Readiness
+**Current Phase:** RELEASE-POLISH-0.667 — Presentation, Diagnostics & Packaging Readiness
+**Status:** CLOSED (Next: RELEASE-GATE-0.667 — Packaging & Final Cross-Platform Distribution)
+**Implementation:** PRODUCTION APPLICATION (`toroidamp` v0.667)
 
-ToroidAMP lifecycle semantics are now strictly separated: MINI (visible compact scale), MINIMIZE (hide to tray with active audio), and CLOSE/X (immediate full shutdown).
-On startup, ToroidAMP initializes with no loaded music track, sanitizes its restored playlist against the filesystem, and announces its identity motto via VoiceService.
+ToroidAMP v0.667 brings complete cross-platform stabilization across Windows and physical Linux/Wayland environments.
+All Linux stabilization gates (GLSL Intel/Mesa rendering, non-native file dialog reliability, Wayland Unified Chassis interactive resizing, and Linux startup TTS clean platform deferral) are closed and validated.
 
 
 
@@ -422,15 +422,18 @@ UI Direction Gate D.1 — Mini & Experience Scale   CLOSED
 Production Cut 1B — Primary Player Implementation CLOSED
 Production Cut 2 — Desktop Lifecycle & Session    CLOSED
 FIX-001 — Startup Lifecycle & Voice Identity      CLOSED
-Production Cut 3 — Visualizer Expansion           ACTIVE
+Production Cut 3 — Visualizer Expansion           CLOSED
   - VIS-001: Deep Field & Floor Promotion         CLOSED
   - VIS-002: Production Visual Polish & RETINA    CLOSED
 v0.666 — NORMAL UX & Interaction Polish           CLOSED
-  (bounded side-cut: consoleless packaged build, breathing border,
-   volume-independent reactivity, playlist multi-select, Linux taskbar
-   grouping, version single-source-of-truth; not visualizer/RETINA work)
+RELEASE-BLOCKERS-001 — Linux Stabilization Gate    CLOSED
+  - LINUX-GLSL-001: Intel/Mesa Shader Fix         CLOSED
+  - LINUX-DIALOG-001: Wayland Non-Native Dialogs  CLOSED
+  - LINUX-CHASSIS-001: Wayland Module Resizing    CLOSED
+  - LINUX-TTS-001: Linux Startup Voice Deferral   CLOSED (DEFERRED_ON_LINUX)
+RELEASE-POLISH-0.667 — Presentation & Readiness   CLOSED
 
-Next: return to Production Cut 3 — GPU-PROD-002 final human micro-gate.
+Next: RELEASE-GATE-0.667 — Packaging & Final Cross-Platform Distribution.
 ```
 
 
