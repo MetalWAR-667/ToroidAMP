@@ -27,14 +27,16 @@ Current architectural truth belongs in `ARCHITECTURE.md`.
 ## 2. Project Status
 
 **Project:** ToroidAMP
-**Stage:** Release Gate & Packaging Validation (v0.667)
-**Current Phase:** RELEASE-GATE-0.667
-  - Linux artifact: PASS
-  - Windows artifact: PASS
-**Status:** CLOSED (Next: RELEASE-CLOSEOUT-0.667)
+**Stage:** Release Closeout (v0.667)
+**Current Phase:** RELEASE-CLOSEOUT-0.667
+  - RELEASE-GATE-0.667: CLOSED (Linux PASS, Windows PASS)
+  - Windows distribution archive: STAGED & checksummed (`release/0.667/ToroidAMP-0.667-windows-x86_64.zip`)
+  - Linux distribution archive: STAGED & checksummed (`release/0.667/ToroidAMP-0.667-linux-x86_64.tar.gz`, transferred from the validated Ubuntu machine as a closed archive, executable bit and Ubuntu-computed SHA-256 both confirmed intact after transfer)
+**Status:** CLOSED
 **Implementation:** PRODUCTION APPLICATION (`toroidamp` v0.667)
+**v0.667:** READY_FOR_PUBLICATION (not yet RELEASED — publication requires Metal to commit the pending closeout docs, then create the `v0.667` tag and GitHub Release manually)
 
-ToroidAMP v0.667 native Linux ONEDIR packaging has completed full validation on Ubuntu physical hardware (audio playback, GLSL shaders, Wayland Unified Chassis, non-native dialogs, isolated user paths, and zero source dependencies).
+ToroidAMP v0.667 native Linux ONEDIR packaging has completed full validation on Ubuntu physical hardware (audio playback, GLSL shaders, Wayland Unified Chassis, non-native dialogs, isolated user paths, and zero source dependencies), and that exact validated artifact has been transferred to the Windows closeout machine and staged for release, unmodified.
 
 ToroidAMP v0.667 native Windows ONEDIR packaging (PyInstaller) has completed full validation on this dev machine: frozen isolated launch, 5/5 clean TTS launch/close cycles via `sounddevice` (no pygame.mixer dependency), all four conventional audio formats (WAV/MP3/OGG/FLAC) plus a representative tracker MOD file (confirming `libxmp.dll` resolves in the frozen bundle), Windows independent-top-level Playlist/Visualizer docking (pixel-exact via UI Automation), MINI↔NORMAL transitions, RETINA MELT enter/exit, isolated user-writable state (`%LOCALAPPDATA%\ToroidAMP\`), and a clean `git status`. One real packaging defect was found and fixed: a stale editable-install `dist-info` (0.666) was baking an incorrect version into the frozen artifact via `copy_metadata()`; fixed by refreshing the editable install (`pip install -e . --no-deps --force-reinstall`) before rebuilding — no tracked source files changed. Full interactive UI verification (file dialogs, GLSL Lab, CPU/GPU visualizer switching) was only partially achievable via UI Automation in this session (no human eyes/ears available); see the RELEASE-GATE-0.667-WINDOWS report for the exact boundary of what was verified programmatically vs. what still benefits from Metal's direct confirmation.
 
@@ -438,8 +440,12 @@ RELEASE-POLISH-0.667 — Presentation & Readiness   CLOSED
 RELEASE-GATE-0.667 — Release Artifact Validation   CLOSED
   - RELEASE-GATE-0.667-LINUX: Native Linux ONEDIR PASS
   - RELEASE-GATE-0.667-WINDOWS: Native Windows ONEDIR PASS
+RELEASE-CLOSEOUT-0.667 — Final Assembly & Publication   CLOSED
+  - Windows archive/checksum: STAGED
+  - Linux archive/checksum: STAGED
+  - v0.667: READY_FOR_PUBLICATION
 
-Next: RELEASE-CLOSEOUT-0.667.
+Next: Metal commits pending closeout docs, tags v0.667, publishes the GitHub Release.
 ```
 
 

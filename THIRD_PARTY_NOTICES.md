@@ -27,7 +27,7 @@ distributed product.
 
 | Component | Version | Purpose | License | Full text |
 |---|---|---|---|---|
-| pygame-ce | 2.5.8 | CPU visualizer rendering, voice-line WAV playback, tracker DLL host directory | LGPL v2.1 (dynamically linked) | [`licenses/pygame-ce-LGPL-2.1.txt`](licenses/pygame-ce-LGPL-2.1.txt) |
+| pygame-ce | 2.5.8 | CPU visualizer rendering, tracker DLL host directory | LGPL v2.1 (dynamically linked) | [`licenses/pygame-ce-LGPL-2.1.txt`](licenses/pygame-ce-LGPL-2.1.txt) |
 | SDL2 (core) | bundled by pygame-ce | pygame-ce's underlying multimedia layer | zlib License | [`licenses/SDL2.txt`](licenses/SDL2.txt) |
 | FreeType | bundled by pygame-ce (SDL2_ttf) | Font rendering used by SDL2_ttf | FreeType License (FTL) | [`licenses/FreeType-FTL.txt`](licenses/FreeType-FTL.txt) |
 | libpng | bundled by pygame-ce (SDL2_image) | PNG decode | libpng License | [`licenses/libpng.txt`](licenses/libpng.txt) |
@@ -43,9 +43,9 @@ distributed product.
 
 | Component | Version | Purpose | License | Full text |
 |---|---|---|---|---|
-| soundfile | 0.14.0 | Python decoder wrapper | BSD 3-Clause | [`licenses/soundfile-python.txt`](licenses/soundfile-python.txt) |
+| soundfile | 0.14.0 | Python decoder wrapper (conventional formats and the startup voice-line WAV) | BSD 3-Clause | [`licenses/soundfile-python.txt`](licenses/soundfile-python.txt) |
 | libsndfile | bundled by soundfile | The actual native decode engine | LGPL v2.1 (dynamically linked) | [`licenses/libsndfile-LGPL-2.1.txt`](licenses/libsndfile-LGPL-2.1.txt) |
-| sounddevice | 0.5.6 | Python audio-output wrapper | MIT | [`licenses/sounddevice-python.txt`](licenses/sounddevice-python.txt) |
+| sounddevice | 0.5.6 | Python audio-output wrapper (music playback and the startup voice-line) | MIT | [`licenses/sounddevice-python.txt`](licenses/sounddevice-python.txt) |
 | PortAudio | bundled by sounddevice | The actual native audio output engine | MIT-style (permissive) | [`licenses/PortAudio.txt`](licenses/PortAudio.txt) |
 
 ## Audio Playback — Tracker (MOD/XM/IT/S3M)
