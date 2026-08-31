@@ -118,7 +118,7 @@ class UnifiedChassis(QWidget):
         self.outer_layout.setSpacing(2)
 
         self.stack = QStackedWidget(self)
-        self.outer_layout.addWidget(self.stack, 0, 0)
+        self.outer_layout.addWidget(self.stack, 0, 0, Qt.AlignTop | Qt.AlignLeft)
 
         # region -> currently-embedded module widget (Wayland hosting only).
         self._embedded_modules: dict[str, QWidget] = {}
@@ -926,8 +926,10 @@ class UnifiedChassis(QWidget):
 
         if widget is not None:
             row, col = (0, 1) if region == "right" else (1, 0)
-            self.outer_layout.addWidget(widget, row, col)
+            self.outer_layout.addWidget(widget, row, col, Qt.AlignTop | Qt.AlignLeft)
             self._embedded_modules[region] = widget
+            if hasattr(widget, "_user_size"):
+                widget.setFixedSize(widget._user_size)
 
         self._apply_stack_size(self.stack.width(), self.stack.height())
 

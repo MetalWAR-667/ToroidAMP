@@ -74,7 +74,10 @@ class ModuleShell(QWidget):
 
         self.setMinimumSize(self.MIN_SIZE)
         self._user_size = QSize(self.DEFAULT_SIZE)
-        self.resize(self.DEFAULT_SIZE)
+        if self.embedded:
+            self.setFixedSize(self.DEFAULT_SIZE)
+        else:
+            self.resize(self.DEFAULT_SIZE)
 
         self.main_layout = QVBoxLayout(self)
         self.main_layout.setContentsMargins(4, 4, 4, 4)
@@ -151,7 +154,13 @@ class ModuleShell(QWidget):
         """Applies a known user size (e.g. session restore), clamped to the module minimum."""
         size = QSize(max(self.MIN_SIZE.width(), width), max(self.MIN_SIZE.height(), height))
         self._user_size = size
-        self.resize(size)
+        if self.embedded:
+            self.setFixedSize(size)
+            if self.parentWidget() is not None and hasattr(self.parentWidget(), "outer_layout"):
+                self.parentWidget().outer_layout.activate()
+                self.parentWidget().adjustSize()
+        else:
+            self.resize(size)
 
     def reset_size(self):
         """
@@ -159,7 +168,13 @@ class ModuleShell(QWidget):
         Does not move, dock, undock, close, or change module content/selection.
         """
         self._user_size = QSize(self.DEFAULT_SIZE)
-        self.resize(self.DEFAULT_SIZE)
+        if self.embedded:
+            self.setFixedSize(self.DEFAULT_SIZE)
+            if self.parentWidget() is not None and hasattr(self.parentWidget(), "outer_layout"):
+                self.parentWidget().outer_layout.activate()
+                self.parentWidget().adjustSize()
+        else:
+            self.resize(self.DEFAULT_SIZE)
 
     def restore_user_size(self):
         """Restores the last floating size — used when a module is undocked."""
@@ -214,6 +229,8 @@ class ModuleShell(QWidget):
 
     def _allowed_edges(self) -> set[str]:
         """Edges the user may currently drag, given docking constraints."""
+        if self.embedded:
+            return {"left", "right", "top", "bottom"}
         if not self.is_docked:
             return {"left", "right", "top", "bottom"}
         return {"left", "right", "top", "bottom"} - self.DOCK_LOCKED_EDGES
@@ -235,11 +252,12 @@ class ModuleShell(QWidget):
     def mousePressEvent(self, event: QMouseEvent):
         if event.button() != Qt.LeftButton:
             return
-        edges = self._edge_at(event.pos())
+        edges = self._edge_at(event.position().toPoint())
         if edges:
             self._resizing = True
             self._resize_edges = edges
             self._resize_start_geom = self.geometry()
+            self._resize_start_size = self.size()
             self._resize_start_pos = event.globalPosition().toPoint()
             event.accept()
             return
@@ -248,7 +266,7 @@ class ModuleShell(QWidget):
         # chassis's own grid layout, and frameGeometry()/globalPosition()
         # math below assumes a top-level window's screen-space geometry,
         # which is meaningless (and would misbehave) for a child widget.
-        if not self.embedded and event.pos().y() <= 24:
+        if not self.embedded and event.position().toPoint().y() <= 24:
             self._is_dragging = True
             self._drag_pos = event.globalPosition().toPoint() - self.frameGeometry().topLeft()
             event.accept()
@@ -269,7 +287,7 @@ class ModuleShell(QWidget):
 
         # Hover feedback: show a resize cursor near a draggable edge.
         if not (event.buttons() & Qt.LeftButton):
-            edges = self._edge_at(event.pos())
+            edges = self._edge_at(event.position().toPoint())
             if edges:
                 cursor = self._CURSOR_MAP.get(frozenset(edges))
                 self.setCursor(cursor if cursor is not None else Qt.ArrowCursor)
@@ -278,38 +296,52 @@ class ModuleShell(QWidget):
 
     def _apply_resize_drag(self, global_pos: QPoint):
         delta = global_pos - self._resize_start_pos
-        geom = QRect(self._resize_start_geom)
         min_w, min_h = self.MIN_SIZE.width(), self.MIN_SIZE.height()
 
-        if "left" in self._resize_edges:
-            new_left = geom.left() + delta.x()
-            if geom.right() - new_left + 1 < min_w:
-                new_left = geom.right() - min_w + 1
-            geom.setLeft(new_left)
-        if "right" in self._resize_edges:
-            geom.setWidth(max(min_w, geom.width() + delta.x()))
-        if "top" in self._resize_edges:
-            new_top = geom.top() + delta.y()
-            if geom.bottom() - new_top + 1 < min_h:
-                new_top = geom.bottom() - min_h + 1
-            geom.setTop(new_top)
-        if "bottom" in self._resize_edges:
-            geom.setHeight(max(min_h, geom.height() + delta.y()))
+        if self.embedded:
+            start_size = getattr(self, "_resize_start_size", self.size())
+            new_w = start_size.width()
+            new_h = start_size.height()
 
-        self.setGeometry(geom)
+            if "right" in self._resize_edges:
+                new_w = max(min_w, start_size.width() + delta.x())
+            elif "left" in self._resize_edges:
+                new_w = max(min_w, start_size.width() - delta.x())
+
+            if "bottom" in self._resize_edges:
+                new_h = max(min_h, start_size.height() + delta.y())
+            elif "top" in self._resize_edges:
+                new_h = max(min_h, start_size.height() - delta.y())
+
+            new_size = QSize(new_w, new_h)
+            self._user_size = new_size
+            self.setFixedSize(new_size)
+            if self.parentWidget() is not None and hasattr(self.parentWidget(), "outer_layout"):
+                self.parentWidget().outer_layout.activate()
+                self.parentWidget().adjustSize()
+        else:
+            geom = QRect(self._resize_start_geom)
+            if "left" in self._resize_edges:
+                new_left = geom.left() + delta.x()
+                if geom.right() - new_left + 1 < min_w:
+                    new_left = geom.right() - min_w + 1
+                geom.setLeft(new_left)
+            if "right" in self._resize_edges:
+                geom.setWidth(max(min_w, geom.width() + delta.x()))
+            if "top" in self._resize_edges:
+                new_top = geom.top() + delta.y()
+                if geom.bottom() - new_top + 1 < min_h:
+                    new_top = geom.bottom() - min_h + 1
+                geom.setTop(new_top)
+            if "bottom" in self._resize_edges:
+                geom.setHeight(max(min_h, geom.height() + delta.y()))
+
+            self.setGeometry(geom)
 
     def mouseReleaseEvent(self, event: QMouseEvent):
         if self._resizing:
             self._resizing = False
             self._resize_edges = set()
-            # A completed edge-drag always reflects genuine user intent, even
-            # while docked — docking only prevents dragging the edges it
-            # forces programmatically (DOCK_LOCKED_EDGES), so any drag that
-            # actually happened here was never one of those. Floating
-            # resizes are already captured continuously via resizeEvent;
-            # this additionally captures docked-but-free-edge resizes
-            # (e.g. a docked PlaylistModule's bottom/right edges), which
-            # resizeEvent intentionally ignores while docked.
             self._user_size = self.size()
             event.accept()
             return
