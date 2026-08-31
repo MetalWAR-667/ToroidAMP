@@ -14,6 +14,7 @@ Features:
 - Performance Telemetry (FPS, CPU paint timing, viewport resolution)
 """
 
+import logging
 import os
 import sys
 import time
@@ -21,13 +22,15 @@ import math
 from pathlib import Path
 from typing import Optional, List, Dict
 
+logger = logging.getLogger("toroidamp.lab")
+
 # Ensure project paths
 repo_root = Path(__file__).resolve().parent.parent.parent
 sys.path.insert(0, str(repo_root))
 sys.path.insert(0, str(repo_root / "src"))
 
 from PySide6.QtCore import Qt, QTimer, Signal
-from PySide6.QtGui import QSurfaceFormat, QMouseEvent, QKeyEvent, QPainter, QColor, QFont, QImage
+from PySide6.QtGui import QSurfaceFormat, QMouseEvent, QKeyEvent, QPainter, QColor, QFont, QImage, QGuiApplication
 from PySide6.QtWidgets import (
     QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
     QPushButton, QLabel, QFrame, QTextEdit, QFileDialog, QSlider,
@@ -103,6 +106,28 @@ class AudioTelemetryMiniWidget(QWidget):
             painter.fillRect(w - 14, 4, 10, 10, QColor(0, 255, 150))
         else:
             painter.fillRect(w - 14, 4, 10, 10, QColor(40, 45, 60))
+
+
+def _file_dialog_options() -> QFileDialog.Options:
+    """
+    UBUNTU-WAYLAND-002: on Wayland, Qt's native Linux file dialog is routed
+    through the org.freedesktop.portal.FileChooser DBus service rather than
+    drawn directly by this process. That hand-off depends on the portal
+    correctly associating the dialog with this window's surface (via
+    xdg-foreign) for stacking -- when that association doesn't happen (this
+    same environment logs a portal app-ID registration failure at startup),
+    the resulting dialog is an ordinary, unparented top-level surface that
+    the compositor is free to place anywhere, including behind the Lab
+    window that opened it. Using Qt's own non-native dialog instead removes
+    the portal round-trip entirely for this one dialog: it becomes a normal
+    Qt top-level window with the same Qt-managed transient-parent stacking
+    every other ToroidAMP window already relies on. Native dialogs are kept
+    everywhere else (Windows, and Linux/X11 where this isn't observed) --
+    this only swaps the implementation on Wayland specifically.
+    """
+    if QGuiApplication.platformName() == "wayland":
+        return QFileDialog.Option.DontUseNativeDialog
+    return QFileDialog.Options()
 
 
 class GPUAuthoringLabWindow(QMainWindow):
@@ -402,6 +427,60 @@ class GPUAuthoringLabWindow(QMainWindow):
         ok = self.canvas.load_shader_file(target_path)
         self._rebuild_parameter_ui()
         self._update_ui_state(ok)
+        if ok:
+            self._diagnose_black_render(target_path)
+
+    def _diagnose_black_render(self, target_path: Path):
+        """
+        RELEASE-BLOCKERS-001 (Blocker 3): a shader loaded from user_shaders
+        was reported rendering black on Ubuntu/Mesa/Intel HD 5500 even
+        though official/bundled shaders render correctly through this same
+        pipeline. Every sample user shader in this repo was verified here
+        to compile, link, AND render non-black pixels correctly against a
+        real desktop OpenGL driver -- ruling out (for those files) a
+        pipeline defect in load_shader_file()/classify_and_wrap_source()/
+        paintGL()'s uniform binding. GL compile/link failures already
+        surface clearly via _update_ui_state() above; what neither that
+        nor GL itself can catch is a shader that compiles and links
+        successfully (`ok=True`) but whose *runtime* GLSL evaluation
+        differs enough on a different driver (e.g. a builtin like pow()/
+        atan() producing NaN on Mesa where a desktop driver tolerates it)
+        that it renders black anyway. This does not attempt to fix or
+        guess at such a driver-level difference -- it only makes an
+        otherwise-silent black frame loudly diagnosable by sampling the
+        actual rendered pixels once, right after a successful load, so
+        the *next* reproduction on real Ubuntu hardware yields a concrete,
+        actionable signal instead of a silent mystery.
+        """
+        self.canvas.update()
+        self.canvas.repaint()
+        try:
+            img = self.canvas.grabFramebuffer()
+        except Exception:
+            return
+        if img.isNull() or img.width() < 2 or img.height() < 2:
+            return
+
+        w, h = img.width(), img.height()
+        xs = [max(0, min(w - 1, int(w * f))) for f in (0.1, 0.3, 0.5, 0.7, 0.9)]
+        ys = [max(0, min(h - 1, int(h * f))) for f in (0.1, 0.3, 0.5, 0.7, 0.9)]
+        samples = [img.pixelColor(x, y) for x in xs for y in ys]
+        max_channel = max(max(c.red(), c.green(), c.blue()) for c in samples)
+
+        if max_channel <= 3:
+            msg = (
+                f"[DIAGNOSTIC] '{target_path.name}' compiled and linked "
+                f"successfully but its first rendered frame sampled as "
+                f"effectively all-black (max channel {max_channel}/255 "
+                f"across 25 sample points). GL reported no compile/link "
+                f"error, so this is not a syntax problem -- it points to "
+                f"a runtime shader-logic/driver difference (e.g. a GLSL "
+                f"builtin producing NaN/undefined output on this GPU/"
+                f"driver that another driver tolerates). Worth comparing "
+                f"against a known-working platform with this exact file."
+            )
+            logger.warning(msg)
+            self.error_view.append(msg)
 
     def load_external_shader_dialog(self):
         start_dir = str(self.user_shader_dir) if self.user_shader_dir.exists() else str(repo_root)
@@ -409,7 +488,8 @@ class GPUAuthoringLabWindow(QMainWindow):
             self,
             "Open GLSL / Fragment Shader",
             start_dir,
-            "Shader Files (*.frag *.glsl *.txt);;All Files (*.*)"
+            "Shader Files (*.frag *.glsl *.txt);;All Files (*.*)",
+            options=_file_dialog_options()
         )
         if file_path:
             p = Path(file_path)
@@ -450,7 +530,8 @@ class GPUAuthoringLabWindow(QMainWindow):
             self,
             "Save Shader Preset",
             start_path,
-            "ToroidAMP Shader Preset (*.json);;All Files (*.*)"
+            "ToroidAMP Shader Preset (*.json);;All Files (*.*)",
+            options=_file_dialog_options()
         )
         if file_path:
             try:
@@ -468,7 +549,8 @@ class GPUAuthoringLabWindow(QMainWindow):
             self,
             "Load Shader Preset",
             start_path,
-            "ToroidAMP Shader Preset (*.json);;All Files (*.*)"
+            "ToroidAMP Shader Preset (*.json);;All Files (*.*)",
+            options=_file_dialog_options()
         )
         if not file_path:
             return

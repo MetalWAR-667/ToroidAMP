@@ -116,6 +116,20 @@ def _run(logger: logging.Logger):
     app.setApplicationName("ToroidAMP")
     app.setOrganizationName("")  # Clean single canonical path: %LOCALAPPDATA%/ToroidAMP
     app.setQuitOnLastWindowClosed(False)  # Ensure tray background lifecycle stays alive when windows hide
+    # Declares the desktop-entry identity ("toroidamp" -> a future
+    # toroidamp.desktop) this running process corresponds to. Harmless
+    # no-op on Windows/macOS. On Linux, this is the Qt-documented, portable
+    # mechanism a Wayland compositor's app_id / an X11 WM_CLASS-based dock
+    # uses to associate a running window with an installed .desktop file's
+    # Icon= entry -- correct and forward-compatible to set now even though
+    # no .desktop file ships yet (packaging, out of this cut's scope): a
+    # GNOME/Wayland-style dock specifically resolves its icon by looking up
+    # an *installed* .desktop file, which a source checkout (`python -m
+    # toroidamp`) never has, so the dock icon itself will still show a
+    # generic fallback until a real .desktop file is packaged and
+    # installed -- this alone does not fake that, it only makes the
+    # declared identity consistent and ready for when one exists.
+    app.setDesktopFileName("toroidamp")
 
     # BRAND-001: official checkerboard toroid identity for every window that
     # doesn't set its own icon (taskbar, Alt-Tab, etc.). A missing/unreadable

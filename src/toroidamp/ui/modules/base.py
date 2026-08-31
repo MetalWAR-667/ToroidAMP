@@ -42,8 +42,21 @@ class ModuleShell(QWidget):
         frozenset({"left", "bottom"}): Qt.SizeBDiagCursor,
     }
 
-    def __init__(self, title: str, parent=None):
-        super().__init__(parent, Qt.Window | Qt.FramelessWindowHint)
+    def __init__(self, title: str, parent=None, embedded: bool = False):
+        # RELEASE-BLOCKERS-001: `embedded=True` builds this as a plain
+        # child widget (no Qt.Window flag) instead of an independent
+        # top-level -- the Wayland unified-chassis hosting path. A plain
+        # child widget's move()/setGeometry() operate in its PARENT's own
+        # coordinate space and are always honored by Qt's own layout
+        # system; this has nothing to do with compositor window placement
+        # (the thing Wayland's xdg-shell refuses to let a client control
+        # for independent top-levels), so it sidesteps that protocol
+        # limitation entirely rather than working around it. Windows/X11
+        # never pass embedded=True -- they keep the existing independent
+        # top-level window behavior unchanged.
+        self.embedded = embedded
+        flags = Qt.Widget if embedded else (Qt.Window | Qt.FramelessWindowHint)
+        super().__init__(parent, flags)
         self.setAttribute(Qt.WA_TranslucentBackground)
         self.setMouseTracking(True)
         self.module_title = title
@@ -230,7 +243,12 @@ class ModuleShell(QWidget):
             self._resize_start_pos = event.globalPosition().toPoint()
             event.accept()
             return
-        if event.pos().y() <= 24:
+        # Embedded (Wayland-hosted child widget) modules don't move
+        # independently -- their position is entirely owned by the
+        # chassis's own grid layout, and frameGeometry()/globalPosition()
+        # math below assumes a top-level window's screen-space geometry,
+        # which is meaningless (and would misbehave) for a child widget.
+        if not self.embedded and event.pos().y() <= 24:
             self._is_dragging = True
             self._drag_pos = event.globalPosition().toPoint() - self.frameGeometry().topLeft()
             event.accept()

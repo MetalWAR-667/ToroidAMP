@@ -42,8 +42,8 @@ class PlaylistModule(ModuleShell):
     # see UX-003 follow-up "Docked Playlist Vertical Resize".
     DOCK_LOCKED_EDGES = {"left", "top"}
 
-    def __init__(self, manager: PlaylistManager, parent=None):
-        super().__init__("// MODULE :: PLAYLIST", parent)
+    def __init__(self, manager: PlaylistManager, parent=None, embedded: bool = False):
+        super().__init__("// MODULE :: PLAYLIST", parent, embedded=embedded)
         self.manager = manager
         self.setAcceptDrops(True)
 

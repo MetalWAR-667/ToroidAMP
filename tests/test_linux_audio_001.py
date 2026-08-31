@@ -224,13 +224,12 @@ class TestVoiceServiceEngineLifecycle(unittest.TestCase):
         mock_engine = self._make_mock_engine()
 
         with patch("toroidamp.audio.voice.pyttsx3.init", return_value=mock_engine):
-            with patch("toroidamp.audio.voice.pygame.mixer.get_init", return_value=True):
-                with patch("toroidamp.audio.voice.os.path.getsize", return_value=0):
-                    # getsize=0 skips the mixer-playback branch entirely --
-                    # this test only cares whether the engine reference
-                    # survives synthesis, not whether real audio hardware
-                    # is available to play the (mocked, nonexistent) WAV.
-                    vs._synthesize_and_play("test phrase")
+            with patch("toroidamp.audio.voice.os.path.getsize", return_value=0):
+                # getsize=0 skips the playback branch entirely -- this test
+                # only cares whether the engine reference survives
+                # synthesis, not whether real audio hardware is available
+                # to play the (mocked, nonexistent) WAV.
+                vs._synthesize_and_play("test phrase")
 
         self.assertIs(
             vs._current_engine, mock_engine,

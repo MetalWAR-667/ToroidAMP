@@ -1,11 +1,12 @@
 import time
+from typing import Optional
 
 from PySide6.QtWidgets import (
-    QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton,
+    QWidget, QVBoxLayout, QHBoxLayout, QGridLayout, QLabel, QPushButton,
     QSlider, QFrame, QStackedWidget, QApplication, QStyle, QStyleOptionSlider
 )
 from PySide6.QtCore import Qt, QPoint, Signal, QEvent
-from PySide6.QtGui import QMouseEvent, QDragEnterEvent, QDropEvent, QCloseEvent, QPainter, QPen, QColor
+from PySide6.QtGui import QMouseEvent, QDragEnterEvent, QDropEvent, QCloseEvent, QPainter, QPen, QColor, QGuiApplication
 
 from .neon import NeonState
 from .marquee import MarqueeLabel
@@ -104,12 +105,23 @@ class UnifiedChassis(QWidget):
         if brand_icon is not None:
             self.setWindowIcon(brand_icon)
 
-        self.outer_layout = QVBoxLayout(self)
+        # RELEASE-BLOCKERS-001: a QGridLayout instead of the previous plain
+        # QVBoxLayout -- the NORMAL/MINI stack always occupies (0, 0); the
+        # Wayland unified-chassis hosting path (embed_module() below) can
+        # place Playlist at (0, 1) and Visualizer at (1, 0), composing them
+        # into this SAME single top-level surface. On Windows/X11 nothing
+        # is ever added to those cells (Playlist/Visualizer stay
+        # independent top-level windows there, as before), so this is a
+        # structural no-op on those platforms.
+        self.outer_layout = QGridLayout(self)
         self.outer_layout.setContentsMargins(1, 1, 1, 1)
-        self.outer_layout.setSpacing(0)
+        self.outer_layout.setSpacing(2)
 
         self.stack = QStackedWidget(self)
-        self.outer_layout.addWidget(self.stack)
+        self.outer_layout.addWidget(self.stack, 0, 0)
+
+        # region -> currently-embedded module widget (Wayland hosting only).
+        self._embedded_modules: dict[str, QWidget] = {}
 
         self._init_normal_view()
         self._init_mini_view()
@@ -865,16 +877,59 @@ class UnifiedChassis(QWidget):
         self.mode = mode
         if mode == "mini":
             self.stack.setCurrentWidget(self.mini_widget)
-            self.setFixedSize(self.MINI_WIDTH, self.MINI_HEIGHT)
+            self._apply_stack_size(self.MINI_WIDTH, self.MINI_HEIGHT)
             self.setWindowFlag(Qt.WindowStaysOnTopHint, True)
             self.show()
             self.scale_changed.emit("mini")
         else:
             self.stack.setCurrentWidget(self.normal_widget)
-            self.setFixedSize(self.NORMAL_WIDTH, self.NORMAL_HEIGHT)
+            self._apply_stack_size(self.NORMAL_WIDTH, self.NORMAL_HEIGHT)
             self.setWindowFlag(Qt.WindowStaysOnTopHint, False)
             self.show()
             self.scale_changed.emit("normal")
+
+    def _apply_stack_size(self, stack_w: int, stack_h: int):
+        self.stack.setFixedSize(stack_w, stack_h)
+        if self._embedded_modules:
+            # Wayland unified chassis: this top-level window's own size
+            # must not be pinned to the NORMAL/MINI stack's fixed footprint
+            # while a module is embedded alongside it -- let the layout
+            # grow/shrink the whole window to fit stack + embedded
+            # module(s) instead.
+            self.setMinimumSize(0, 0)
+            self.setMaximumSize(16777215, 16777215)
+            self.outer_layout.activate()
+            self.adjustSize()
+        else:
+            self.setFixedSize(stack_w, stack_h)
+
+    def embed_module(self, region: str, widget: Optional[QWidget]) -> None:
+        """
+        Wayland unified-chassis hosting (RELEASE-BLOCKERS-001): places
+        `widget` (a ModuleShell constructed with embedded=True, i.e. a
+        plain child widget with no Qt.Window flag of its own) directly
+        inside this chassis's single top-level surface -- 'right' for
+        Playlist, 'bottom' for Visualizer -- instead of as an independent
+        xdg_toplevel, which Wayland's compositor centers unconditionally
+        regardless of any client-requested position (see
+        realign_docked_modules() in window_manager.py for the full
+        protocol-limitation writeup). Passing widget=None detaches
+        whatever is currently hosted in that region, collapsing its grid
+        cell back to zero size. Never used on Windows/X11 -- those
+        platforms keep the existing independent-top-level module windows
+        untouched.
+        """
+        existing = self._embedded_modules.pop(region, None)
+        if existing is not None:
+            self.outer_layout.removeWidget(existing)
+            existing.hide()
+
+        if widget is not None:
+            row, col = (0, 1) if region == "right" else (1, 0)
+            self.outer_layout.addWidget(widget, row, col)
+            self._embedded_modules[region] = widget
+
+        self._apply_stack_size(self.stack.width(), self.stack.height())
 
     def update_telemetry(self, title: str, time_str: str, progress_ratio: float, is_playing: bool):
         self.normal_title_marquee.set_marquee_text(title)
@@ -1011,6 +1066,29 @@ class UnifiedChassis(QWidget):
 
     def mousePressEvent(self, event: QMouseEvent):
         if event.button() == Qt.LeftButton:
+            # Wayland/interaction stabilization: manually computing a
+            # target position from global mouse coordinates and calling
+            # move() -- the previous approach here, still used below on
+            # X11/Windows where it demonstrably already works -- doesn't
+            # work under Wayland. Wayland clients have no general notion
+            # of an absolute on-screen position and cannot reposition
+            # themselves arbitrarily (compositor security model); a
+            # client-driven move() is a silent no-op there. QWindow.
+            # startSystemMove() (Qt 5.15+) instead asks the compositor
+            # itself to perform the drag using its own native move
+            # protocol, which is the portable, Qt-documented mechanism
+            # for exactly this and works correctly on X11 and Windows too
+            # -- only used here on Wayland specifically because it hands
+            # the entire drag over to the compositor, which means our own
+            # mouseMoveEvent (and therefore MINI mode's edge-snap-to-
+            # screen behavior) never fires again for the rest of this
+            # drag; keeping the existing per-pixel path where it already
+            # works avoids losing that on platforms where it isn't broken.
+            window = self.windowHandle()
+            if QGuiApplication.platformName() == "wayland" and window is not None:
+                window.startSystemMove()
+                event.accept()
+                return
             self._is_dragging = True
             self._drag_pos = event.globalPosition().toPoint() - self.frameGeometry().topLeft()
             event.accept()

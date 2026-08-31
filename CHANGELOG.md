@@ -19,8 +19,42 @@ Progress will resume when morale improves.
   Reactive Reference) now render directly in NORMAL mode, right alongside
   the CPU visualizers, instead of showing a RETINA-only placeholder.
   Arbitrary user shaders remain exclusive to RETINA MELT and the GLSL Lab.
+- Playlist and Visualizer now compose into a single ToroidAMP window on
+  Wayland instead of independent, separately-positioned top-level windows
+  (RELEASE-BLOCKERS-001, see Fixed below for the root cause).
 
 ### Fixed
+- Startup voice playback no longer depends on pygame.mixer/SDL: that
+  backend's Linux device lifecycle remained unreliable across repeated
+  launches even after explicitly reconfiguring and quitting the mixer
+  each time (UBUNTU-WAYLAND-002) — synthesis always succeeded, audible
+  playback intermittently did not. Voice playback now decodes the
+  synthesized WAV via `soundfile` (the same library music playback
+  already uses) and plays it through `sounddevice`, sharing the exact
+  device-selection policy already validated for reliable Ubuntu/PipeWire
+  music playback. Windows SAPI5 synthesis is unaffected.
+- Playlist and Visualizer appeared centered/overlapping instead of docked
+  beside NORMAL under Wayland. Root cause: both were independent
+  `Qt.Window` top-level surfaces, and Wayland's xdg-shell protocol gives a
+  client no way to set an independent top-level's absolute position at
+  all — only an interactive drag, already used for NORMAL/MINI via
+  `startSystemMove()`. There is no portable Qt-level fix for
+  *positioning* a second independent top-level, so on Wayland specifically
+  Playlist and Visualizer are now hosted as embedded child widgets inside
+  the chassis's own single top-level window instead — Qt's ordinary child-
+  widget layout, not compositor window placement, so it sidesteps the
+  protocol limitation entirely rather than working around it. Windows and
+  X11 keep the existing independent-top-level windows, completely
+  unchanged.
+- Added a diagnostic to the GLSL Authoring Lab: a user shader that
+  compiles and links successfully but paints an all-black frame (reported
+  on Ubuntu/Mesa/Intel HD 5500 for some `user_shaders/` content, not
+  reproducible on this cut's Windows dev environment despite testing this
+  repo's own sample shaders end-to-end on a real GL driver) now logs a
+  clear diagnostic and surfaces it in the Lab's error panel, instead of
+  looking identical to normal operation. This does not change shader
+  compilation or rendering — it only makes an otherwise-silent black
+  frame loudly diagnosable.
 - A Linux-only bug where a user-provided shader loaded correctly in the
   GLSL Lab but rendered black in RETINA MELT: RETINA's local-shader loader
   called `load_shader_file()` before making the GPU canvas the visible
@@ -69,6 +103,85 @@ Progress will resume when morale improves.
   including that second click) fires before the button's own click
   handler runs, so the handler always saw "already hidden" and reopened
   it. Fixed with the standard debounce for this Qt popup pattern.
+- The startup voice line synthesized correctly on Ubuntu (confirmed by
+  playing the temporary WAV manually) but was never actually heard from
+  ToroidAMP itself: `pygame.init()` (already called elsewhere for CPU
+  visualizer support) silently initializes `pygame.mixer` with its own
+  auto-negotiated defaults before the voice line ever plays, so
+  VoiceService's own `if not get_init(): init(our_settings)` guard never
+  actually applied its intended configuration in the real startup order.
+  The mixer is now explicitly (re)configured every time. A genuine
+  "no channel available" case now also logs a clear warning instead of
+  the same success message a real playback would produce.
+- The frameless NORMAL window couldn't be dragged under Wayland: the
+  existing drag implementation computed a target position from global
+  mouse coordinates and called `move()`, which Wayland's compositor
+  security model doesn't allow a client to do to itself. Dragging now
+  uses `QWindow.startSystemMove()` — the portable, Qt-documented
+  mechanism for this — specifically on Wayland; X11 and Windows keep the
+  existing move()-based drag (including MINI's edge-snapping), which
+  already works correctly there.
+- A GPU resource warning (`QOpenGLTexturePrivate::destroy() called
+  without a current context`) could appear on shutdown: the two
+  `GLVisualizerCanvas` instances (NORMAL and RETINA MELT) are child
+  widgets, not top-level windows, so closing their parent windows never
+  actually delivered `closeEvent()` (and its explicit GPU cleanup) to
+  them — their only cleanup path was each canvas's own GL context
+  destruction signal, whose timing relative to CPython's own interpreter
+  shutdown isn't guaranteed. Shutdown now releases both canvases' GPU
+  resources explicitly and deterministically while their contexts are
+  still current, before the window/event-loop teardown begins.
+- `QApplication.setDesktopFileName("toroidamp")` is now declared at
+  startup — the portable Qt mechanism a Wayland/X11 desktop uses to
+  associate a running window with an installed `.desktop` file's icon.
+  A source checkout still won't get a custom dock icon on desktops like
+  GNOME that resolve it strictly through an *installed* `.desktop` file
+  (a packaging task, not a code one), but the declared identity is now
+  correct and ready for when one ships.
+- The startup voice line could synthesize a valid WAV but produce no
+  audible sound on later launches (first launch after boot often worked;
+  a subsequent close-and-relaunch often didn't): nothing in ToroidAMP ever
+  called `pygame.mixer.quit()`, so the mixer's audio/PipeWire connection
+  was only ever released implicitly on abrupt process exit — a fast
+  relaunch could initialize against a connection the previous process
+  hadn't fully released yet, which "succeeds" without error but doesn't
+  actually flow audio. The mixer is now explicitly quit once this service
+  is done with it each time, giving PipeWire a deterministic disconnect
+  signal. Also serialized the mixer's init/play/quit cycle process-wide
+  (a global, not per-instance, lock) and made the success/warning logging
+  more honest: a channel reporting instantly idle after `play()` is now
+  logged as a failure rather than counted as success, since pygame/SDL has
+  no portable API to confirm a channel was ever actually audible.
+- The Playlist and Visualizer windows opened centered on Wayland instead
+  of docked beside NORMAL (Playlist right, Visualizer below). Root cause:
+  both are `Qt.Window` top-level surfaces, and the base Wayland/xdg-shell
+  protocol has no request for a client to set a toplevel's absolute
+  position — only an interactive move (drag), the same operation
+  `startSystemMove()` already uses for NORMAL/MINI. Compositors are free
+  to place every toplevel themselves; GNOME/Mutter centers them regardless
+  of any `move()` call, before or after `show()`. The existing docking
+  math (already correct, and unchanged) continues to work on Windows and
+  X11; on Wayland this is a genuine protocol limitation with no portable
+  Qt-level workaround, documented in place rather than worked around with
+  a compositor-specific hack.
+- The GLSL Lab's LOAD dialog could appear behind the Lab window on
+  Wayland, effectively hidden. The dialog's parent was already correct
+  (standard Qt ownership); the likely cause is Qt's native Linux file
+  dialog routing through the `org.freedesktop.portal.FileChooser` DBus
+  service, whose parent-window (xdg-foreign) handoff isn't reliably wired
+  up in this environment (this same platform's log shows the app's own
+  portal registration failing at startup). The Lab's file dialogs
+  (load shader, save/load preset) now force Qt's own non-native dialog
+  specifically on Wayland, giving them the same Qt-managed transient-
+  parent stacking every other ToroidAMP window already relies on, without
+  depending on the portal at all. Windows and Linux/X11 keep the native
+  dialog, unaffected.
+
+### Known Limitations (Wayland)
+- Auxiliary module windows (Playlist, Visualizer) cannot be positioned by
+  the client on Wayland; only the compositor decides toplevel placement.
+  This is a protocol-level restriction, not expected to be fixable without
+  a Wayland extension outside Qt's portable API surface.
 
 ## [0.666] — Post Launch Hell & Welcome Linux Users
 

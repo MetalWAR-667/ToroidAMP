@@ -44,8 +44,8 @@ class VisualizerModule(ModuleShell):
     MIN_SIZE = QSize(300, 180)
     DOCK_LOCKED_EDGES = {"left", "right"}  # docked VIS aligns its width to the chassis
 
-    def __init__(self, parent=None):
-        super().__init__("// MODULE :: VISUALIZER", parent)
+    def __init__(self, parent=None, embedded: bool = False):
+        super().__init__("// MODULE :: VISUALIZER", parent, embedded=embedded)
 
         # Visualizer Surface Container Stack (Page 0: CPU Pixmap, Page 1:
         # hardware GLSL canvas for official GPU visualizers). Page 1 shares

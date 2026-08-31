@@ -9,8 +9,11 @@ import logging
 import os
 import tempfile
 import threading
-import time
-import pygame
+import numpy as np
+import sounddevice as sd
+import soundfile as sf
+
+from .player import select_output_device
 
 logger = logging.getLogger("toroidamp.voice")
 
@@ -19,6 +22,24 @@ try:
     TTS_AVAILABLE = True
 except ImportError:
     TTS_AVAILABLE = False
+
+# RELEASE-BLOCKERS-001: voice playback previously went through
+# pygame.mixer/SDL -- an entirely separate native audio stack from the one
+# music playback uses (sounddevice/PortAudio). That second stack's Linux
+# device lifecycle proved unreliable across repeated launches (synthesis
+# always succeeded; audible playback did not) even after explicitly
+# reconfiguring and quitting the mixer each time (UBUNTU-WAYLAND-002).
+# Rather than continue chasing pygame.mixer/SDL's own PipeWire handshake,
+# voice playback now decodes the synthesized WAV (via `soundfile`, the same
+# library ConventionalDecoder already uses for music) and plays it through
+# `sounddevice`, the exact backend + device-selection policy
+# (`select_output_device()`) already validated for reliable Ubuntu/PipeWire
+# music playback. `sd.play()` opens its own independent PortAudio stream,
+# separate from PlayerEngine's -- PipeWire is a software mixing server, so
+# a short concurrent voice line and ongoing music playback both reaching
+# the same named "pipewire" device is expected to multiplex cleanly rather
+# than fight over exclusive device ownership.
+_playback_lock = threading.Lock()
 
 
 class VoiceService:
@@ -63,6 +84,7 @@ class VoiceService:
     def _synthesize_and_play(self, text: str) -> None:
         self._is_speaking = True
         temp_wav_path = None
+        playback_lock_held = False
         try:
             # 1. Synthesize to temporary WAV file matching MetalWar-Installer parameters
             with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as tmp:
@@ -102,33 +124,43 @@ class VoiceService:
             engine.save_to_file(text, temp_wav_path)
             engine.runAndWait()
 
-            # 2. Reproduce exact MetalWar-Installer robotic playback:
-            # Dual pygame mixer channels with 20ms inter-channel delay and 0.9 secondary volume
+            # 2. Reproduce the robotic dual-channel stereo delay (20ms
+            # inter-channel delay, 0.9 secondary volume) by mixing it
+            # directly into a single PCM buffer rather than relying on two
+            # separate mixer channels -- this guarantees the exact timing/
+            # gain relationship deterministically instead of depending on
+            # the OS mixer to sum two independently-scheduled channels.
             if os.path.exists(temp_wav_path) and os.path.getsize(temp_wav_path) > 0:
-                if not pygame.mixer.get_init():
-                    pygame.mixer.init(44100, -16, 2, 1024)
+                data, sr = sf.read(temp_wav_path, dtype="float32", always_2d=True)
+                if data.shape[1] == 1:
+                    data = np.column_stack((data[:, 0], data[:, 0]))
+                elif data.shape[1] > 2:
+                    data = data[:, :2]
 
-                sound = pygame.mixer.Sound(temp_wav_path)
-                c1 = pygame.mixer.find_channel()
-                c2 = pygame.mixer.find_channel()
+                delay_frames = int(0.02 * sr)  # Donor: 20ms stereo delay
+                secondary = np.zeros_like(data)
+                if delay_frames < len(data):
+                    secondary[delay_frames:] = data[: len(data) - delay_frames] * 0.9  # Donor: 0.9 secondary channel volume
+                mixed = np.clip(data + secondary, -1.0, 1.0)
 
-                if c1:
-                    c1.set_volume(1.0)
-                    c1.play(sound)
-
-                if c2:
-                    time.sleep(0.02)  # Donor: 20ms stereo delay
-                    c2.set_volume(0.9) # Donor: 0.9 secondary channel volume
-                    c2.play(sound)
-
-                # Wait for sound to complete on the primary channel
-                if c1:
-                    while c1.get_busy():
-                        time.sleep(0.05)
+                if not _playback_lock.acquire(timeout=10.0):
+                    # Another VoiceService call has been mixing/playing for
+                    # an unreasonably long time -- fail loudly rather than
+                    # hang this thread waiting on it forever.
+                    logger.warning(f"Voice phrase synthesized but playback was skipped: a previous voice playback did not release its output device in time: '{text}'")
                 else:
-                    time.sleep(sound.get_length())
-
-                logger.info(f"Voice phrase announced with robotic parity: '{text}'")
+                    playback_lock_held = True
+                    device = select_output_device()
+                    sd.play(mixed, samplerate=sr, device=device)
+                    sd.wait()
+                    # sd.wait() blocks until this stream's playback has
+                    # actually completed (or raises) -- unlike the old
+                    # pygame-channel `get_busy()` polling, there is no
+                    # "reported success but nothing audible" gap here:
+                    # either this line is reached because the device
+                    # genuinely played the buffer through, or an exception
+                    # below was raised instead.
+                    logger.info(f"Voice phrase playback completed on device={device if device is not None else 'default'}: '{text}'")
 
         except Exception as e:
             logger.warning(f"Voice synthesis/playback failed gracefully: {e}")
@@ -139,3 +171,5 @@ class VoiceService:
                     os.remove(temp_wav_path)
                 except Exception:
                     pass
+            if playback_lock_held:
+                _playback_lock.release()

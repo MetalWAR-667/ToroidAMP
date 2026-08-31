@@ -64,6 +64,22 @@ class WindowManager(QWidget):
         # 1. Main Unified Chassis (MINI / NORMAL)
         self.chassis = UnifiedChassis()
 
+        # RELEASE-BLOCKERS-001: Wayland's xdg-shell protocol gives a client
+        # no way to set an independent top-level window's absolute
+        # position -- compositors (GNOME/Mutter) simply center every
+        # xdg_toplevel, which is what made Playlist/Visualizer appear
+        # centered/overlapping instead of docked (UBUNTU-WAYLAND-002).
+        # Rather than keep fighting that protocol limitation, Playlist and
+        # Visualizer are hosted as plain CHILD widgets inside the chassis's
+        # own single top-level surface on Wayland specifically (see
+        # ModuleShell's `embedded` parameter and UnifiedChassis.
+        # embed_module()) -- a child widget's position is Qt's own layout
+        # concern, not the compositor's, so it works portably everywhere.
+        # Windows/X11 are completely unaffected: this stays False there,
+        # and every module-hosting code path below is a no-op unless it is
+        # True.
+        self._wayland_embedded = QGuiApplication.platformName() == "wayland"
+
         # 2. Dockable Modules — chassis is passed as Qt parent so that Windows
         #    treats VisualizerModule and PlaylistModule as "owned" windows of
         #    the chassis.  Owned windows do not receive their own taskbar entry
@@ -74,8 +90,10 @@ class WindowManager(QWidget):
         #    makes Qt set the WM_TRANSIENT_FOR hint, which window managers
         #    that support it (v0.666: verified informally under Cinnamon)
         #    use for the equivalent single-application taskbar grouping.
-        self.vis_mod = VisualizerModule(parent=self.chassis)
-        self.pl_mod = PlaylistModule(self.playlist, parent=self.chassis)
+        #    On Wayland, `embedded=True` builds these as plain child widgets
+        #    instead (see note above).
+        self.vis_mod = VisualizerModule(parent=self.chassis, embedded=self._wayland_embedded)
+        self.pl_mod = PlaylistModule(self.playlist, parent=self.chassis, embedded=self._wayland_embedded)
 
         # 3. Retina Melt Fullscreen Window — same owned-window relationship
         # as the modules above (v0.666: previously created with no parent,
@@ -193,9 +211,11 @@ class WindowManager(QWidget):
         # 7. Restore Module Visibility
         if st.scale == "normal":
             if st.vis_module.is_visible:
+                self._sync_embedded_host(self.vis_mod, True)
                 self.vis_mod.show()
                 self.chassis.chip_vis.setChecked(True)
             if st.pl_module.is_visible:
+                self._sync_embedded_host(self.pl_mod, True)
                 self.pl_mod.show()
                 self.chassis.chip_pl.setChecked(True)
             self.realign_docked_modules()
@@ -345,6 +365,35 @@ class WindowManager(QWidget):
         self.player_engine.stop()
         self.player_engine.close()
 
+        # Explicit GPU resource release while contexts are still current.
+        # GLVisualizerCanvas.closeEvent() -- its own explicit cleanupGL()
+        # call -- only fires for a *top-level* window being closed; both
+        # gpu_canvas instances here are *child* widgets of vis_mod/
+        # retina_melt, and closing a parent widget does not cascade
+        # closeEvent() to its children (Qt only destroys them via the
+        # ordinary object-tree destructor cascade). Their only other
+        # cleanup path is each canvas's own QOpenGLContext.
+        # aboutToBeDestroyed signal, which fires whenever Qt/Python
+        # actually gets around to destroying that widget -- typically
+        # during CPython's own interpreter-shutdown GC sweep after
+        # QApplication.quit() returns control below, an environment that
+        # does not reliably preserve "signal before the context becomes
+        # unusable" ordering. That race is what produced
+        # "QOpenGLTexturePrivate::destroy() called without a current
+        # context" on shutdown. Calling cleanupGL() here, directly, while
+        # the event loop and both contexts are still fully valid, releases
+        # every GPU resource deterministically; cleanupGL() is already
+        # idempotent, so the later aboutToBeDestroyed-triggered call (if
+        # it ever fires) safely finds nothing left to do.
+        try:
+            self.vis_mod.gpu_canvas.cleanupGL()
+        except Exception:
+            pass
+        try:
+            self.retina_melt.gpu_canvas.cleanupGL()
+        except Exception:
+            pass
+
         # Close all windows and tray
         self.retina_melt.hide()
         self.vis_mod.hide()
@@ -435,17 +484,21 @@ class WindowManager(QWidget):
                 self.saved_vis_visible = self.vis_mod.isVisible()
                 self.saved_pl_visible = self.pl_mod.isVisible()
             self.vis_mod.hide()
+            self._sync_embedded_host(self.vis_mod, False)
             self.pl_mod.hide()
+            self._sync_embedded_host(self.pl_mod, False)
             self.prior_scale = "mini"
         elif new_scale == "normal":
             if self.saved_vis_visible:
                 if self.vis_mod.is_docked:
                     self.dock_module(self.vis_mod, "bottom")
+                self._sync_embedded_host(self.vis_mod, True)
                 self.vis_mod.show()
                 self.chassis.chip_vis.setChecked(True)
             if self.saved_pl_visible:
                 if self.pl_mod.is_docked:
                     self.dock_module(self.pl_mod, "right")
+                self._sync_embedded_host(self.pl_mod, True)
                 self.pl_mod.show()
                 self.chassis.chip_pl.setChecked(True)
             self.prior_scale = "normal"
@@ -459,7 +512,9 @@ class WindowManager(QWidget):
             self.saved_pl_visible = self.pl_mod.isVisible()
         self.chassis.hide()
         self.vis_mod.hide()
+        self._sync_embedded_host(self.vis_mod, False)
         self.pl_mod.hide()
+        self._sync_embedded_host(self.pl_mod, False)
         self.retina_melt.set_volume(self.player_engine.volume)
         self.retina_melt.set_visualizer_index(self.vis_mod.vis_idx)
         self.retina_melt.show_fullscreen_experience()
@@ -473,22 +528,46 @@ class WindowManager(QWidget):
     def _toggle_vis(self):
         if self.vis_mod.isVisible():
             self.vis_mod.hide()
+            self._sync_embedded_host(self.vis_mod, False)
             self.chassis.chip_vis.setChecked(False)
         else:
             self.dock_module(self.vis_mod, "bottom")
+            self._sync_embedded_host(self.vis_mod, True)
             self.vis_mod.show()
             self.chassis.chip_vis.setChecked(True)
 
     def _toggle_pl(self):
         if self.pl_mod.isVisible():
             self.pl_mod.hide()
+            self._sync_embedded_host(self.pl_mod, False)
             self.chassis.chip_pl.setChecked(False)
         else:
             self.dock_module(self.pl_mod, "right")
+            self._sync_embedded_host(self.pl_mod, True)
             self.pl_mod.show()
             self.chassis.chip_pl.setChecked(True)
 
+    def _sync_embedded_host(self, module: ModuleShell, visible: bool) -> None:
+        """
+        Wayland-only: mirrors a module's open/closed state into the
+        chassis's grid-hosted embedding (see UnifiedChassis.embed_module()
+        and the `_wayland_embedded` note in __init__). A complete no-op on
+        Windows/X11, where these modules are independent top-level windows
+        managed by the existing dock_module()/realign_docked_modules() path
+        instead.
+        """
+        if not self._wayland_embedded:
+            return
+        region = "right" if module is self.pl_mod else "bottom"
+        self.chassis.embed_module(region, module if visible else None)
+
     def dock_module(self, module: ModuleShell, edge: str):
+        if self._wayland_embedded:
+            # Embedded modules have no independent top-level position to
+            # dock -- their placement is entirely owned by the chassis's
+            # grid layout (embed_module(), synced via _sync_embedded_host()
+            # at each show/hide call site). Nothing to do here.
+            return
         module.is_docked = True
         module.dock_edge = edge
         self.realign_docked_modules()
@@ -501,6 +580,19 @@ class WindowManager(QWidget):
         module.restore_user_size()
 
     def realign_docked_modules(self):
+        # Windows/X11 only (RELEASE-BLOCKERS-001): the move() calls below
+        # place independent top-level VIS/PL windows correctly there. On
+        # Wayland, xdg-shell gives a client no way to set an independent
+        # top-level's absolute position at all -- compositors place every
+        # xdg_toplevel themselves (GNOME/Mutter centers them), which is
+        # exactly what made these modules appear centered/overlapping
+        # instead of docked (UBUNTU-WAYLAND-002). Rather than keep fighting
+        # that protocol limitation, Wayland hosts VIS/PL as embedded child
+        # widgets instead (see `_wayland_embedded` in __init__ and
+        # UnifiedChassis.embed_module()), which sidesteps it entirely --
+        # this method has nothing to do on that path.
+        if self._wayland_embedded:
+            return
         if self.chassis.mode != "normal" or not self.chassis.isVisible():
             return
         core_geom = self.chassis.geometry()
@@ -523,6 +615,11 @@ class WindowManager(QWidget):
             self.pl_mod.move(core_geom.right() + 2, core_geom.top())
 
     def _check_magnetic_snapping(self):
+        if self._wayland_embedded:
+            # Embedded modules have no independent position to drift from
+            # and re-snap to -- dragging is disabled for them entirely
+            # (see ModuleShell.mousePressEvent's `embedded` guard).
+            return
         if self.chassis.mode != "normal" or not self.chassis.isVisible():
             return
         core_geom = self.chassis.geometry()

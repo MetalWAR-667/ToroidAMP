@@ -188,6 +188,21 @@ def test_voice_service_isolation():
     vs.speak_startup_phrase_async("ToroidAMP test phrase")
     # Should not block
     assert isinstance(vs.is_speaking, bool)
+    # This spins up a REAL (unmocked) TTS engine on a daemon thread -- on
+    # Windows that means a real SAPI5/comtypes COM object. Leaving that
+    # thread to finish on its own, unjoined, after this test function
+    # returns lets its COM object's lifetime spill into whatever test runs
+    # next in this same pytest process; comtypes' own event/__del__ handling
+    # is not safe against being garbage-collected while unrelated code runs
+    # concurrently on another thread, which produced a real, reproducible
+    # native access violation when a later, unrelated test happened to run
+    # at the same moment this thread's engine was being torn down. Joining
+    # here (with a generous timeout so a genuinely hung engine still fails
+    # the test loudly rather than hanging the suite) keeps this real
+    # background thread's entire lifecycle contained within this test.
+    if vs._thread is not None:
+        vs._thread.join(timeout=15)
+        assert not vs._thread.is_alive(), "VoiceService thread did not complete in time"
 
 
 if __name__ == "__main__":
