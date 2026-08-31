@@ -27,13 +27,14 @@ Current architectural truth belongs in `ARCHITECTURE.md`.
 ## 2. Project Status
 
 **Project:** ToroidAMP
-**Stage:** Release Preparation & Packaging Readiness
-**Current Phase:** RELEASE-POLISH-0.667 — Presentation, Diagnostics & Packaging Readiness
-**Status:** CLOSED (Next: RELEASE-GATE-0.667 — Packaging & Final Cross-Platform Distribution)
+**Stage:** Release Gate & Packaging Validation (v0.667)
+**Current Phase:** RELEASE-GATE-0.667
+  - Linux artifact: PASS
+  - Windows artifact: PENDING
+**Status:** ACTIVE (Next: RELEASE-GATE-0.667-WINDOWS)
 **Implementation:** PRODUCTION APPLICATION (`toroidamp` v0.667)
 
-ToroidAMP v0.667 brings complete cross-platform stabilization across Windows and physical Linux/Wayland environments.
-All Linux stabilization gates (GLSL Intel/Mesa rendering, non-native file dialog reliability, Wayland Unified Chassis interactive resizing, and Linux startup TTS clean platform deferral) are closed and validated.
+ToroidAMP v0.667 native Linux ONEDIR packaging has completed full validation on Ubuntu physical hardware (audio playback, GLSL shaders, Wayland Unified Chassis, non-native dialogs, isolated user paths, and zero source dependencies).
 
 
 
@@ -432,8 +433,11 @@ RELEASE-BLOCKERS-001 — Linux Stabilization Gate    CLOSED
   - LINUX-CHASSIS-001: Wayland Module Resizing    CLOSED
   - LINUX-TTS-001: Linux Startup Voice Deferral   CLOSED (DEFERRED_ON_LINUX)
 RELEASE-POLISH-0.667 — Presentation & Readiness   CLOSED
+RELEASE-GATE-0.667 — Release Artifact Validation   ACTIVE
+  - RELEASE-GATE-0.667-LINUX: Native Linux ONEDIR PASS
+  - RELEASE-GATE-0.667-WINDOWS: Native Windows ONEDIR PENDING
 
-Next: RELEASE-GATE-0.667 — Packaging & Final Cross-Platform Distribution.
+Next: RELEASE-GATE-0.667-WINDOWS.
 ```
 
 
