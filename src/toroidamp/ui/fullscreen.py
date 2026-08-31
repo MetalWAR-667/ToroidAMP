@@ -49,6 +49,7 @@ from ..visualizers.cyber_bloom import CyberBloomVisualizer
 from .chassis import SeekSlider
 from .marquee import MarqueeLabel
 from .theme import ThemeManager, ThemeDefinition, disconnect_theme_listener
+from .dialogs import platform_file_dialog_options
 
 COLOR_DIALOG_STYLESHEET = """
     QColorDialog {
@@ -1527,7 +1528,8 @@ class RetinaMeltWindow(QWidget):
             self,
             "Load Local GLSL Shader",
             start_dir,
-            "GLSL Shaders (*.frag *.glsl *.txt);;All Files (*.*)"
+            "GLSL Shaders (*.frag *.glsl *.txt);;All Files (*.*)",
+            options=platform_file_dialog_options()
         )
         if not file_path:
             return
@@ -1594,7 +1596,8 @@ class RetinaMeltWindow(QWidget):
             self,
             "Save Shader Preset",
             start_path,
-            "ToroidAMP Shader Preset (*.json);;All Files (*.*)"
+            "ToroidAMP Shader Preset (*.json);;All Files (*.*)",
+            options=platform_file_dialog_options()
         )
         if file_path:
             try:
@@ -1614,7 +1617,8 @@ class RetinaMeltWindow(QWidget):
             self,
             "Load Shader Preset",
             start_dir,
-            "ToroidAMP Shader Preset (*.json);;All Files (*.*)"
+            "ToroidAMP Shader Preset (*.json);;All Files (*.*)",
+            options=platform_file_dialog_options()
         )
         if not file_path:
             return

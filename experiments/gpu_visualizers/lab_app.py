@@ -48,6 +48,7 @@ from toroidamp.visualizers.gpu_compiler import (
     VERTEX_SHADER_SOURCE, FALLBACK_FRAG_SOURCE
 )
 from toroidamp.visualizers.gpu_canvas import GLVisualizerCanvas
+from toroidamp.ui.dialogs import platform_file_dialog_options
 from experiments.visualizers.profiles import PROFILES, PROFILE_ORDER, SyntheticProfile
 
 
@@ -110,24 +111,9 @@ class AudioTelemetryMiniWidget(QWidget):
 
 def _file_dialog_options() -> QFileDialog.Options:
     """
-    UBUNTU-WAYLAND-002: on Wayland, Qt's native Linux file dialog is routed
-    through the org.freedesktop.portal.FileChooser DBus service rather than
-    drawn directly by this process. That hand-off depends on the portal
-    correctly associating the dialog with this window's surface (via
-    xdg-foreign) for stacking -- when that association doesn't happen (this
-    same environment logs a portal app-ID registration failure at startup),
-    the resulting dialog is an ordinary, unparented top-level surface that
-    the compositor is free to place anywhere, including behind the Lab
-    window that opened it. Using Qt's own non-native dialog instead removes
-    the portal round-trip entirely for this one dialog: it becomes a normal
-    Qt top-level window with the same Qt-managed transient-parent stacking
-    every other ToroidAMP window already relies on. Native dialogs are kept
-    everywhere else (Windows, and Linux/X11 where this isn't observed) --
-    this only swaps the implementation on Wayland specifically.
+    Delegates to canonical platform_file_dialog_options() helper.
     """
-    if QGuiApplication.platformName() == "wayland":
-        return QFileDialog.Option.DontUseNativeDialog
-    return QFileDialog.Options()
+    return platform_file_dialog_options()
 
 
 class GPUAuthoringLabWindow(QMainWindow):

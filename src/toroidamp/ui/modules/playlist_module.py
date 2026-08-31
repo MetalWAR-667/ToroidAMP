@@ -15,6 +15,7 @@ from PySide6.QtGui import QDragEnterEvent, QDropEvent
 from .base import ModuleShell
 from ..neon import NeonState
 from ..theme import ThemeDefinition
+from ..dialogs import platform_file_dialog_options
 from ...audio.playlist import PlaylistManager, PlaylistItem
 
 
@@ -276,7 +277,13 @@ class PlaylistModule(ModuleShell):
 
     def _browse_add_files(self):
         filter_str = "Audio Files (*.mp3 *.ogg *.wav *.flac *.mod *.xm *.it *.s3m);;All Files (*.*)"
-        paths, _ = QFileDialog.getOpenFileNames(self, "Add Audio Tracks to Playlist", "", filter_str)
+        paths, _ = QFileDialog.getOpenFileNames(
+            self,
+            "Add Audio Tracks to Playlist",
+            "",
+            filter_str,
+            options=platform_file_dialog_options()
+        )
         if paths:
             self.manager.add_files(paths)
             self.refresh()
@@ -347,13 +354,25 @@ class PlaylistModule(ModuleShell):
         
         if selected == load_action:
             filter_str = "Playlist Files (*.m3u *.m3u8);;All Files (*.*)"
-            path, _ = QFileDialog.getOpenFileName(self, "Load Playlist", "", filter_str)
+            path, _ = QFileDialog.getOpenFileName(
+                self,
+                "Load Playlist",
+                "",
+                filter_str,
+                options=platform_file_dialog_options()
+            )
             if path:
                 self.manager.load_m3u(path)
                 self.refresh()
         elif selected == save_action:
             filter_str = "M3U8 Playlist (*.m3u8);;M3U Playlist (*.m3u)"
-            path, _ = QFileDialog.getSaveFileName(self, "Save Playlist", "playlist.m3u8", filter_str)
+            path, _ = QFileDialog.getSaveFileName(
+                self,
+                "Save Playlist",
+                "playlist.m3u8",
+                filter_str,
+                options=platform_file_dialog_options()
+            )
             if path:
                 self.manager.save_m3u(path)
 
