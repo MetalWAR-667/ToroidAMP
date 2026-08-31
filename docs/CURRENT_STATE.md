@@ -365,6 +365,16 @@ Completed promotion & polish:
   - Hot reload (`R`) keeps active workbench open and isolates compile failures without interrupting music playback.
   - Official visualizer registration expanded: Toroid Identity + Cyber Bloom.
   - Session persistence boundary: official visualizer parameters persist across restarts; local shaders remain temporary non-destructive overrides.
+* **GLSL-EVERYWHERE**: Official NORMAL Integration & Linux RETINA Stabilization. (IMPLEMENTED — Windows-validated; Linux manual validation pending)
+  - Official GPU visualizers (Toroid Identity, Cyber Bloom, Audio Reactive Reference) now render directly in NORMAL mode on the same production `GLVisualizerCanvas` RETINA MELT and the Lab use — no second GLSL renderer, no placeholder. Arbitrary user shaders remain excluded from NORMAL (RETINA MELT + Lab only).
+  - Root-caused and fixed the Linux RETINA MELT user-shader black-output bug: `_load_local_shader_dialog` loaded before showing the GPU canvas, hitting `load_shader_file()`'s deferred-compile branch on platforms where a hidden `QOpenGLWidget` isn't realized yet; reordered to match the already-correct official-visualizer path.
+  - Production startup now requests an explicit OpenGL 3.3 Core Profile surface format, closing a divergence from the Lab's own entry point.
+  - Documented the shared production shader contract (Lab/RETINA/NORMAL all compile through the same `classify_and_wrap_source()` + `GLVisualizerCanvas.load_shader_file()` path) in `docs/visualizers/10_retina_gpu_integration.md`.
+* **LINUX-AUDIO-001**: Linux Audio Reliability & HP Baseline Validation. (IMPLEMENTED — Windows-validated; HP/Mint bare-metal manual validation pending)
+  - Root-caused Linux bare-metal playback stuttering to a fixed 512-frame `blocksize` plus reliance on PortAudio's ALSA `default` device, which routes through an extra userspace buffering chain sitting below PipeWire's own graph (invisible to `pw-top`'s XRUN accounting). Now negotiates blocksize (`blocksize=0`) and prefers a device named `pipewire` when present, via a capability check (`sounddevice.query_devices()` by name) — no HP-specific device IDs, no distro branching.
+  - Also vectorized the real-time audio callback's fade-envelope computation, removing a per-sample Python loop that ran even when the envelope was constant.
+  - Root-caused and fixed the Linux TTS startup-voice failure (`ReferenceError: weakly-referenced object no longer exists` from a pyttsx3/eSpeak ctypes callback): the synthesis engine was explicitly deleted immediately after `runAndWait()`, racing a trailing native callback. Now kept alive for its natural lifetime.
+  - First official validation baseline established: HP 250 G4 (Intel i3 Broadwell / HD Graphics 5500 / Mesa `i915`) on Linux Mint — confirmed working for startup, UI, and official GPU visualizers prior to this fix; audio reliability fix pending its own re-validation pass on that machine.
 
 ---
 

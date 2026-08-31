@@ -1533,18 +1533,34 @@ class RetinaMeltWindow(QWidget):
             return
 
         p = Path(file_path)
+
+        # GLSL-002 (Linux black-output investigation): the GPU canvas must
+        # be the current/visible stacked page BEFORE load_shader_file() is
+        # called, not after. gpu_canvas sits on a hidden QStackedLayout page
+        # until selected, and on platforms where a hidden QOpenGLWidget's
+        # native surface isn't realized yet (observed on Linux/X11; not
+        # exposed on Windows), load_shader_file() silently takes its
+        # "not valid yet" branch -- it stores metadata/params and returns
+        # True without compiling anything, deferring the real compile to
+        # the widget's next initializeGL(). The official-visualizer path
+        # (_apply_visualizer_selection) already shows the canvas first for
+        # exactly this reason; local/user shader loading did not.
+        self.surface_layout.setCurrentIndex(1)
         ok = self.gpu_canvas.load_shader_file(p)
         if ok:
             self._local_shader_path = p
             self._local_shader_active = True
-            self.surface_layout.setCurrentIndex(1)
             self.btn_lab_auto_react.setChecked(False)
             self.gpu_canvas.set_auto_react(False)
             self._update_mode_button_text()
             self._rebuild_lab_panel()
-            self.lab_diag_view.setText(f"[OK] Loaded '{p.name}' successfully.")
+            if self.gpu_canvas.shader_load_deferred:
+                self.lab_diag_view.setText(f"[OK] Queued '{p.name}' -- compiling once the canvas is ready.")
+            else:
+                self.lab_diag_view.setText(f"[OK] Loaded '{p.name}' successfully.")
             self.lab_diag_view.setStyleSheet("color: #00ffcc; font-family: monospace; font-size: 9px; background: #0e111a; padding: 4px 6px; border: 1px solid #1a2032; border-radius: 2px;")
         else:
+            self.surface_layout.setCurrentIndex(0)
             err = self.gpu_canvas.last_error_log or "Shader compilation/link failed."
             self.lab_diag_view.setText(f"[ERROR] Failed to load '{p.name}':\n{err}")
             self.lab_diag_view.setStyleSheet("color: #ff0077; font-family: monospace; font-size: 9px; background: #260f1c; padding: 4px 6px; border: 1px solid #4a1c32; border-radius: 2px;")

@@ -1,7 +1,8 @@
 """
 ToroidAMP - Production Visualizer Module
 Hosts real-time visualizers (ToroidVisualizer, WaveformRibbonVisualizer)
-with dynamic switching and RETINA MELT entry trigger.
+plus official hardware GLSL visualizers, with dynamic switching and
+RETINA MELT entry trigger.
 """
 
 from PySide6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QStackedLayout
@@ -25,6 +26,7 @@ from ...visualizers.toroid_identity import ToroidIdentityVisualizer
 
 from ...visualizers.cyber_bloom import CyberBloomVisualizer
 from ...visualizers.audio_reactive_reference import AudioReactiveReferenceVisualizer
+from ...visualizers.gpu_canvas import GLVisualizerCanvas
 
 
 class VisualizerModule(ModuleShell):
@@ -45,7 +47,13 @@ class VisualizerModule(ModuleShell):
     def __init__(self, parent=None):
         super().__init__("// MODULE :: VISUALIZER", parent)
 
-        # Visualizer Surface Container Stack (Page 0: CPU Pixmap, Page 1: RETINA Placeholder)
+        # Visualizer Surface Container Stack (Page 0: CPU Pixmap, Page 1:
+        # hardware GLSL canvas for official GPU visualizers). Page 1 shares
+        # the exact same production GLVisualizerCanvas class RETINA MELT and
+        # the GLSL Lab use -- no second GLSL renderer for NORMAL. Only
+        # official, package-controlled shader paths (Visualizer.
+        # get_shader_path()) are ever loaded here; NORMAL never exposes a
+        # file picker or any other route to arbitrary user GLSL.
         self.surface_stack = QStackedLayout()
         self.surface_stack.setContentsMargins(0, 0, 0, 0)
 
@@ -55,52 +63,9 @@ class VisualizerModule(ModuleShell):
         self.vis_label.setAlignment(Qt.AlignCenter)
         self.surface_stack.addWidget(self.vis_label)
 
-        # Page 1: Deliberate Branded RETINA-only GPU Placeholder
-        self.placeholder_widget = QWidget(self)
-        self.placeholder_widget.setStyleSheet("background-color: #080910; border: 1px solid #1a1d2e;")
-        p_layout = QVBoxLayout(self.placeholder_widget)
-        p_layout.setContentsMargins(16, 16, 16, 16)
-        p_layout.setSpacing(6)
-        p_layout.setAlignment(Qt.AlignCenter)
-
-        self.lbl_placeholder_name = QLabel("TOROID IDENTITY", self.placeholder_widget)
-        self.lbl_placeholder_name.setStyleSheet("color: #00f0ff; font-family: monospace; font-size: 13px; font-weight: bold; border: none; background: transparent;")
-        self.lbl_placeholder_name.setAlignment(Qt.AlignCenter)
-        p_layout.addWidget(self.lbl_placeholder_name)
-
-        lbl_gpu_badge = QLabel("// HARDWARE GPU VISUALIZER //", self.placeholder_widget)
-        lbl_gpu_badge.setStyleSheet("color: #ffaa00; font-family: monospace; font-size: 9px; font-weight: bold; border: none; background: transparent;")
-        lbl_gpu_badge.setAlignment(Qt.AlignCenter)
-        p_layout.addWidget(lbl_gpu_badge)
-
-        lbl_avail = QLabel("Exclusive to RETINA MELT fullscreen playback.", self.placeholder_widget)
-        lbl_avail.setStyleSheet("color: #7882a0; font-family: monospace; font-size: 9px; border: none; background: transparent;")
-        lbl_avail.setAlignment(Qt.AlignCenter)
-        p_layout.addWidget(lbl_avail)
-
-        p_layout.addSpacing(6)
-
-        self.btn_enter_retina = QPushButton("⛶ ENTER RETINA MELT", self.placeholder_widget)
-        self.btn_enter_retina.setStyleSheet("""
-            QPushButton {
-                background: #141726;
-                border: 1px solid #ff0077;
-                color: #ff0077;
-                font-family: monospace;
-                font-size: 10px;
-                font-weight: bold;
-                padding: 5px 14px;
-                border-radius: 3px;
-            }
-            QPushButton:hover {
-                background: #ff0077;
-                color: #ffffff;
-            }
-        """)
-        self.btn_enter_retina.clicked.connect(self.retina_melt_requested.emit)
-        p_layout.addWidget(self.btn_enter_retina, alignment=Qt.AlignCenter)
-
-        self.surface_stack.addWidget(self.placeholder_widget)
+        # Page 1: Official GPU Visualizer Canvas
+        self.gpu_canvas = GLVisualizerCanvas(self)
+        self.surface_stack.addWidget(self.gpu_canvas)
         self.main_layout.addLayout(self.surface_stack, stretch=1)
 
         # Bottom Bar: Mode Selector & Fullscreen
@@ -153,33 +118,14 @@ class VisualizerModule(ModuleShell):
         self.apply_theme(self._current_theme)
 
     def apply_theme(self, theme: ThemeDefinition):
-        """Applies theme to visualizer module chrome and placeholder."""
+        """Applies theme to visualizer module chrome."""
         super().apply_theme(theme)
         pal = theme.palette
         typo = theme.typography
 
-        disp_font = f"'{typo.display_family}', monospace"
         mono_font = f"'{typo.monospace_family}', monospace"
 
         self.vis_label.setStyleSheet(f"background-color: {pal.bg_lcd}; border: 1px solid {pal.border_panel};")
-        self.placeholder_widget.setStyleSheet(f"background-color: {pal.bg_surface}; border: 1px solid {pal.border_panel};")
-        self.lbl_placeholder_name.setStyleSheet(f"color: {pal.primary}; font-family: {disp_font}; font-size: 13px; font-weight: bold; border: none; background: transparent;")
-        self.btn_enter_retina.setStyleSheet(f"""
-            QPushButton {{
-                background: {pal.bg_surface_alt};
-                border: 1px solid {pal.accent};
-                color: {pal.accent};
-                font-family: {mono_font};
-                font-size: 10px;
-                font-weight: bold;
-                padding: 5px 14px;
-                border-radius: 3px;
-            }}
-            QPushButton:hover {{
-                background: {pal.accent};
-                color: #ffffff;
-            }}
-        """)
 
         self.btn_switch.setStyleSheet(f"""
             QPushButton {{
@@ -260,15 +206,35 @@ class VisualizerModule(ModuleShell):
             vis.resize(self.surf_w, self.surf_h)
 
     def sync_visualizer_presentation(self):
-        """Authoritative single source of truth for visualizer presentation state."""
+        """
+        Authoritative single source of truth for visualizer presentation
+        state. GPU visualizers load their official shader onto the shared
+        production GLVisualizerCanvas and switch to the GL page; on a
+        missing/failed shader they fall back to the same visualizer
+        descriptor's own CPU render() (already implemented on every
+        official GPU visualizer for exactly this case) rather than a
+        placeholder — the surface_stack page always reflects what is
+        actually rendering, mirroring RETINA MELT's _apply_visualizer_selection.
+        """
         vis = self.current_visualizer
         name = vis.get_name().upper()
         self.btn_switch.setText(f"MODE: {name}")
 
-        is_retina_only = getattr(vis, "is_retina_only", lambda: False)() or getattr(vis, "is_gpu", lambda: False)()
-        if is_retina_only:
-            self.lbl_placeholder_name.setText(name)
-            self.surface_stack.setCurrentIndex(1)
+        is_gpu = getattr(vis, "is_gpu", lambda: False)()
+        if is_gpu:
+            shader_path = getattr(vis, "get_shader_path", lambda: None)()
+            if shader_path and shader_path.exists():
+                # Show the canvas before loading: on platforms where a
+                # hidden QOpenGLWidget's context isn't realized until shown
+                # (observed on Linux/X11), loading before switching pages
+                # silently defers compilation instead of running it now
+                # (GLSL-002). Matches RETINA MELT's already-correct order.
+                self.surface_stack.setCurrentIndex(1)
+                ok = self.gpu_canvas.load_shader_file(shader_path)
+                if not ok:
+                    self.surface_stack.setCurrentIndex(0)
+            else:
+                self.surface_stack.setCurrentIndex(0)
         else:
             self.surface_stack.setCurrentIndex(0)
 
@@ -281,16 +247,20 @@ class VisualizerModule(ModuleShell):
     def render_frame(self, frame: AudioFrame, dt: float):
         if not self.isVisible():
             return
-        vis = self.current_visualizer
-        is_retina_only = getattr(vis, "is_retina_only", lambda: False)() or getattr(vis, "is_gpu", lambda: False)()
-        if is_retina_only:
-            # Under RETINA-only policy, do not spin software renderer for GPU visualizers
+
+        if self.surface_stack.currentIndex() == 1:
+            # Official GPU visualizer: same production AudioFrame contract
+            # RETINA MELT uses, so volume-independent reactivity (v0.666)
+            # and beat semantics are identical here, not a parallel path.
+            self.gpu_canvas.update_audio_frame(frame)
+            self.gpu_canvas.update()
             return
 
+        vis = self.current_visualizer
         try:
             self.surface.fill((6, 7, 10))
             vis.render(self.surface, frame, dt)
-            
+
             raw_data = pygame.image.tobytes(self.surface, "RGBA")
             qimg = QImage(raw_data, self.surf_w, self.surf_h, QImage.Format.Format_RGBA8888)
             self.vis_label.setPixmap(QPixmap.fromImage(qimg))
@@ -306,6 +276,5 @@ class VisualizerModule(ModuleShell):
 
         # Update visualizer viewport inner border
         self.vis_label.setStyleSheet(f"background-color: #06070a; border: 1px solid {p_col}; border-radius: 2px;")
-        self.placeholder_widget.setStyleSheet(f"background-color: #080910; border: 1px solid {p_col}; border-radius: 2px;")
         self.title_label.setStyleSheet(f"color: {c_col}; font-family: monospace; font-size: 10px; font-weight: bold;")
 

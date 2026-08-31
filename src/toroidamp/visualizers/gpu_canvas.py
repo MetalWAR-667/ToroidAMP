@@ -70,6 +70,16 @@ class GLVisualizerCanvas(QOpenGLWidget):
         self.last_fps: float = 60.0
         self.last_error_log: str = ""
         self.is_using_fallback: bool = False
+        # True when load_shader_file() ran before the GL context/native
+        # surface was realized (e.g. the widget is still hidden behind a
+        # QStackedLayout page): metadata/params are stored but nothing has
+        # actually been compiled yet. Cleared once initializeGL()'s own
+        # queued-recompile runs for real. Lets callers report this state
+        # honestly instead of a compiled-shader "OK" that hasn't happened
+        # yet -- this was hard to tell apart from a real success before,
+        # which made a genuine compile-vs-lifecycle-ordering bug look like
+        # an unexplained black-output failure (GLSL-002 investigation).
+        self.shader_load_deferred: bool = False
 
         # Current shader source code, path, metadata & active parameters
         self.current_shader_path: Optional[Path] = None
@@ -408,8 +418,10 @@ class GLVisualizerCanvas(QOpenGLWidget):
                 else:
                     new_params[p_name] = param.default_value
             self.current_params = new_params
+            self.shader_load_deferred = True
             return True
 
+        self.shader_load_deferred = False
         self.makeCurrent()
         new_prog = QOpenGLShaderProgram(self)
         if not new_prog.addShaderFromSourceCode(QOpenGLShader.Vertex, VERTEX_SHADER_SOURCE):

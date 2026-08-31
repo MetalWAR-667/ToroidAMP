@@ -34,6 +34,9 @@ class VoiceService:
     def __init__(self):
         self._thread: threading.Thread | None = None
         self._is_speaking = False
+        # Kept alive deliberately -- see the ownership note in
+        # _synthesize_and_play() below (Linux eSpeak lifecycle fix).
+        self._current_engine = None
 
     @property
     def is_speaking(self) -> bool:
@@ -66,6 +69,27 @@ class VoiceService:
                 temp_wav_path = tmp.name
 
             engine = pyttsx3.init()
+            # Ownership note (Linux TTS lifecycle fix): pyttsx3's eSpeak
+            # driver registers its synthesis-progress ctypes callback
+            # (EspeakDriver._onSynth) against a weak reference to the
+            # engine/driver. `runAndWait()` is not guaranteed to have that
+            # callback fully quiesced by the time it returns on this
+            # backend -- an explicit `del engine` immediately afterward
+            # (as this code used to do) could drop the last strong
+            # reference while eSpeak's C library still had that callback
+            # in flight, so it fired against an already-collected weak
+            # referent: `ReferenceError: weakly-referenced object no
+            # longer exists`, raised from a ctypes callback trampoline
+            # where Python can only log and ignore it -- the synthesis
+            # itself had already produced a valid WAV file, but the
+            # exception was noisy and the engine's teardown was unclean.
+            # Keeping a strong reference on `self` for the engine's whole
+            # natural lifetime (replaced only by the next synthesis call,
+            # never explicitly deleted) gives any trailing native callback
+            # a live object to find, instead of forcing early collection.
+            # This is a Windows SAPI5 no-op: that driver's own COM
+            # reference counting is unaffected by this change.
+            self._current_engine = engine
             # Donor Voice Selection Logic: search for 'zira' (Windows female)
             for voice in engine.getProperty("voices"):
                 if "zira" in voice.name.lower():
@@ -77,7 +101,6 @@ class VoiceService:
             engine.setProperty("volume", 1.0)
             engine.save_to_file(text, temp_wav_path)
             engine.runAndWait()
-            del engine
 
             # 2. Reproduce exact MetalWar-Installer robotic playback:
             # Dual pygame mixer channels with 20ms inter-channel delay and 0.9 secondary volume

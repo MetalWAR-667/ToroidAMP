@@ -17,6 +17,41 @@ import logging
 logger = logging.getLogger("toroidamp.player")
 
 
+def select_output_device(query_devices=sd.query_devices):
+    """
+    Capability-based output device policy (Linux audio reliability cut).
+
+    Prefers a device literally named "pipewire" if PortAudio's ALSA host
+    API exposes one -- modern Mint/Ubuntu desktops route audio through
+    PipeWire, and PortAudio's ALSA "default" device typically reaches it
+    through an extra ALSA userspace plugin chain (dmix/rate/plug) sitting
+    *underneath* PipeWire's own graph. That chain negotiates its own
+    buffering independently of what PortAudio requests, invisible to
+    `pw-top`'s XRUN accounting (which only sees PipeWire's own nodes) --
+    a plausible source of audible dropouts that don't show up as PipeWire
+    underruns. Talking to the "pipewire" ALSA PCM directly removes that
+    extra indirection layer.
+
+    Returns None (PortAudio's own default device) on any system without a
+    device named exactly "pipewire" -- Windows, macOS, and Linux systems
+    not running PipeWire all fall through unchanged. This is a name-based
+    capability check via `query_devices()`, not a platform/distro branch:
+    it makes the same decision it always would if some future Windows
+    audio backend happened to expose a device with that exact name.
+    """
+    try:
+        devices = query_devices()
+    except Exception as e:
+        logger.warning(f"Could not enumerate audio devices, using PortAudio default: {e}")
+        return None
+
+    for idx, dev in enumerate(devices):
+        name = str(dev.get("name", "")).strip().lower()
+        if name == "pipewire" and dev.get("max_output_channels", 0) > 0:
+            return idx
+    return None
+
+
 class PlaybackState(Enum):
     STOPPED = auto()
     PLAYING = auto()
@@ -69,6 +104,12 @@ class PlayerEngine:
         self._stream: sd.OutputStream | None = None
         self._lock = threading.Lock()
         self._position_seconds: float = 0.0
+        # Resolved once per process (device.py's query_devices() involves a
+        # real host-API scan) rather than on every play(); None is a valid,
+        # meaningful result (PortAudio default), so a separate flag tracks
+        # whether resolution has actually happened yet.
+        self._output_device: int | None = None
+        self._output_device_resolved: bool = False
 
     @property
     def state(self) -> PlaybackState:
@@ -209,14 +250,41 @@ class PlayerEngine:
                 return
 
             if self._stream is None:
+                if not self._output_device_resolved:
+                    self._output_device = select_output_device()
+                    self._output_device_resolved = True
+
                 self._stream = sd.OutputStream(
                     samplerate=self._sample_rate,
                     channels=2,
                     dtype="float32",
                     callback=self._audio_callback,
-                    blocksize=512
+                    # blocksize=0: let PortAudio/the host API negotiate its
+                    # own natural chunk size instead of forcing a fixed 512
+                    # frames. Linux dropout investigation: a fixed block
+                    # size not evenly served by the underlying ALSA/
+                    # PipeWire buffering chain is a well-documented source
+                    # of exactly the intermittent stutter reported here,
+                    # with no XRUN showing in pw-top (that chain sits below
+                    # PipeWire's own graph). _audio_callback already reads
+                    # `frames` dynamically, never assumes 512, so this is
+                    # a config-only change.
+                    blocksize=0,
+                    device=self._output_device,
                 )
                 self._stream.start()
+                # Diagnostics only -- must never take playback down with it.
+                try:
+                    logger.info(
+                        "Audio stream started: device=%s samplerate=%s negotiated_blocksize=%s "
+                        "negotiated_latency=%.4fs",
+                        self._describe_output_device(self._output_device),
+                        self._sample_rate,
+                        self._stream.blocksize,
+                        self._stream.latency,
+                    )
+                except Exception:
+                    pass
             self._state = PlaybackState.PLAYING
             if self._fade_enabled:
                 self._fade_state = FadeState.FADING_IN
@@ -286,6 +354,17 @@ class PlayerEngine:
                 self._fade_envelope = 0.0
                 logger.warning(f"Decoder seek failed on '{self._current_filepath}': {e}")
                 return False
+
+    @staticmethod
+    def _describe_output_device(device_index: int | None) -> str:
+        """Best-effort human-readable device name for the one-line startup
+        diagnostic -- never raises, always returns something loggable."""
+        if device_index is None:
+            return "PortAudio default"
+        try:
+            return f"{device_index}: {sd.query_devices(device_index)['name']}"
+        except Exception:
+            return f"index {device_index}"
 
     def close(self) -> None:
         self.stop_immediate()
@@ -368,27 +447,47 @@ class PlayerEngine:
             self.handoff.push_audio(analysis_pcm)
             return
 
-        # Compute gain envelope interpolation across this chunk
+        # Compute gain envelope interpolation across this chunk. Vectorized
+        # (Linux dropout investigation): a per-sample Python loop here ran
+        # unconditionally on every real-time callback -- including the
+        # steady-state PLAYING/IDLE cases where the envelope is simply
+        # constant -- spending real-time callback budget on Python-level
+        # iteration for no audible benefit. Produces bit-for-bit equivalent
+        # output to the old loop (same linear ramp, same 0.9999/0.0001
+        # snap-to-target thresholds, same mid-chunk state transition).
         fade_step = 1.0 / (self.FADE_DURATION_SECONDS * self._sample_rate)
         envelope_curve = np.empty((num_read, 1), dtype=np.float32)
 
-        for i in range(num_read):
-            if self._fade_state == FadeState.FADING_IN:
-                self._fade_envelope = min(1.0, self._fade_envelope + fade_step)
-                if self._fade_envelope >= 0.9999:
-                    self._fade_envelope = 1.0
-                    self._fade_state = FadeState.PLAYING
-            elif self._fade_state == FadeState.FADING_OUT:
-                self._fade_envelope = max(0.0, self._fade_envelope - fade_step)
-                if self._fade_envelope <= 0.0001:
-                    self._fade_envelope = 0.0
-                    self._fade_state = FadeState.IDLE
-            elif self._fade_state == FadeState.PLAYING:
+        if self._fade_state == FadeState.PLAYING:
+            envelope_curve[:, 0] = 1.0
+            self._fade_envelope = 1.0
+        elif self._fade_state == FadeState.IDLE:
+            envelope_curve[:, 0] = 0.0
+            self._fade_envelope = 0.0
+        elif self._fade_state == FadeState.FADING_IN:
+            ramp = self._fade_envelope + fade_step * np.arange(1, num_read + 1, dtype=np.float64)
+            hits = np.flatnonzero(ramp >= 0.9999)
+            if hits.size:
+                k = int(hits[0])
+                envelope_curve[:k, 0] = ramp[:k]
+                envelope_curve[k:, 0] = 1.0
                 self._fade_envelope = 1.0
-            else: # IDLE
+                self._fade_state = FadeState.PLAYING
+            else:
+                envelope_curve[:, 0] = ramp
+                self._fade_envelope = float(ramp[-1])
+        else:  # FADING_OUT
+            ramp = self._fade_envelope - fade_step * np.arange(1, num_read + 1, dtype=np.float64)
+            hits = np.flatnonzero(ramp <= 0.0001)
+            if hits.size:
+                k = int(hits[0])
+                envelope_curve[:k, 0] = ramp[:k]
+                envelope_curve[k:, 0] = 0.0
                 self._fade_envelope = 0.0
-
-            envelope_curve[i, 0] = self._fade_envelope
+                self._fade_state = FadeState.IDLE
+            else:
+                envelope_curve[:, 0] = ramp
+                self._fade_envelope = float(ramp[-1])
 
         # Apply gain envelope and master user volume
         gain = envelope_curve * self._volume

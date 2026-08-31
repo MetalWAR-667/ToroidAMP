@@ -203,14 +203,17 @@ class TestTheme001Foundation(unittest.TestCase):
 
     # 10. VisualizerModule styling reflects active theme
     def test_10_visualizer_module_theme_synchronization(self):
+        # GLSL Everywhere cut: the RETINA-only placeholder (and its themed
+        # label) is gone -- official GPU visualizers render on gpu_canvas
+        # now. btn_switch (the MODE selector, themed with pal.primary in
+        # every mode) is the equivalent always-present themed element.
         mod = VisualizerModule()
 
         self.theme_manager.set_theme("default")
-        self.assertIn("#00f0ff", mod.lbl_placeholder_name.styleSheet())
+        self.assertIn("#00f0ff", mod.btn_switch.styleSheet())
 
         self.theme_manager.set_theme("cyber_yellow")
-        self.assertIn("#ffd700", mod.lbl_placeholder_name.styleSheet())
-        self.assertIn("Quantum", mod.lbl_placeholder_name.styleSheet())
+        self.assertIn("#ffd700", mod.btn_switch.styleSheet())
 
     # 11. Fullscreen RETINA MELT HUD / TUNE / LAB reflect active theme
     def test_11_fullscreen_retina_theme_synchronization(self):

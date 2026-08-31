@@ -14,7 +14,40 @@ Progress will resume when morale improves.
 
 ## [Unreleased]
 
-Nothing yet.
+### Added
+- Official GPU/GLSL visualizers (Toroid Identity, Cyber Bloom, Audio
+  Reactive Reference) now render directly in NORMAL mode, right alongside
+  the CPU visualizers, instead of showing a RETINA-only placeholder.
+  Arbitrary user shaders remain exclusive to RETINA MELT and the GLSL Lab.
+
+### Fixed
+- A Linux-only bug where a user-provided shader loaded correctly in the
+  GLSL Lab but rendered black in RETINA MELT: RETINA's local-shader loader
+  called `load_shader_file()` before making the GPU canvas the visible
+  page, so on platforms where a hidden `QOpenGLWidget`'s context isn't
+  realized yet, the load silently deferred compilation instead of running
+  it. Reordered to match the already-correct official-visualizer path.
+- Production startup now requests an explicit OpenGL 3.3 Core Profile
+  surface format (previously only the GLSL Lab's own entry point did),
+  removing a real divergence between the Lab and the production hosts.
+- Audible intermittent stuttering during Linux playback on bare-metal
+  hardware (validated on an Intel/Mesa Mint machine): the output stream
+  requested a fixed 512-frame block size instead of letting PortAudio
+  negotiate its own; and PortAudio's ALSA `default` device routes through
+  an extra userspace buffering chain (dmix/rate/plug) sitting below
+  PipeWire's own graph, invisible to `pw-top`'s XRUN accounting. ToroidAMP
+  now lets PortAudio negotiate its own block size and prefers a device
+  literally named `pipewire` when present, falling straight through to
+  the previous behavior everywhere else (Windows, macOS, non-PipeWire
+  Linux). Also removed a per-sample Python loop from the real-time audio
+  callback's fade-envelope calculation (now vectorized) — real, if minor,
+  extra safety margin on modest hardware.
+- The startup voice-identity line could fail on Linux with `ReferenceError:
+  weakly-referenced object no longer exists` raised from a `pyttsx3`/eSpeak
+  ctypes callback: the synthesis engine was explicitly deleted immediately
+  after `runAndWait()` returned, racing a trailing native callback that
+  hadn't finished yet. The engine is now kept alive for its natural
+  lifetime instead. Windows SAPI5 playback is unaffected.
 
 ## [0.666] — Post Launch Hell & Welcome Linux Users
 

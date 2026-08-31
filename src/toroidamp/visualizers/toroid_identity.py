@@ -33,7 +33,12 @@ class ToroidIdentityVisualizer(Visualizer):
         return True
 
     def is_retina_only(self) -> bool:
-        return True
+        # GLSL Everywhere cut: official GPU visualizers are now first-class
+        # NORMAL-mode visualizers too (VisualizerModule hosts the same
+        # production GLVisualizerCanvas RETINA MELT uses), not RETINA-
+        # exclusive. is_retina_only() is kept as a hook in case a future
+        # official shader is ever deliberately RETINA-only again.
+        return False
 
     def get_shader_path(self) -> Optional[Path]:
         return self._shader_path
@@ -47,7 +52,12 @@ class ToroidIdentityVisualizer(Visualizer):
     def _load_metadata(self):
         if self._shader_path and self._shader_path.exists():
             try:
-                with open(self._shader_path, "r", encoding="utf-8") as f:
+                # utf-8-sig: this descriptor's own metadata-only read
+                # duplicated gpu_canvas.py's pre-BOM-fix pattern -- same bug
+                # class (GPU-AUDIO/v0.666 BOM fix), fixed here too so a
+                # future BOM re-introduction in this .frag can't silently
+                # break parameter discovery again.
+                with open(self._shader_path, "r", encoding="utf-8-sig") as f:
                     code = f.read()
                 params = parse_shader_parameters(code)
                 self._metadata = ShaderMetadata(

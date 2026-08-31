@@ -52,14 +52,16 @@ playing — bass, mids, treble, and beat all visibly drive the motion.
 
 ## 6. RETINA / GPU Visualizers
 
-RETINA is the fullscreen home for ToroidAMP's GPU-accelerated
-visualizers (Toroid Identity, Cyber Bloom, Audio Reactive Reference, and
-anything you load yourself — see §7). It needs a GPU with OpenGL 3.3
-Core support; the rest of the player works fine without one.
+ToroidAMP's official GPU-accelerated visualizers (Toroid Identity, Cyber
+Bloom, Audio Reactive Reference) render directly in the main window, right
+alongside the CPU ones — cycle through them the same way. RETINA is the
+fullscreen presentation of the same official visualizers, plus the one
+place you can load a GLSL shader of your own (yours, or one you found
+online — see §7). Both need a GPU with OpenGL 3.3 Core support; the rest
+of the player works fine without one.
 
-Cycle through the official GPU visualizers the same way you cycle CPU
-ones. Each is a small self-contained demo of a different way ToroidAMP
-can make a shader musically reactive.
+Each official visualizer is a small self-contained demo of a different way
+ToroidAMP can make a shader musically reactive.
 
 ## 7. Shader LAB
 

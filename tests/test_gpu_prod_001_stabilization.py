@@ -136,8 +136,10 @@ class TestGPUProd001Stabilization(unittest.TestCase):
         melt.close()
         self.app.processEvents()
 
-    def test_normal_mode_retina_only_placeholder(self):
-        """Validates that NORMAL mode displays deliberate branded placeholder for GPU visualizers."""
+    def test_normal_mode_hosts_official_gpu_visualizer(self):
+        """GLSL Everywhere: NORMAL mode renders official GPU visualizers on
+        the shared production GLVisualizerCanvas instead of a RETINA-only
+        placeholder."""
         vis_mod = VisualizerModule()
         vis_mod.show()
         self.app.processEvents()
@@ -154,13 +156,15 @@ class TestGPUProd001Stabilization(unittest.TestCase):
         self.assertIsNotNone(pix)
         self.assertFalse(pix.isNull())
 
-        # 2. GPU visualizer mode (4: Toroid Identity) -> Stack page 1 (Branded RETINA Placeholder)
+        # 2. GPU visualizer mode (4: Toroid Identity) -> Stack page 1 (GL canvas), shader actually loaded
         vis_mod.vis_idx = 4
         vis_mod._update_presentation_mode()
         self.assertEqual(vis_mod.surface_stack.currentIndex(), 1)
         self.assertIn("TOROID IDENTITY", vis_mod.btn_switch.text())
-        self.assertIn("TOROID IDENTITY", vis_mod.lbl_placeholder_name.text())
-        self.assertTrue(vis_mod.btn_enter_retina.isVisible())
+        self.assertEqual(vis_mod.gpu_canvas.active_shader_name, "toroid_identity")
+        # NORMAL never exposes an arbitrary-shader picker -- only the
+        # official shader path this visualizer resolved to gets loaded.
+        self.assertEqual(vis_mod.gpu_canvas.current_shader_path, vis_mod.current_visualizer.get_shader_path())
 
         vis_mod.close()
         self.app.processEvents()
@@ -203,8 +207,8 @@ class TestGPUProd001Stabilization(unittest.TestCase):
         wm.shutdown()
         self.app.processEvents()
 
-    def test_initial_startup_gpu_placeholder_synchronization(self):
-        """Regression test for Initial GPU Placeholder Synchronization (without manual cycling)."""
+    def test_initial_startup_gpu_visualizer_synchronization(self):
+        """Regression test for initial GPU visualizer synchronization (without manual cycling)."""
         from toroidamp.audio.player import PlayerEngine
         from toroidamp.analysis.audio_frame import AnalysisHandoff
         from toroidamp.audio.playlist import PlaylistManager
@@ -224,8 +228,7 @@ class TestGPUProd001Stabilization(unittest.TestCase):
         self.assertEqual(wm.vis_mod.vis_idx, 4)
         self.assertEqual(wm.vis_mod.surface_stack.currentIndex(), 1)
         self.assertIn("TOROID IDENTITY", wm.vis_mod.btn_switch.text())
-        self.assertIn("TOROID IDENTITY", wm.vis_mod.lbl_placeholder_name.text())
-        self.assertTrue(wm.vis_mod.btn_enter_retina.isVisible())
+        self.assertEqual(wm.vis_mod.gpu_canvas.active_shader_name, "toroid_identity")
 
         wm.shutdown()
         self.app.processEvents()

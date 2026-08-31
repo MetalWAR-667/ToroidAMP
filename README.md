@@ -56,6 +56,18 @@ already provides. System TTS uses whatever `pyttsx3` backend the platform
 exposes (e.g. `espeak`/`speech-dispatcher` on Linux); voice selection is
 expected to differ from the Windows SAPI5 voice.
 
+**Audio output device**: on a modern PipeWire desktop, ToroidAMP prefers a
+device literally named `pipewire` over PortAudio's ALSA `default` device
+when one is present — this is a capability check (`sounddevice.query_devices()`
+by name), not a distro branch, and falls straight through to PortAudio's
+own default everywhere else (Windows, macOS, non-PipeWire Linux). The
+chosen device, sample rate, and negotiated buffer/latency are logged once
+at startup (`toroidamp.player`) in the same rotating log file used for
+every other diagnostic — useful to include when reporting a Linux audio
+issue. Official validation baseline: Mint/Ubuntu family, Intel/Mesa,
+x86-64, PipeWire/PulseAudio/ALSA desktop stack; other distributions and
+GPU vendors are best-effort.
+
 ### Installation
 
 From the repository root:

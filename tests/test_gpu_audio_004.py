@@ -356,7 +356,9 @@ class TestGPUAudio004SafeConstPromotion(unittest.TestCase):
         from toroidamp.visualizers.audio_reactive_reference import AudioReactiveReferenceVisualizer
         vis = AudioReactiveReferenceVisualizer(640, 480)
         self.assertTrue(vis.is_gpu())
-        self.assertTrue(vis.is_retina_only())
+        # GLSL Everywhere cut: official GPU visualizers are first-class
+        # NORMAL-mode visualizers now, not RETINA-exclusive.
+        self.assertFalse(vis.is_retina_only())
         self.assertTrue(vis.get_shader_path().is_file())
         self.assertIsNotNone(vis.get_metadata())
         expected = {"u_zoom", "u_speed", "u_glow", "u_twist", "u_detail"}

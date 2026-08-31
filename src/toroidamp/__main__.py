@@ -8,6 +8,7 @@ import os
 import sys
 from logging.handlers import RotatingFileHandler
 
+from PySide6.QtGui import QSurfaceFormat
 from PySide6.QtWidgets import QApplication
 
 from toroidamp import __version__
@@ -93,6 +94,24 @@ def main():
 
 
 def _run(logger: logging.Logger):
+    # GLSL-002: request an explicit OpenGL 3.3 Core Profile context before
+    # the QApplication is constructed -- must happen before, since Qt only
+    # applies the default surface format to windows/contexts created after
+    # this call. Every official/user shader is wrapped with `#version 330
+    # core`, and the GPU Authoring Lab (experiments/gpu_visualizers/
+    # lab_app.py::run_gpu_lab) already requests exactly this; production
+    # previously left it unset, silently falling back to whatever default
+    # context the platform/driver negotiates. That divergence was harmless
+    # on Windows (GPU vendor drivers accept #version 330 core regardless)
+    # but is a real, auditable gap between the Lab and the production
+    # hosts (RETINA MELT, and NORMAL's official GPU visualizers) that this
+    # cut's GPU-architecture audit surfaced.
+    fmt = QSurfaceFormat()
+    fmt.setVersion(3, 3)
+    fmt.setProfile(QSurfaceFormat.CoreProfile)
+    fmt.setSwapBehavior(QSurfaceFormat.DoubleBuffer)
+    QSurfaceFormat.setDefaultFormat(fmt)
+
     app = QApplication(sys.argv)
     app.setApplicationName("ToroidAMP")
     app.setOrganizationName("")  # Clean single canonical path: %LOCALAPPDATA%/ToroidAMP

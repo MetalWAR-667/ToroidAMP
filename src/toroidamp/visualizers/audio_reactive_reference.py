@@ -41,7 +41,9 @@ class AudioReactiveReferenceVisualizer(Visualizer):
         return True
 
     def is_retina_only(self) -> bool:
-        return True
+        # GLSL Everywhere cut: official GPU visualizers are now first-class
+        # NORMAL-mode visualizers too -- see toroid_identity.py.
+        return False
 
     def get_shader_path(self) -> Optional[Path]:
         return self._shader_path
@@ -55,7 +57,9 @@ class AudioReactiveReferenceVisualizer(Visualizer):
     def _load_metadata(self):
         if self._shader_path and self._shader_path.exists():
             try:
-                with open(self._shader_path, "r", encoding="utf-8") as f:
+                # utf-8-sig: same bug class as gpu_canvas.py's pre-BOM-fix
+                # loader (v0.666) -- fixed here too, see toroid_identity.py.
+                with open(self._shader_path, "r", encoding="utf-8-sig") as f:
                     code = f.read()
                 params = parse_shader_parameters(code)
                 self._metadata = ShaderMetadata(
