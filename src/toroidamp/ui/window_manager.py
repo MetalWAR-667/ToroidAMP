@@ -560,8 +560,14 @@ class WindowManager(QWidget):
             else:
                 self._stop_playback()
 
-        # 1. Automatic Track Advancement on normal EOF
-        elif self.player_engine.state == PlaybackState.STOPPED and len(self.playlist) > 0 and self.player_engine.position > 0.0:
+        # 1. Automatic Track Advancement on natural EOF only. PlaybackState
+        # .STOPPED alone is not a reliable signal here -- it's also the
+        # state a user-initiated STOP lands in, including the delayed
+        # transition a fade-out completes asynchronously in the audio
+        # callback well after PlayerEngine.stop() already returned.
+        # consume_natural_eof() is set only where the decoder itself
+        # genuinely ran out of frames, never by a user stop/pause/seek.
+        elif self.player_engine.consume_natural_eof() and len(self.playlist) > 0:
             next_idx = self.playlist.get_next_index()
             if next_idx is not None and next_idx != self.playlist.current_index:
                 self._play_index(next_idx)

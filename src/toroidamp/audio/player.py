@@ -111,6 +111,19 @@ class PlayerEngine:
         self._output_device: int | None = None
         self._output_device_resolved: bool = False
 
+        # Playback-state semantics (STOP/EOF/seek stabilization cut).
+        # Natural end-of-track (decoder genuinely ran out of frames) is a
+        # distinct event from PlaybackState.STOPPED, which is *also* the
+        # state a user-initiated stop lands in -- including the delayed
+        # transition to STOPPED that a fade-out completes asynchronously
+        # in the audio callback, well after PlayerEngine.stop() already
+        # returned. Downstream playlist auto-advance must react to real
+        # EOF only, never to "we're currently in the STOPPED state" alone.
+        self._eof_pending: bool = False
+        # Seek target awaiting application by the audio callback thread,
+        # which owns exclusive decoder access while PLAYING (see seek()).
+        self._pending_seek_seconds: float | None = None
+
     @property
     def state(self) -> PlaybackState:
         return self._state
@@ -152,6 +165,21 @@ class PlayerEngine:
                 self._decoder_failed = False
                 return True, failed_path, msg
             return False, "", ""
+
+    def consume_natural_eof(self) -> bool:
+        """
+        Thread-safe check-and-clear of the natural-EOF flag. Returns True
+        exactly once per genuine end-of-track completion (the decoder
+        returned zero frames) -- never for a user-initiated stop, even one
+        that finishes an in-progress fade-out asynchronously in the audio
+        callback well after stop()/stop_immediate() already returned.
+        This is the only signal playlist auto-advance should react to.
+        """
+        with self._lock:
+            if self._eof_pending:
+                self._eof_pending = False
+                return True
+            return False
 
     @property
     def volume(self) -> float:
@@ -301,6 +329,11 @@ class PlayerEngine:
     def stop(self) -> None:
         """Stops playback with a smooth fade-out or immediate shutdown."""
         with self._lock:
+            # USER_STOP is never natural EOF, even though the fade-out
+            # path below completes asynchronously in the audio callback
+            # (which sets state to STOPPED on its own once the envelope
+            # reaches 0) well after this call already returned.
+            self._eof_pending = False
             if self._fade_enabled and self._state == PlaybackState.PLAYING and self._stream is not None and self._fade_envelope > 0.05 and not self._decoder_failed:
                 # Trigger fade-out in audio callback
                 self._fade_state = FadeState.FADING_OUT
@@ -310,12 +343,15 @@ class PlayerEngine:
     def stop_immediate(self) -> None:
         """Immediately stops playback stream and resets position."""
         with self._lock:
+            self._eof_pending = False
             self._do_stop()
 
     def _do_stop(self) -> None:
         self._state = PlaybackState.STOPPED
         self._fade_state = FadeState.IDLE
         self._fade_envelope = 0.0
+        self._eof_pending = False
+        self._pending_seek_seconds = None
         if self._stream:
             try:
                 self._stream.stop()
@@ -334,10 +370,34 @@ class PlayerEngine:
         """
         Safely seeks the active decoder to target_seconds.
         Never throws exceptions into caller; returns True on success, False on error.
+
+        While PLAYING, the actual decoder seek is deferred to the audio
+        callback thread instead of applied here directly (see
+        _audio_callback). The callback owns exclusive read/seek access to
+        the decoder while it's actively pulling frames without holding
+        self._lock (a deliberate real-time-safety choice -- the callback
+        must never block on a lock the UI thread might hold); calling
+        decoder.seek() from this thread at the same time raced that
+        unlocked read against soundfile/libsndfile, which is not safe for
+        concurrent access from two threads on the same handle. That race
+        was the root cause of both an occasional spurious end-of-track
+        (a corrupted read returning zero frames, misread as natural EOF)
+        and audible playback interruption while dragging the timeline.
+        Deferring to the callback also naturally coalesces rapid
+        successive calls (e.g. a slider drag) to whichever target was set
+        most recently before the callback next runs.
+
+        While paused/stopped, no audio thread is reading concurrently, so
+        the seek is applied immediately and synchronously as before.
         """
         with self._lock:
             if self._decoder_failed or self._active_decoder is None:
                 return False
+
+            if self._state == PlaybackState.PLAYING:
+                self._pending_seek_seconds = target_seconds
+                self._position_seconds = target_seconds
+                return True
 
             try:
                 self._active_decoder.seek(target_seconds)
@@ -394,6 +454,13 @@ class PlayerEngine:
 
         callback_gen = self._generation
         try:
+            # Apply a pending seek before reading -- see seek()'s comment.
+            # This thread is the only one that ever calls seek()/
+            # read_frames() on the decoder while PLAYING, by design.
+            pending_seek = self._pending_seek_seconds
+            if pending_seek is not None:
+                self._pending_seek_seconds = None
+                self._active_decoder.seek(pending_seek)
             chunk = self._active_decoder.read_frames(frames)
         except Exception as e:
             # HARD BOUNDARY: Silence output immediately and record failure state
@@ -418,6 +485,7 @@ class PlayerEngine:
             self._state = PlaybackState.STOPPED
             self._fade_state = FadeState.IDLE
             self._fade_envelope = 0.0
+            self._eof_pending = True
             return
 
         if not self._fade_enabled:
@@ -439,6 +507,7 @@ class PlayerEngine:
                 self._state = PlaybackState.STOPPED
                 self._fade_state = FadeState.IDLE
                 self._fade_envelope = 0.0
+                self._eof_pending = True
             else:
                 outdata[:] = chunk * gain
                 analysis_pcm = chunk
@@ -504,6 +573,10 @@ class PlayerEngine:
             self._state = PlaybackState.STOPPED
             self._fade_state = FadeState.IDLE
             self._fade_envelope = 0.0
+            # The decoder itself ran out of frames -- genuine EOF -- even
+            # if a user-initiated fade-out also happened to be in
+            # progress this same callback; the track really did end.
+            self._eof_pending = True
         else:
             outdata[:] = chunk * gain
             analysis_pcm = chunk * envelope_curve

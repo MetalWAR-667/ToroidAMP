@@ -160,18 +160,30 @@ class TestRCAudio001DecoderIsolation(unittest.TestCase):
 
     # 5. seek failure does not propagate to UI caller
     def test_05_seek_failure_does_not_propagate(self):
+        # Playback-state stabilization: while PLAYING, seek() defers the
+        # actual decoder.seek() call to the audio callback thread (see
+        # PlayerEngine.seek()'s docstring) instead of calling it directly
+        # here, so a bad seek target is only actually attempted -- and can
+        # only fail -- once the callback runs. seek() itself now succeeds
+        # optimistically in this case; the failure surfaces through the
+        # same read-failure isolation path as any other decoder error.
         decoder = ThrowingDecoder(throw_on_read=False, throw_on_seek=True)
         self.player._active_decoder = decoder
         self.player._state = PlaybackState.PLAYING
         self.player._current_filepath = "bad_seek.mp3"
 
         success = self.player.seek(5.0)
-        self.assertFalse(success)
-        self.assertTrue(self.player.decoder_failed)
+        self.assertTrue(success)
+        self.assertFalse(self.player.decoder_failed)
 
+        outdata = np.zeros((512, 2), dtype=np.float32)
+        self.player._audio_callback(outdata, 512, None, None)
+
+        self.assertTrue(self.player.decoder_failed)
         has_err, path, msg = self.player.check_and_clear_error()
         self.assertTrue(has_err)
-        self.assertIn("Seek error", msg)
+        self.assertIn("Read error", msg)
+        self.assertIn("Seek failed", msg)
 
     # 6. seek against already-failed decoder is safe no-op
     def test_06_seek_against_failed_decoder_is_noop(self):

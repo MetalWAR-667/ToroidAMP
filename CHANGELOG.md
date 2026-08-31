@@ -48,6 +48,27 @@ Progress will resume when morale improves.
   after `runAndWait()` returned, racing a trailing native callback that
   hadn't finished yet. The engine is now kept alive for its natural
   lifetime instead. Windows SAPI5 playback is unaffected.
+- Pressing STOP could sometimes skip straight to the next track instead of
+  just stopping. Root cause: a fade-out stop completes asynchronously in
+  the audio callback (well after `stop()` already returned) by setting the
+  same `STOPPED` state a natural end-of-track uses, and the playlist's
+  auto-advance check couldn't tell the two apart. Natural end-of-track now
+  sets an explicit, one-shot flag that only genuine decoder exhaustion
+  raises; STOP (and pause, and seeking) never do.
+- Seeking while a track was playing called the decoder's `seek()`
+  synchronously from the UI thread, racing the audio callback's own
+  unsynchronized `read_frames()` call on the same decoder handle — audible
+  as a sluggish, sometimes-interrupted timeline drag, and rarely, a
+  corrupted read that looked like the track had spuriously ended. Seeking
+  while playing now hands the target to the audio callback, which is the
+  only thread that touches the decoder while playback is active; rapid
+  successive drags naturally coalesce to the latest position instead of
+  each queuing a separate decoder seek.
+- The MINI volume popup couldn't be closed by clicking the speaker button
+  a second time — Qt's own popup auto-dismiss (any outside click,
+  including that second click) fires before the button's own click
+  handler runs, so the handler always saw "already hidden" and reopened
+  it. Fixed with the standard debounce for this Qt popup pattern.
 
 ## [0.666] — Post Launch Hell & Welcome Linux Users
 

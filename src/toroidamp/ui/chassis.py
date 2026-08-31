@@ -1,3 +1,5 @@
+import time
+
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton,
     QSlider, QFrame, QStackedWidget, QApplication, QStyle, QStyleOptionSlider
@@ -930,6 +932,21 @@ class UnifiedChassis(QWidget):
 
         self.volume_popup.adjustSize()
 
+        # Playback-state/interaction stabilization: Qt.Popup auto-closes
+        # itself on any outside click -- including a second click on the
+        # speaker button itself, which is "outside" as far as the popup is
+        # concerned. That auto-close happens during the same low-level
+        # event dispatch that delivers the press to the button underneath,
+        # strictly before this button's own `clicked` signal fires. So a
+        # toggle handler that only checks isVisible() when `clicked` fires
+        # always sees "already hidden" on that second click and reopens
+        # it -- the popup could never actually be dismissed by pressing
+        # the speaker again. Catching the popup's own Hide event and
+        # debouncing a reopen that arrives immediately afterward (same
+        # click) is the standard fix for this well-known Qt popup pattern.
+        self._volume_popup_hidden_at: float = 0.0
+        self.volume_popup.installEventFilter(self)
+
     def _on_mini_volume_slider_changed(self, value: int):
         # Keep the NORMAL slider in sync immediately — same single
         # authoritative value, two views/controllers.
@@ -940,6 +957,16 @@ class UnifiedChassis(QWidget):
         if self.volume_popup.isVisible():
             self.volume_popup.hide()
             return
+        # A second click on the speaker button while the popup is open
+        # reaches here with the popup already auto-hidden by Qt (see the
+        # eventFilter note in _build_mini_volume_popup) -- reopening it
+        # would make that click look like a no-op instead of a close.
+        # 300ms comfortably covers the auto-dismiss-then-click_signal gap
+        # (both happen within the same physical click, microseconds apart)
+        # without being long enough to block a deliberate, separate
+        # re-open click shortly after.
+        if (time.monotonic() - self._volume_popup_hidden_at) < 0.3:
+            return
         # Always resync from the current authoritative value before showing —
         # guards against any drift regardless of how the value last changed.
         self.mini_pop_slider.blockSignals(True)
@@ -948,6 +975,11 @@ class UnifiedChassis(QWidget):
 
         self.volume_popup.move(self._compute_volume_popup_pos())
         self.volume_popup.show()
+
+    def eventFilter(self, obj, event):
+        if obj is self.volume_popup and event.type() == QEvent.Hide:
+            self._volume_popup_hidden_at = time.monotonic()
+        return super().eventFilter(obj, event)
 
     def _compute_volume_popup_pos(self) -> QPoint:
         """
