@@ -30,11 +30,13 @@ Current architectural truth belongs in `ARCHITECTURE.md`.
 **Stage:** Release Gate & Packaging Validation (v0.667)
 **Current Phase:** RELEASE-GATE-0.667
   - Linux artifact: PASS
-  - Windows artifact: PENDING
-**Status:** ACTIVE (Next: RELEASE-GATE-0.667-WINDOWS)
+  - Windows artifact: PASS
+**Status:** CLOSED (Next: RELEASE-CLOSEOUT-0.667)
 **Implementation:** PRODUCTION APPLICATION (`toroidamp` v0.667)
 
 ToroidAMP v0.667 native Linux ONEDIR packaging has completed full validation on Ubuntu physical hardware (audio playback, GLSL shaders, Wayland Unified Chassis, non-native dialogs, isolated user paths, and zero source dependencies).
+
+ToroidAMP v0.667 native Windows ONEDIR packaging (PyInstaller) has completed full validation on this dev machine: frozen isolated launch, 5/5 clean TTS launch/close cycles via `sounddevice` (no pygame.mixer dependency), all four conventional audio formats (WAV/MP3/OGG/FLAC) plus a representative tracker MOD file (confirming `libxmp.dll` resolves in the frozen bundle), Windows independent-top-level Playlist/Visualizer docking (pixel-exact via UI Automation), MINI↔NORMAL transitions, RETINA MELT enter/exit, isolated user-writable state (`%LOCALAPPDATA%\ToroidAMP\`), and a clean `git status`. One real packaging defect was found and fixed: a stale editable-install `dist-info` (0.666) was baking an incorrect version into the frozen artifact via `copy_metadata()`; fixed by refreshing the editable install (`pip install -e . --no-deps --force-reinstall`) before rebuilding — no tracked source files changed. Full interactive UI verification (file dialogs, GLSL Lab, CPU/GPU visualizer switching) was only partially achievable via UI Automation in this session (no human eyes/ears available); see the RELEASE-GATE-0.667-WINDOWS report for the exact boundary of what was verified programmatically vs. what still benefits from Metal's direct confirmation.
 
 
 
@@ -433,11 +435,11 @@ RELEASE-BLOCKERS-001 — Linux Stabilization Gate    CLOSED
   - LINUX-CHASSIS-001: Wayland Module Resizing    CLOSED
   - LINUX-TTS-001: Linux Startup Voice Deferral   CLOSED (DEFERRED_ON_LINUX)
 RELEASE-POLISH-0.667 — Presentation & Readiness   CLOSED
-RELEASE-GATE-0.667 — Release Artifact Validation   ACTIVE
+RELEASE-GATE-0.667 — Release Artifact Validation   CLOSED
   - RELEASE-GATE-0.667-LINUX: Native Linux ONEDIR PASS
-  - RELEASE-GATE-0.667-WINDOWS: Native Windows ONEDIR PENDING
+  - RELEASE-GATE-0.667-WINDOWS: Native Windows ONEDIR PASS
 
-Next: RELEASE-GATE-0.667-WINDOWS.
+Next: RELEASE-CLOSEOUT-0.667.
 ```
 
 
