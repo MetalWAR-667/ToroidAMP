@@ -12,6 +12,23 @@ briefly got ahead of itself before Linux support, packaging, and basic UX
 polish actually existed; the version number now reflects that honestly.
 Progress will resume when morale improves.
 
+## [0.669] — Visualizer Roster Expansion
+
+### Added
+- Nine new visualizers, cycled the same way as every existing one:
+  - **Geometric Morph** — 3D wireframe mesh morphing with parametric shape blending, plasma-colored edges, and particle spark ejection on transients.
+  - **Matrix Rain** — code rain where each column is a live readout of one frequency band; a column's head glows white-hot and the whole stream falls faster with the music.
+  - **X-Wing Squadron** — audio-reactive spaceship battle over a 3D perspective grid floor; strong beats spawn squadrons, bass drives formation flying.
+  - **Spectrum LED Bars** — a segmented LED-style spectrum analyzer.
+  - **MetalWar Credits** — a demoscene credits/tribute showcase: a floating pulsing emblem, 3D starfield tunnel, circular audio-reactive equalizer halo, and a classic sine-wave scrolling credits banner.
+  - **Spectrum Magma (GPU)**, **Hyper Torus Raymarch (GPU)**, **Spectrum Panorama (GPU)**, **Neon City Spectrum (GPU)** — four new official GPU/GLSL visualizers, rendering through the same shared production shader pipeline (`classify_and_wrap_source()` + `GLVisualizerCanvas`) as every other official visualizer.
+
+### Changed
+- **Deep Field** reworked into a hyperspace warp tunnel: stars now project as a radial 3D field with long luminous warplines that accelerate outward, strong beats trigger a hyperspace "jump" flash with chromatic fringe, and the field keeps a steady cruise during silence instead of fully stopping.
+
+### Fixed
+- The MetalWar Credits visualizer's emblem (`assets/images/metalwar.png`) never actually rendered — it silently fell back to a plain circle every time. Root cause: loading it called `Surface.convert_alpha()` unconditionally, which requires an active pygame display surface; ToroidAMP never opens one (CPU visualizers render off-screen for Qt, not to a real pygame window), so the call always raised `No convert format has been set`, silently swallowed by a bare exception handler. Now only converts when a display surface actually exists, matching the same fix already used by the X-Wing Squadron visualizer's own logo loading.
+
 ## [0.667] — Cross-Platform Stabilization & Packaging Readiness
 
 ### Added

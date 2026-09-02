@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "toroidamp"
-version = "0.667"
+version = "0.669"
 description = "Compact, modular, musically reactive audio player with demoscene visualizer engine"
 readme = "README.md"
 requires-python = ">=3.11"

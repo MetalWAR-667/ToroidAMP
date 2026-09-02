@@ -22,16 +22,16 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 
 
 class TestReleaseVersionAndMetadata(unittest.TestCase):
-    """Tests canonical version 0.667 normalization."""
+    """Tests canonical version normalization."""
 
-    def test_01_canonical_version_is_0_667(self):
-        self.assertEqual(__version__, "0.667")
-        self.assertEqual(toroidamp.__version__, "0.667")
+    def test_01_canonical_version_is_0_669(self):
+        self.assertEqual(__version__, "0.669")
+        self.assertEqual(toroidamp.__version__, "0.669")
 
     def test_02_pyproject_matches_canonical_version(self):
         pyproject_path = REPO_ROOT / "pyproject.toml"
         data = tomllib.loads(pyproject_path.read_text(encoding="utf-8"))
-        self.assertEqual(data["project"]["version"], "0.667")
+        self.assertEqual(data["project"]["version"], "0.669")
 
 
 class TestFileLoggingAndDiagnostics(unittest.TestCase):

@@ -27,14 +27,12 @@ Current architectural truth belongs in `ARCHITECTURE.md`.
 ## 2. Project Status
 
 **Project:** ToroidAMP
-**Stage:** Release Closeout (v0.667)
-**Current Phase:** RELEASE-CLOSEOUT-0.667
-  - RELEASE-GATE-0.667: CLOSED (Linux PASS, Windows PASS)
-  - Windows distribution archive: STAGED & checksummed (`release/0.667/ToroidAMP-0.667-windows-x86_64.zip`)
-  - Linux distribution archive: STAGED & checksummed (`release/0.667/ToroidAMP-0.667-linux-x86_64.tar.gz`, transferred from the validated Ubuntu machine as a closed archive, executable bit and Ubuntu-computed SHA-256 both confirmed intact after transfer)
-**Status:** CLOSED
-**Implementation:** PRODUCTION APPLICATION (`toroidamp` v0.667)
-**v0.667:** READY_FOR_PUBLICATION (not yet RELEASED — publication requires Metal to commit the pending closeout docs, then create the `v0.667` tag and GitHub Release manually)
+**Stage:** Visualizer Roster Expansion (v0.669)
+**Current Phase:** Post-0.667 development
+**Status:** ACTIVE
+**Implementation:** PRODUCTION APPLICATION (`toroidamp` v0.669)
+
+v0.667's release-gate/closeout record below is historical (that validation and staging genuinely happened at 0.667); source has since moved on to v0.669, which adds nine new visualizers (see CHANGELOG.md `[0.669]`) and fixes the MetalWar Credits emblem never rendering. The v0.667 archives staged under `release/0.667/` remain exactly as validated — they were not touched by this version bump.
 
 ToroidAMP v0.667 native Linux ONEDIR packaging has completed full validation on Ubuntu physical hardware (audio playback, GLSL shaders, Wayland Unified Chassis, non-native dialogs, isolated user paths, and zero source dependencies), and that exact validated artifact has been transferred to the Windows closeout machine and staged for release, unmodified.
 

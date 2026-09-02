@@ -26,6 +26,15 @@ from toroidamp.visualizers.ribbon import WaveformRibbonVisualizer
 from toroidamp.visualizers.deep_field import DeepFieldVisualizer
 from toroidamp.visualizers.floor import ToroidAMPFloorVisualizer
 from toroidamp.visualizers.toroid_identity import ToroidIdentityVisualizer
+from toroidamp.visualizers.geometric import GeometricShapesVisualizer
+from toroidamp.visualizers.spectrum import SpectrumBarsVisualizer
+from toroidamp.visualizers.segmented_spectrum_bars import SegmentedSpectrumBarsVisualizer
+from toroidamp.visualizers.matrix_rain import MatrixRainVisualizer
+from toroidamp.visualizers.xwing_squadron import XWingSquadronVisualizer
+from toroidamp.visualizers.metalwar_credits import MetalWarCreditsVisualizer
+from toroidamp.visualizers.hyper_torus_raymarch import HyperTorusRaymarchVisualizer
+from toroidamp.visualizers.spectrum_panorama import SpectrumPanoramaVisualizer
+from toroidamp.visualizers.spectrum_neon_city import SpectrumNeonCityVisualizer
 from toroidamp.visualizers.cyber_bloom import CyberBloomVisualizer
 from toroidamp.visualizers.audio_reactive_reference import AudioReactiveReferenceVisualizer
 from toroidamp.ui.modules.visualizer_module import VisualizerModule
@@ -227,23 +236,35 @@ class TestFloorProduction(unittest.TestCase):
         self.assertNotIn("from experiments", content)
 
 
-class TestSelectorAndSessionCompatibility(unittest.TestCase):
-    def test_visualizer_ordering_and_indices(self):
+class TestVisualizerModuleModes(unittest.TestCase):
+    def test_all_visualizers_instantiated(self):
         vis_mod = VisualizerModule()
-        self.assertEqual(len(vis_mod.visualizers), 7)
+        self.assertEqual(len(vis_mod.visualizers), 16)
         self.assertIsInstance(vis_mod.visualizers[0], ToroidVisualizer)
         self.assertIsInstance(vis_mod.visualizers[1], WaveformRibbonVisualizer)
         self.assertIsInstance(vis_mod.visualizers[2], DeepFieldVisualizer)
         self.assertIsInstance(vis_mod.visualizers[3], ToroidAMPFloorVisualizer)
         self.assertIsInstance(vis_mod.visualizers[4], ToroidIdentityVisualizer)
-        self.assertIsInstance(vis_mod.visualizers[5], CyberBloomVisualizer)
-        self.assertIsInstance(vis_mod.visualizers[6], AudioReactiveReferenceVisualizer)
+        self.assertIsInstance(vis_mod.visualizers[5], GeometricShapesVisualizer)
+        self.assertIsInstance(vis_mod.visualizers[6], SpectrumBarsVisualizer)
+        self.assertIsInstance(vis_mod.visualizers[7], SegmentedSpectrumBarsVisualizer)
+        self.assertIsInstance(vis_mod.visualizers[8], MatrixRainVisualizer)
+        self.assertIsInstance(vis_mod.visualizers[9], XWingSquadronVisualizer)
+        self.assertIsInstance(vis_mod.visualizers[10], MetalWarCreditsVisualizer)
+        self.assertIsInstance(vis_mod.visualizers[11], HyperTorusRaymarchVisualizer)
+        self.assertIsInstance(vis_mod.visualizers[12], SpectrumPanoramaVisualizer)
+        self.assertIsInstance(vis_mod.visualizers[13], SpectrumNeonCityVisualizer)
+        self.assertIsInstance(vis_mod.visualizers[14], CyberBloomVisualizer)
+        self.assertIsInstance(vis_mod.visualizers[15], AudioReactiveReferenceVisualizer)
 
     def test_switching_cycles_cleanly_through_all_visualizers(self):
         vis_mod = VisualizerModule()
         names = [
             "3D TOROID", "WAVEFORM RIBBON", "DEEP FIELD", "TOROIDAMP FLOOR",
-            "TOROID IDENTITY (GPU)", "CYBER BLOOM (GPU)", "AUDIO REACTIVE REFERENCE (GPU)",
+            "TOROID IDENTITY (GPU)", "GEOMETRIC MORPH", "SPECTRUM MAGMA (GPU)",
+            "SPECTRUM LED BARS",
+            "MATRIX RAIN", "X-WING SQUADRON", "METALWAR CREDITS", "HYPER TORUS RAYMARCH (GPU)",
+            "SPECTRUM PANORAMA (GPU)", "NEON CITY SPECTRUM (GPU)", "CYBER BLOOM (GPU)", "AUDIO REACTIVE REFERENCE (GPU)",
         ]
         for idx, expected_name in enumerate(names):
             self.assertEqual(vis_mod.vis_idx, idx)
@@ -253,14 +274,23 @@ class TestSelectorAndSessionCompatibility(unittest.TestCase):
 
     def test_retina_melt_has_identical_visualizer_family(self):
         melt = RetinaMeltWindow()
-        self.assertEqual(len(melt.visualizers), 7)
+        self.assertEqual(len(melt.visualizers), 16)
         self.assertIsInstance(melt.visualizers[0], ToroidVisualizer)
         self.assertIsInstance(melt.visualizers[1], WaveformRibbonVisualizer)
         self.assertIsInstance(melt.visualizers[2], DeepFieldVisualizer)
         self.assertIsInstance(melt.visualizers[3], ToroidAMPFloorVisualizer)
         self.assertIsInstance(melt.visualizers[4], ToroidIdentityVisualizer)
-        self.assertIsInstance(melt.visualizers[5], CyberBloomVisualizer)
-        self.assertIsInstance(melt.visualizers[6], AudioReactiveReferenceVisualizer)
+        self.assertIsInstance(melt.visualizers[5], GeometricShapesVisualizer)
+        self.assertIsInstance(melt.visualizers[6], SpectrumBarsVisualizer)
+        self.assertIsInstance(melt.visualizers[7], SegmentedSpectrumBarsVisualizer)
+        self.assertIsInstance(melt.visualizers[8], MatrixRainVisualizer)
+        self.assertIsInstance(melt.visualizers[9], XWingSquadronVisualizer)
+        self.assertIsInstance(melt.visualizers[10], MetalWarCreditsVisualizer)
+        self.assertIsInstance(melt.visualizers[11], HyperTorusRaymarchVisualizer)
+        self.assertIsInstance(melt.visualizers[12], SpectrumPanoramaVisualizer)
+        self.assertIsInstance(melt.visualizers[13], SpectrumNeonCityVisualizer)
+        self.assertIsInstance(melt.visualizers[14], CyberBloomVisualizer)
+        self.assertIsInstance(melt.visualizers[15], AudioReactiveReferenceVisualizer)
 
     def test_session_state_index_compatibility(self):
         state_old_0 = SessionState(selected_visualizer_idx=0)
@@ -306,6 +336,20 @@ class TestLifecycleAndIsolation(unittest.TestCase):
         melt.set_visualizer_index(vis_mod.vis_idx)
         self.assertEqual(melt.vis_idx, 3)
         self.assertIsInstance(melt.visualizers[melt.vis_idx], ToroidAMPFloorVisualizer)
+
+
+class TestMetalWarCreditsEmblem(unittest.TestCase):
+    """pygame.display.set_mode() is never called anywhere in ToroidAMP --
+    CPU visualizers render to an off-screen Surface for Qt, not an actual
+    pygame window -- so Surface.convert_alpha() always raised 'No convert
+    format has been set', silently swallowed, and the emblem PNG never
+    rendered (a plain fallback circle drew instead). Regression guard for
+    that fix: the emblem must load without a display surface present."""
+
+    def test_emblem_loads_without_display_surface(self):
+        self.assertIsNone(pygame.display.get_surface(), "test assumes no real display surface is active")
+        v = MetalWarCreditsVisualizer(640, 480)
+        self.assertIsNotNone(v._emblem_raw, "MetalWar emblem must load even without a pygame display surface")
 
 
 if __name__ == "__main__":

@@ -59,7 +59,7 @@ provides.
 * **Linux**: Supported with documented platform behavior:
   - **Audio**: Automatic preference for named `pipewire` output devices with negotiated blocksize (`blocksize=0`) and low latency.
   - **Wayland Composition**: Under Wayland/xdg-shell, auxiliary Playlist and Visualizer modules are embedded cleanly inside the Unified Chassis to provide deterministic positioning and user-controlled edge-resizing without window manager placement conflicts.
-  - **Startup Voice**: The demoscene startup voice announcement is deferred/disabled on Linux for v0.667 due to upstream asynchronous eSpeak library lifecycle desynchronization; Windows SAPI5 voice is fully enabled.
+  - **Startup Voice**: The demoscene startup voice announcement is deferred/disabled on Linux due to upstream asynchronous eSpeak library lifecycle desynchronization; Windows SAPI5 voice is fully enabled.
   - **Validated Reference Environment**: Ubuntu 24.04/26.04 LTS, GNOME / Wayland / Mutter, Intel HD Graphics / Mesa / i915, PipeWire.
 
 ### Installation

@@ -1,7 +1,11 @@
 """
 ToroidAMP - Production Starfield: Deep Field Visualizer
-JACK FINAL PERCEPTUAL TUNING: Multi-pass luminous photon trails, depth-dependent
-halo/glow layering, hot emissive star heads, and zero center obstruction.
+Hyperspace warp tunnel. Stars are projected as a radial 3D field: each
+star owns a fixed screen-space direction and a depth that falls toward
+the viewer, so it accelerates outward with a long luminous warpline.
+Beat energy surges the warp, and strong beats unfold a hyperspace
+"jump" flash with chromatic fringe. Silence keeps a steady cruise —
+the field must not fully stop.
 """
 
 import math
@@ -34,17 +38,21 @@ class _Star:
 
 class DeepFieldVisualizer(Visualizer):
     """
-    3D Cosmic Star Tunnel with Multi-Pass Luminous Photon Trails,
-    Emissive Star Heads, and Simultaneous Multi-Family Spectral Color Gradation.
+    Hyperspace star tunnel with long radial warplines, emissive star
+    heads, and multi-family spectral color gradation. The field always
+    cruises; music pushes it into warp; strong beats trigger jumps.
     """
 
     NEAR_LAYER, MID_LAYER, FAR_LAYER = 0, 1, 2
     SPARKLE_LAYER = 100
-    LAYER_COUNTS = {NEAR_LAYER: 110, MID_LAYER: 200, FAR_LAYER: 340}
-    MAX_FAR_EXTRA = 260
+    LAYER_COUNTS = {NEAR_LAYER: 64, MID_LAYER: 120, FAR_LAYER: 220}
+    MAX_FAR_EXTRA = 120
 
     BASE_CRUISE = 0.35
     STRONG_EVENT_COOLDOWN = 1.2
+
+    # Trail sampling window (seconds of depth-ahead the warpline spans)
+    WARP_TRAIL_TIME = 0.14
 
     # Vivid demoscene spectral palette families
     PALETTE = (
@@ -82,8 +90,14 @@ class DeepFieldVisualizer(Visualizer):
         self._color_bias = 0.0
         self._extra_far_target = 0
 
+        # Pre-rendered radial warp "speed lines" glow and focal radial bloom for jump flash
+        self._warp_rays: pygame.Surface | None = None
+        self._radial_flash_surf: pygame.Surface | None = None
+
         self._vignette_surf: pygame.Surface | None = None
         self._build_vignette()
+        self._build_warp_rays()
+        self._build_jump_flash()
 
         self.stars: list[_Star] = []
         self._spawn_initial_stars()
@@ -95,6 +109,28 @@ class DeepFieldVisualizer(Visualizer):
         self.w = max(10, width)
         self.h = max(10, height)
         self._build_vignette()
+        self._build_warp_rays()
+        self._build_jump_flash()
+
+    def _build_jump_flash(self) -> None:
+        """Pre-renders a soft concentric radial bloom centered at the vanishing point."""
+        w, h = self.w, self.h
+        self._radial_flash_surf = pygame.Surface((w, h), pygame.SRCALPHA)
+        cx, cy = w / 2.0, h / 2.0
+        max_r = math.hypot(cx, cy) * 0.75
+        steps = 16
+        for step in range(steps, 0, -1):
+            t = step / float(steps)
+            r = max_r * t
+            # Hot core (electric cyan/white) that falls off quickly toward the edges
+            alpha = int(12 * (1.0 - t) ** 1.8)
+            col = (
+                int(_lerp(120, 240, (1.0 - t) ** 2)),
+                int(_lerp(180, 255, (1.0 - t) ** 2)),
+                255,
+                alpha,
+            )
+            pygame.draw.circle(self._radial_flash_surf, col, (int(cx), int(cy)), int(r))
 
     def _build_vignette(self) -> None:
         """Constructs a soft corner vignette that frames depth without touching the center."""
@@ -108,6 +144,23 @@ class DeepFieldVisualizer(Visualizer):
             rect = pygame.Rect(inset_x, inset_y, self.w - inset_x * 2, self.h - inset_y * 2)
             pygame.draw.rect(self._vignette_surf, (0, 0, 4, alpha), rect, max(1, corner_w // 5))
 
+    def _build_warp_rays(self) -> None:
+        """Radial hyperspace ray overlay used only during a strong-beat jump."""
+        w, h = self.w, self.h
+        self._warp_rays = pygame.Surface((w, h), pygame.SRCALPHA)
+        cx, cy = w / 2.0, h / 2.0
+        half = max(w, h) * 0.5
+        rays = 72
+        for i in range(rays):
+            ang = (i / rays) * 2.0 * math.pi
+            length = half * self.rng.uniform(0.75, 1.0)
+            # Converge slightly toward center for a tunnel feel
+            ex = cx + math.cos(ang) * length * 0.92
+            ey = cy + math.sin(ang) * length * 0.92
+            alpha = self.rng.randint(30, 70)
+            pygame.draw.line(self._warp_rays, (120, 200, 255, alpha),
+                             (cx, cy), (ex, ey), 1)
+
     def _spawn_initial_stars(self) -> None:
         self.stars.clear()
         for layer, count in self.LAYER_COUNTS.items():
@@ -115,17 +168,20 @@ class DeepFieldVisualizer(Visualizer):
                 self.stars.append(self._new_star(layer, i))
 
     def _new_star(self, layer: int, index: int = 0) -> _Star:
-        x = self.rng.uniform(-1.0, 1.0)
-        y = self.rng.uniform(-1.0, 1.0)
-        z = self.rng.uniform(0.10, 1.0)
+        """Uniform disc placement so the far field is a field, not a blob."""
+        ang = self.rng.uniform(0.0, 2.0 * math.pi)
+        r = math.sqrt(self.rng.random())          # uniform over the disc
+        x = math.cos(ang) * r
+        y = math.sin(ang) * r
+        z = self.rng.uniform(0.06, 1.0)
         if layer == self.NEAR_LAYER:
-            band = (index % 3)  # Magenta, Blue, Cyan
+            band = (index % 3)
         elif layer == self.MID_LAYER:
-            band = ((index % 4) + 1) % 5  # Blue, Cyan, Green, Gold
+            band = ((index % 4) + 1) % 5
         elif layer == self.FAR_LAYER:
-            band = ((index % 3) + 2) % 5  # Cyan, Green, Gold
+            band = ((index % 3) + 2) % 5
         else:
-            band = 4 if (index % 2 == 0) else 2  # Gold or Cyan sparkle
+            band = 4 if (index % 2 == 0) else 2
         return _Star(x, y, z, layer, band)
 
     def update(self, frame: AudioFrame, dt: float) -> None:
@@ -161,10 +217,10 @@ class DeepFieldVisualizer(Visualizer):
         # --- Fast beat attack, smooth decay ---
         self._beat_impulse *= math.exp(-dt * 3.8)
         if frame.beat:
-            self._beat_impulse = min(1.0, self._beat_impulse + 0.90)
+            self._beat_impulse = min(1.0, self._beat_impulse + 0.95)
 
         # Streak target responds immediately to rhythmic energy
-        target_streak = 1.0 + (self._depth_pressure * 2.0) + (self._beat_impulse * 4.5)
+        target_streak = 1.0 + (self._depth_pressure * 2.0) + (self._beat_impulse * 5.0)
         self._streak_target = _lerp(self._streak_target, target_streak, min(1.0, dt * 16.0))
 
         # --- Strong beat hyperspace compression event ---
@@ -182,14 +238,16 @@ class DeepFieldVisualizer(Visualizer):
         self._step_stars(dt)
 
     def _step_stars(self, dt: float) -> None:
-        speed = self._depth_pressure + (self._beat_impulse * 1.4) + (self._strong_event_progress * 2.4)
+        # Forward warp speed (depth-units/sec). Beats and jumps push harder.
+        speed = self._depth_pressure + (self._beat_impulse * 1.6) + (self._strong_event_progress * 2.8)
         for idx, star in enumerate(self.stars):
             star.z -= speed * dt * 0.55
             if star.z <= 0.03:
                 new = self._new_star(star.layer, idx)
+                # Recycle to the far plane with a fresh direction
                 star.x, star.y, star.z = new.x, new.y, 1.0
 
-        # Dynamic fine sparkle population
+        # Dynamic fine sparkle population (density from treble)
         far_extra_current = sum(1 for s in self.stars if s.layer == self.SPARKLE_LAYER)
         while far_extra_current < self._extra_far_target:
             self.stars.append(self._new_star(self.SPARKLE_LAYER, len(self.stars)))
@@ -232,84 +290,127 @@ class DeepFieldVisualizer(Visualizer):
     def render(self, surface: pygame.Surface, frame: AudioFrame, dt: float) -> None:
         self.update(frame, dt)
 
-        # Deep cosmic void background
+        # Deep cosmic void background (hidden flash handled below)
         surface.fill((2, 2, 6))
         cx, cy = self.w / 2.0, self.h / 2.0
-        fov = min(self.w, self.h) * 0.95
+        fov = min(self.w, self.h) * 0.5
 
-        # -------------------------------------------------------------
-        # 3D STAR PROJECTION & MULTI-PASS PHOTON TRAIL RENDERING
-        # -------------------------------------------------------------
         cos_a, sin_a = math.cos(self._camera_angle), math.sin(self._camera_angle)
-        fringe_active = self._strong_event_progress > 0.08 or (frame.strong_beat and self._beat_impulse > 0.35)
-        fringe_offset = int(self._strong_event_progress * 4.0 + self._beat_impulse * 2.2) if fringe_active else 0
+        fringe_offset = int(self._strong_event_progress * 4.0 + self._beat_impulse * 2.2)
+        has_fringe = fringe_offset > 0
 
+        # Warp speed in depth-units/sec (reuse the step maths so trail matches motion)
+        warp_speed = self._depth_pressure + (self._beat_impulse * 1.6) + (self._strong_event_progress * 2.8)
+        trail_depth = min(0.6, warp_speed * self.WARP_TRAIL_TIME)
         streak_factor = self._streak_target + (self._strong_event_progress * 9.0)
 
+        # Stable rotation basis
+        rot_cos_a, rot_sin_a = cos_a, sin_a
+
         for star in self.stars:
-            rx = star.x * cos_a - star.y * sin_a
-            ry = star.x * sin_a + star.y * cos_a
+            rx = star.x * rot_cos_a - star.y * rot_sin_a
+            ry = star.x * rot_sin_a + star.y * rot_cos_a
 
             z = max(0.03, star.z)
-            factor = fov / (z * 6.0)
+            factor = fov / (z * 4.0)
             sx = cx + rx * factor
             sy = cy + ry * factor
-            if not (-30 <= sx < self.w + 30 and -30 <= sy < self.h + 30):
+            if not (-40 <= sx < self.w + 40 and -40 <= sy < self.h + 40):
                 continue
 
             depth_frac = 1.0 - z
             color = self._compute_star_color(star, depth_frac)
-            streak_len = streak_factor * depth_frac * 11.5
+            # Nearer stars leave longer, brighter warplines
+            warp_len = streak_factor * depth_frac * fov * 0.42
 
             # ---------------------------------------------------------
-            # MULTI-PASS PHOTON TRAIL (Emissive Glow + Core + Head)
+            # WARP LINE + EMISSIVE HEAD
             # ---------------------------------------------------------
-            if streak_len > 1.8 and (0 <= sx < self.w and 0 <= sy < self.h):
-                tail_z = min(1.0, z + (0.022 * streak_factor * 0.35))
-                tf = fov / (tail_z * 6.0)
-                tx, ty = cx + rx * tf, cy + ry * tf
+            near = 0 <= sx < self.w and 0 <= sy < self.h
 
-                # Layer 1: Outer Luminous Halo (Demoscene soft line blur)
-                if depth_frac > 0.35:
-                    halo_r = max(0, color[0] // 3)
-                    halo_g = max(0, color[1] // 3)
-                    halo_b = max(0, color[2] // 3)
-                    halo_col = (halo_r, halo_g, halo_b)
-                    halo_width = max(2, int(2.0 + depth_frac * 3.0))
-                    pygame.draw.line(surface, halo_col, (tx, ty), (sx, sy), halo_width)
+            if warp_len > 2.0 and near:
+                # Compute a head further "in front" along the same direction.
+                z_head = max(0.03, z - trail_depth * 0.5)
+                hf = fov / (z_head * 4.0)
+                hx, hy = cx + rx * hf, cy + ry * hf
 
-                # Layer 2: Saturated Colored Trail
-                trail_width = max(1, int(1.0 + depth_frac * 1.8))
-                pygame.draw.line(surface, color, (tx, ty), (sx, sy), trail_width)
+                # Clamp to screen to avoid runaway tails
+                tx, ty = sx, sy
+                dx, dy = hx - sx, hy - sy
+                seg_len = math.hypot(dx, dy)
+                if seg_len > 1e-6:
+                    # Only take the segment that stays on screen (short tail)
+                    take = min(1.0, warp_len / max(1.0, seg_len)) if seg_len > 0 else 1.0
+                    tx = sx + dx * take
+                    ty = sy + dy * take
 
-                # Layer 3: Hot Emissive Star Head (Light Source Point)
+                # Layer 1: Outer luminous halo (soft defocused glow)
                 if depth_frac > 0.30:
-                    head_radius = max(1, int(1.0 + depth_frac * 2.2))
-                    # Outer soft head glow
-                    pygame.draw.circle(surface, color, (int(sx), int(sy)), head_radius + 1)
-                    # Hot white/bright inner core
+                    halo_col = (color[0] // 3, color[1] // 3, color[2] // 3)
+                    halo_w = max(2, int(2.0 + depth_frac * 3.0))
+                    pygame.draw.line(surface, halo_col, (tx, ty), (sx, sy), halo_w)
+
+                # Layer 2: Saturated colored warpline
+                trail_w = max(1, int(1.0 + depth_frac * 2.0))
+                pygame.draw.line(surface, color, (tx, ty), (sx, sy), trail_w)
+
+                # Chromatic fringe on strong beats (RGB split glitch)
+                if has_fringe and depth_frac > 0.35:
+                    red_col = (min(255, color[0] + 100), max(0, color[1] - 40), max(0, color[2] - 40))
+                    cyan_col = (max(0, color[0] - 40), min(255, color[1] + 80), min(255, color[2] + 100))
+                    pygame.draw.line(surface, red_col, (tx - fringe_offset, ty), (sx - fringe_offset, sy), 1)
+                    pygame.draw.line(surface, cyan_col, (tx + fringe_offset, ty), (sx + fringe_offset, sy), 1)
+
+                # Layer 3: Hot emissive star head
+                if depth_frac > 0.30:
+                    head_r = max(1, int(1.0 + depth_frac * 2.2))
+                    pygame.draw.circle(surface, color, (int(sx), int(sy)), head_r + 1)
                     white_core = (
                         min(255, color[0] + 120),
                         min(255, color[1] + 120),
                         min(255, color[2] + 120),
                     )
-                    pygame.draw.circle(surface, white_core, (int(sx), int(sy)), max(1, head_radius - 1))
+                    pygame.draw.circle(surface, white_core, (int(sx), int(sy)), max(1, head_r - 1))
                 else:
                     surface.set_at((int(sx), int(sy)), color)
-
-                # Layer 4: Chromatic transient fringe on strong beats
-                if fringe_offset > 0 and depth_frac > 0.45:
-                    red_col = (min(255, color[0] + 100), max(0, color[1] - 40), max(0, color[2] - 40))
-                    cyan_col = (max(0, color[0] - 40), min(255, color[1] + 80), min(255, color[2] + 100))
-                    pygame.draw.line(surface, red_col, (tx - fringe_offset, ty), (sx - fringe_offset, sy), 1)
-                    pygame.draw.line(surface, cyan_col, (tx + fringe_offset, ty), (sx + fringe_offset, sy), 1)
             else:
-                # Distant Stars / Sparkles: Crisp, pin-point stars without fog
-                if 0 <= sx < self.w and 0 <= sy < self.h:
+                # Distant / far stars: crisp pin-points
+                if near:
                     if depth_frac > 0.5:
                         pygame.draw.circle(surface, color, (int(sx), int(sy)), 2)
-                    else:
+                    elif depth_frac > 0.15:
                         surface.set_at((int(sx), int(sy)), color)
+
+        # -------------------------------------------------------------
+        # HYPERSPACE JUMP FLASH & SHOCKWAVE (strong beat)
+        # -------------------------------------------------------------
+        if self._strong_event_progress > 0.02:
+            # 1. Soft focal radial bloom centered at vanishing point (cached surface, zero per-frame allocs)
+            if self._radial_flash_surf:
+                flash_alpha = int(220 * (self._strong_event_progress ** 1.3))
+                if flash_alpha > 0:
+                    bloom = self._radial_flash_surf.copy()
+                    bloom.set_alpha(flash_alpha)
+                    surface.blit(bloom, (0, 0), special_flags=pygame.BLEND_RGBA_ADD)
+
+            # 2. Expanding shockwave ring that rushes outward from vanishing point
+            ring_phase = self._strong_event_progress  # 0.0 -> 1.0 -> 0.0
+            max_radius = math.hypot(cx, cy) * 0.95
+            ring_r = int(max_radius * (ring_phase ** 0.85))
+            if ring_r > 3:
+                ring_alpha = int(180 * math.sin(ring_phase * math.pi))
+                ring_thick = max(1, int(3.0 * (1.0 - ring_phase) + 1.0))
+                ring_surf = pygame.Surface((self.w, self.h), pygame.SRCALPHA)
+                ring_color = (130, 220, 255, ring_alpha)
+                pygame.draw.circle(ring_surf, ring_color, (int(cx), int(cy)), ring_r, ring_thick)
+                surface.blit(ring_surf, (0, 0), special_flags=pygame.BLEND_RGBA_ADD)
+
+            # 3. Hyperspace speed line rays
+            if self._warp_rays and self._strong_event_progress > 0.10:
+                ray_alpha = int(180 * self._strong_event_progress)
+                rays = self._warp_rays.copy()
+                rays.set_alpha(ray_alpha)
+                surface.blit(rays, (0, 0), special_flags=pygame.BLEND_RGBA_ADD)
 
         # -------------------------------------------------------------
         # SOFT CORNER VIGNETTE

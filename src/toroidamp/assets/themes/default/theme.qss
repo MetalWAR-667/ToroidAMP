@@ -21,7 +21,7 @@ QLabel#normalVersion {
 
 /* Primary text title marquee in the LCD display rack */
 QLabel#normalTrackTitle {
-    color: ##00ff00;
+    color: #00ff00;
 }
 
 /* Elapsed / Total time display in LCD display rack */

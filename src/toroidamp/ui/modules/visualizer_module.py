@@ -22,10 +22,19 @@ from ...visualizers.ribbon import WaveformRibbonVisualizer
 from ...visualizers.deep_field import DeepFieldVisualizer
 from ...visualizers.floor import ToroidAMPFloorVisualizer
 from ...visualizers.toroid_identity import ToroidIdentityVisualizer
+from ...visualizers.geometric import GeometricShapesVisualizer
+from ...visualizers.spectrum import SpectrumBarsVisualizer
+from ...visualizers.segmented_spectrum_bars import SegmentedSpectrumBarsVisualizer
+from ...visualizers.matrix_rain import MatrixRainVisualizer
+from ...visualizers.xwing_squadron import XWingSquadronVisualizer
+from ...visualizers.metalwar_credits import MetalWarCreditsVisualizer
 
 
+from ...visualizers.spectrum_neon_city import SpectrumNeonCityVisualizer
 from ...visualizers.cyber_bloom import CyberBloomVisualizer
 from ...visualizers.audio_reactive_reference import AudioReactiveReferenceVisualizer
+from ...visualizers.hyper_torus_raymarch import HyperTorusRaymarchVisualizer
+from ...visualizers.spectrum_panorama import SpectrumPanoramaVisualizer
 from ...visualizers.gpu_canvas import GLVisualizerCanvas
 
 
@@ -171,6 +180,15 @@ class VisualizerModule(ModuleShell):
                 DeepFieldVisualizer(self.surf_w, self.surf_h),
                 ToroidAMPFloorVisualizer(self.surf_w, self.surf_h),
                 ToroidIdentityVisualizer(self.surf_w, self.surf_h),
+                GeometricShapesVisualizer(self.surf_w, self.surf_h),
+                SpectrumBarsVisualizer(self.surf_w, self.surf_h),
+                SegmentedSpectrumBarsVisualizer(self.surf_w, self.surf_h),
+                MatrixRainVisualizer(self.surf_w, self.surf_h),
+                XWingSquadronVisualizer(self.surf_w, self.surf_h),
+                MetalWarCreditsVisualizer(self.surf_w, self.surf_h),
+                HyperTorusRaymarchVisualizer(self.surf_w, self.surf_h),
+                SpectrumPanoramaVisualizer(self.surf_w, self.surf_h),
+                SpectrumNeonCityVisualizer(self.surf_w, self.surf_h),
                 CyberBloomVisualizer(self.surf_w, self.surf_h),
                 AudioReactiveReferenceVisualizer(self.surf_w, self.surf_h),
             ]
