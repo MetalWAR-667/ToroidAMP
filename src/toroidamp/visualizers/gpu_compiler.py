@@ -463,6 +463,22 @@ def _span_in_any(span: Tuple[int, int], spans: List[Tuple[int, int]]) -> bool:
     return False
 
 
+def _is_reassigned_later(name: str, mask: str, from_pos: int) -> bool:
+    """
+    True if `name` is the target of a plain or compound assignment
+    (`name = ...`, `name += ...`, etc., but not `==`/`!=`/`<=`/`>=`)
+    anywhere after `from_pos`. Used to tell a genuine tunable constant
+    declaration (`float glow = 1.5;`, never touched again) apart from a
+    loop accumulator / mutable state variable declared with a literal
+    initial value (`float d = 0.0;` immediately followed by `d += ...`
+    inside a loop) -- the latter must never be promoted into a uniform,
+    since a live-tunable "initial value" silently corrupts the loop the
+    moment it's ever moved off its default.
+    """
+    pattern = re.compile(rf"\b{re.escape(name)}\s*(?:\+=|-=|\*=|/=|=(?!=))")
+    return pattern.search(mask, from_pos) is not None
+
+
 def _generate_runtime_uniform_name(
     kind: str, base_name: str, index: int, existing_names: Set[str]
 ) -> Optional[str]:
@@ -574,6 +590,22 @@ def find_runtime_literal_candidates(
         except ValueError:
             continue
         if abs(value) > _RUNTIME_LITERAL_MAGNITUDE_LIMIT:
+            continue
+        if _is_reassigned_later(name, mask, val_end):
+            # This declaration only looks like a tunable constant -- it's
+            # actually a loop accumulator / mutable state variable (e.g.
+            # `float d = 0.0;` immediately before a raymarch `for` loop
+            # that does `d += ...` every iteration). Promoting its initial
+            # value into a Lab-tunable uniform is a real correctness trap:
+            # at the auto-generated default it's a harmless no-op (the
+            # uniform's default matches the original literal), but the
+            # instant a user drags that slider -- or a MUSICALIZE pass
+            # auto-binds it to an audio source -- the variable's *starting*
+            # value silently shifts every frame, corrupting whatever loop
+            # depended on it starting exactly at that literal (observed:
+            # a raymarch distance/material accumulator initialized this
+            # way). A name that's genuinely just a tuning constant is never
+            # reassigned after its declaration, so require that here.
             continue
 
         local_float_index += 1

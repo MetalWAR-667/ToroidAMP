@@ -260,5 +260,73 @@ class TestAudioReactivityPassthrough(unittest.TestCase):
         self.app.processEvents()
 
 
+class TestNeonCitySpectrumBinSaturation(unittest.TestCase):
+    """Neon City Spectrum's building-height spectrum bin used to depend on
+    both lateral position AND depth (`cell.x` and `cell.y`) -- the depth
+    term saturated it to the same top (usually near-silent) bin for nearly
+    every building past ~22 world units, pinning most of the visible
+    skyline to one frequency regardless of the actual spectrum shape. Fixed
+    to depend on lateral position only, matching Spectrum Panorama's
+    terrain (same reasoning: a stable per-column frequency assignment
+    reads as genuinely reactive; a depth-saturated one reads as static)."""
+
+    @classmethod
+    def setUpClass(cls):
+        fmt = QSurfaceFormat()
+        fmt.setVersion(3, 3)
+        fmt.setProfile(QSurfaceFormat.CoreProfile)
+        QSurfaceFormat.setDefaultFormat(fmt)
+        cls.app = QApplication.instance() or QApplication(sys.argv)
+        cls.canvas = GLVisualizerCanvas()
+        cls.canvas.resize(640, 480)
+        cls.canvas.show()
+        cls.app.processEvents()
+        if not cls.canvas.isValid():
+            raise unittest.SkipTest("requires a live OpenGL context")
+        shader = REPO_ROOT / "src" / "toroidamp" / "assets" / "official_shaders" / "spectrum_neon_city.frag"
+        ok = cls.canvas.load_shader_file(shader)
+        if not ok:
+            raise unittest.SkipTest(f"shader failed to compile: {cls.canvas.last_error_log}")
+
+    @classmethod
+    def tearDownClass(cls):
+        cls.canvas.close()
+
+    def _render(self, spectrum):
+        import time
+        self.canvas._start_time = time.time()
+        self.canvas._last_frame_time = time.time()
+        self.canvas._frame_count = 0
+        frame = AudioFrame(
+            rms=spectrum[0], peak=spectrum[0], bass=spectrum[0], mids=spectrum[0], treble=spectrum[0],
+            spectrum=spectrum, waveform=tuple([0.0] * 128), beat=False, strong_beat=False,
+        )
+        self.canvas.update_audio_frame(frame)
+        self.canvas.update()
+        self.canvas.repaint()
+        return self.canvas.grabFramebuffer()
+
+    def test_distant_skyline_reacts_to_spectrum_shape(self):
+        low_only = tuple([1.0] * 8 + [0.0] * 56)
+        high_only = tuple([0.0] * 56 + [1.0] * 8)
+
+        img_low = self._render(low_only)
+        img_high = self._render(high_only)
+
+        w, h = img_low.width(), img_low.height()
+        diffs = []
+        for x in range(0, w, 4):
+            for y in range(0, int(h * 0.35), 4):  # upper third: distant skyline against sky
+                c1 = img_low.pixelColor(x, y)
+                c2 = img_high.pixelColor(x, y)
+                diffs.append(abs(c1.red() - c2.red()) + abs(c1.green() - c2.green()) + abs(c1.blue() - c2.blue()))
+
+        changed_fraction = sum(1 for d in diffs if d > 15) / len(diffs)
+        self.assertGreater(
+            changed_fraction, 0.2,
+            "distant skyline must visibly change with the spectrum's shape, not just near-camera buildings",
+        )
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -249,7 +249,16 @@ class TestGPUAudio006BRuntimeParameterization(unittest.TestCase):
         from toroidamp.session import SessionManager
 
         win = RetinaMeltWindow(session_manager=SessionManager())
-        shader = REPO_ROOT / "user_shaders" / "shadertoy" / "apollo_spiral" / "apollo_spiral.frag"
+        # apollo_spiral.frag's only literal candidate (`float w = 4.;`) is a
+        # fractal loop-weight accumulator mutated via `w *= l` every
+        # iteration, not a tunable constant -- it's correctly excluded from
+        # promotion now that find_runtime_literal_candidates() checks for
+        # later reassignment (a real bug: promoting it would let a Lab
+        # slider silently corrupt the fractal's starting weight). Use a
+        # shader with a genuine, never-reassigned promotable literal
+        # instead, to keep testing what this test is actually about: the
+        # Lab UI's [AUTO PARAM] badge rendering.
+        shader = REPO_ROOT / "user_shaders" / "shadertoy" / "happy_glow_cruise" / "happy_glow_cruise.frag"
         ok = win.gpu_canvas.load_shader_file(shader)
         self.assertTrue(ok)
         win._local_shader_active = True
@@ -379,6 +388,50 @@ class TestGPUAudio006BRuntimeParameterization(unittest.TestCase):
         src = "void mainImage(out vec4 o, vec2 u) { float d = -9e9; o = vec4(d); }"
         _t, generated = find_runtime_literal_candidates(src, set())
         self.assertEqual(len(generated), 0)
+
+    # -- 30: loop accumulator / mutable state exclusion ---------------------------
+
+    def test_30_reassigned_local_float_is_not_promoted(self):
+        # NEON-CITY-001: `float d = 0.0;` here is a raymarch distance
+        # accumulator mutated every loop iteration (`d += ...`), not a
+        # tunable constant. Promoting it into a uniform is a correctness
+        # trap: at its auto-generated default the promotion is a silent
+        # no-op (matches the original literal), but the instant a user
+        # (or a MUSICALIZE auto-bind) ever moves that "parameter" off its
+        # default, the loop's starting value shifts every frame and
+        # corrupts whatever depended on it starting exactly at 0.0.
+        src = (
+            "void mainImage(out vec4 o, vec2 u) {\n"
+            "    float d = 0.0;\n"
+            "    for (int i = 0; i < 10; i++) { d += 0.1; }\n"
+            "    o = vec4(d);\n"
+            "}\n"
+        )
+        _t, generated = find_runtime_literal_candidates(src, set())
+        self.assertEqual(generated, {}, "a loop-mutated variable must never be promoted")
+
+    def test_31_never_reassigned_local_float_is_still_promoted(self):
+        # A genuine tuning constant (never reassigned after declaration)
+        # must keep being promoted -- test_30's fix must not become
+        # over-broad and suppress legitimate candidates.
+        src = "void mainImage(out vec4 o, vec2 u) { float glow = 1.5; o = vec4(glow); }"
+        _t, generated = find_runtime_literal_candidates(src, set())
+        self.assertEqual(len(generated), 1)
+        p = next(iter(generated.values()))
+        self.assertEqual(p.default_value, 1.5)
+
+    def test_32_compound_assignment_variants_all_excluded(self):
+        for op in ("=", "+=", "-=", "*=", "/="):
+            with self.subTest(op=op):
+                src = (
+                    "void mainImage(out vec4 o, vec2 u) {\n"
+                    "    float w = 4.0;\n"
+                    f"    w {op} 1.0;\n"
+                    "    o = vec4(w);\n"
+                    "}\n"
+                )
+                _t, generated = find_runtime_literal_candidates(src, set())
+                self.assertEqual(generated, {}, f"operator {op} must count as reassignment")
 
     # -- helpers ------------------------------------------------------------------
 

@@ -46,8 +46,14 @@ vec2 city_map(vec3 p) {
         return vec2(dRoad, 0.0); // Road material ID 0
     }
     
-    // Building height determined by spectrum bin corresponding to block distance
-    float binU = clamp(abs(cell.x) * 0.12 + abs(cell.y) * 0.04, 0.0, 1.0);
+    // Building height determined by spectrum bin corresponding to lateral
+    // position -- same axis Spectrum Panorama's terrain uses (uv.x only),
+    // not also mixed with depth (cell.y). Depth-mixing saturated binU to
+    // 1.0 for nearly every building past ~22 world units, permanently
+    // pinning most of the visible skyline to whatever the single highest
+    // (usually near-silent) treble bin was doing -- reading as a mostly
+    // static city even though the height math was technically still live.
+    float binU = clamp(abs(cell.x) * 0.06, 0.0, 1.0);
     float spec = sample_city_spec(binU);
     float h = (0.3 + spec * 2.8 * u_buildingScale) * (0.6 + 0.4 * hash21_city(cell));
     

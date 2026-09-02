@@ -25,6 +25,41 @@ class PlaylistItem:
         return f"{mins:02d}:{secs:02d}"
 
 
+SUPPORTED_AUDIO_EXTENSIONS = {".mp3", ".ogg", ".wav", ".flac", ".mod", ".xm", ".it", ".s3m"}
+
+
+def collect_audio_files(paths: list[str], supported_extensions: set[str] | None = None) -> list[str]:
+    """
+    Deterministically resolves a list of file and directory paths into a flat list
+    of supported audio file paths. Directories are traversed recursively in sorted order.
+    Unsupported extensions or unreadable paths are ignored safely.
+    """
+    if supported_extensions is None:
+        supported_extensions = SUPPORTED_AUDIO_EXTENSIONS
+
+    collected: list[str] = []
+    for raw_path in paths:
+        if not raw_path:
+            continue
+        norm_path = os.path.normpath(raw_path)
+        if not os.path.exists(norm_path):
+            continue
+        if os.path.isdir(norm_path):
+            for root, dirs, files in os.walk(norm_path, topdown=True):
+                dirs.sort()
+                files.sort()
+                for f in files:
+                    ext = os.path.splitext(f)[1].lower()
+                    if ext in supported_extensions:
+                        collected.append(os.path.normpath(os.path.join(root, f)))
+        elif os.path.isfile(norm_path):
+            ext = os.path.splitext(norm_path)[1].lower()
+            if ext in supported_extensions:
+                collected.append(norm_path)
+    return collected
+
+
+
 class PlaylistManager:
     """
     Manages the current session playlist queue independent of decoders or playback state.

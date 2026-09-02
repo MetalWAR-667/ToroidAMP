@@ -19,11 +19,15 @@ from .modules.playlist_module import PlaylistModule
 from .tray import ToroidTrayIcon
 from .neon import ReactiveNeonController
 from .theme import ThemeManager, ThemeDefinition
+from .shortcuts import AppShortcutFilter
+from .media_keys import WindowsGlobalMediaKeys
+from .osd import TrackChangeOSD
 
 from ..audio.player import PlayerEngine, PlaybackState
-from ..audio.playlist import PlaylistManager
+from ..audio.playlist import PlaylistManager, collect_audio_files
 from ..analysis.audio_frame import AnalysisHandoff, AudioFrame
 from ..session import SessionManager, SessionState, WindowPosition, ModulePosition
+
 
 logger = logging.getLogger("toroidamp.ui")
 
@@ -108,11 +112,33 @@ class WindowManager(QWidget):
         self.prior_scale = self.session_state.scale
         self.saved_vis_visible = self.session_state.vis_module.is_visible
         self.saved_pl_visible = self.session_state.pl_module.is_visible
+        self._unmuted_volume: float = self.session_state.volume if self.session_state.volume > 0.001 else 0.8
+
+        # Track Change OSD (UX-005D)
+        self.osd = TrackChangeOSD(parent=self.chassis)
+
         # Apply Restored Session State
         self._apply_restored_session()
 
         # Wire Signals
         self._wire_signals()
+
+        # Application Shortcuts Filter (UX-005A)
+        self.shortcut_filter = AppShortcutFilter(self)
+        app = QApplication.instance()
+        if app is not None:
+            app.installEventFilter(self.shortcut_filter)
+
+        # Windows Global Media Keys (UX-005A)
+        self.global_media_keys = WindowsGlobalMediaKeys(
+            hwnd=int(self.chassis.winId()),
+            on_play_pause=self._toggle_play,
+            on_next=self._play_next,
+            on_prev=self._play_previous,
+            on_stop=self._stop_playback,
+            on_mute=self._toggle_mute,
+        )
+        self.global_media_keys.register()
 
         # Render Loop Timer (~60 FPS)
         self.render_timer = QTimer(self)
@@ -125,6 +151,7 @@ class WindowManager(QWidget):
         self.snap_timer.start(33)
 
         logger.info("WindowManager initialized successfully with session persistence & tray")
+
 
     def _apply_restored_session(self):
         """Restores window positions, modules, volume, playlist, and visualizer state from session."""
@@ -365,6 +392,22 @@ class WindowManager(QWidget):
         self.player_engine.stop()
         self.player_engine.close()
 
+        # Dismiss OSD and unregister global media keys
+        try:
+            self.osd.dismiss()
+        except Exception:
+            pass
+        try:
+            self.global_media_keys.unregister()
+        except Exception:
+            pass
+        app = QApplication.instance()
+        if app is not None:
+            try:
+                app.removeEventFilter(self.shortcut_filter)
+            except Exception:
+                pass
+
         # Explicit GPU resource release while contexts are still current.
         # GLVisualizerCanvas.closeEvent() -- its own explicit cleanupGL()
         # call -- only fires for a *top-level* window being closed; both
@@ -416,6 +459,13 @@ class WindowManager(QWidget):
             self.player_engine.load(filepath)
             self.player_engine.play()
             logger.info(f"Playing: {filepath}")
+
+            # Track Change OSD Notification (UX-005D)
+            item = self.playlist.current_item
+            title = item.title if item else os.path.splitext(os.path.basename(filepath))[0]
+            ext = os.path.splitext(filepath)[1].replace(".", "").upper()
+            if not self.retina_melt.isVisible():
+                self.osd.show_track(title, format_str=ext, reference_widget=self.chassis)
         except Exception as e:
             logger.error(f"Failed to load track '{filepath}': {e}")
 
@@ -457,11 +507,57 @@ class WindowManager(QWidget):
             target_sec = (slider_val / 1000.0) * duration
             self.player_engine.seek(target_sec)
 
+    def _relative_seek(self, delta_seconds: float):
+        """Relative seek delta in seconds (UX-005A)."""
+        dur = self.player_engine.duration
+        if dur > 0.0:
+            target_sec = max(0.0, min(dur, self.player_engine.position + delta_seconds))
+            self.player_engine.seek(target_sec)
+
     def _on_volume_changed(self, vol: float):
         self.player_engine.volume = vol
         self.chassis.set_volume(vol)
         self.retina_melt.set_volume(vol)
         self.session_state.volume = vol
+
+    def _relative_volume(self, delta: float):
+        """Relative volume adjustment (UX-005A)."""
+        new_vol = max(0.0, min(1.0, self.player_engine.volume + delta))
+        self._on_volume_changed(new_vol)
+
+    def _toggle_mute(self):
+        """Toggles audio mute while preserving prior volume level (UX-005A)."""
+        if self.player_engine.volume > 0.001:
+            self._unmuted_volume = self.player_engine.volume
+            self._on_volume_changed(0.0)
+        else:
+            target = getattr(self, "_unmuted_volume", 0.8)
+            if target <= 0.001:
+                target = 0.8
+            self._on_volume_changed(target)
+
+    def _cycle_visualizer(self):
+        """Canonical visualizer switching cycle (UX-005A)."""
+        if len(self.vis_mod.visualizers) > 0:
+            next_idx = (self.vis_mod.vis_idx + 1) % len(self.vis_mod.visualizers)
+            self.vis_mod.vis_idx = next_idx
+            self.vis_mod._update_presentation_mode()
+            self.session_state.selected_visualizer_idx = next_idx
+            if self.retina_melt.isVisible():
+                self.retina_melt.set_visualizer_index(next_idx)
+
+    def _toggle_retina_melt(self):
+        """Toggles fullscreen RETINA MELT experience (UX-005A)."""
+        if self.retina_melt.isVisible():
+            self._exit_retina_melt()
+        else:
+            self._enter_retina_melt()
+
+    def _open_playlist_search(self):
+        """Exposes and focuses quick search in the playlist module (UX-005C)."""
+        if not self.pl_mod.isVisible():
+            self._toggle_pl()
+        self.pl_mod.show_search()
 
     def _on_retina_visualizer_switched(self, index: int):
         self.vis_mod.vis_idx = index
@@ -474,9 +570,29 @@ class WindowManager(QWidget):
     def _on_repeat_toggled(self, enabled: bool):
         self.playlist.repeat = enabled
 
-    def _on_files_dropped(self, filepaths: list[str]):
-        if len(self.playlist) == len(filepaths) and self.player_engine.state == PlaybackState.STOPPED:
+    def _on_files_dropped(self, paths: list[str]):
+        """Enhanced drag & drop handler for files, directories, and playlists (UX-005B)."""
+        was_empty = (len(self.playlist) == 0)
+
+        # 1. Parse and append any dropped M3U/M3U8 playlists
+        m3u_files = [p for p in paths if os.path.isfile(p) and os.path.splitext(p)[1].lower() in {".m3u", ".m3u8"}]
+        for m3u in m3u_files:
+            try:
+                self.playlist.load_m3u(m3u)
+            except Exception as e:
+                logger.warning(f"Failed to load dropped playlist '{m3u}': {e}")
+
+        # 2. Recursively and deterministically collect audio files
+        audio_files = collect_audio_files(paths)
+        if audio_files:
+            self.playlist.add_files(audio_files)
+
+        self.pl_mod.refresh()
+
+        # 3. If playlist was empty and playback stopped, start from the first track
+        if was_empty and len(self.playlist) > 0 and self.player_engine.state == PlaybackState.STOPPED:
             self._play_index(0)
+
 
     def _on_scale_changed(self, new_scale: str):
         if new_scale == "mini":

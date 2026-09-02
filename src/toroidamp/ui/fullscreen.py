@@ -1735,7 +1735,7 @@ class RetinaMeltWindow(QWidget):
         self.showFullScreen()
 
     def keyPressEvent(self, event: QKeyEvent):
-        if event.key() in (Qt.Key_Escape, Qt.Key_F):
+        if event.key() in (Qt.Key_Escape, Qt.Key_F, Qt.Key_F11):
             if self.lab_panel.isVisible():
                 self._close_lab_panel()
             elif self.tune_panel.isVisible():
@@ -1744,7 +1744,7 @@ class RetinaMeltWindow(QWidget):
                 self.exit_requested.emit()
         elif event.key() == Qt.Key_Space:
             self.play_toggled.emit()
-        elif event.key() == Qt.Key_M:
+        elif event.key() == Qt.Key_V:
             self._cycle_visualizer_mode()
         elif event.key() == Qt.Key_T:
             self._toggle_tune_panel()
@@ -1760,6 +1760,7 @@ class RetinaMeltWindow(QWidget):
                 self.show_and_pin_hud()
         else:
             super().keyPressEvent(event)
+
 
     def closeEvent(self, event):
         super().closeEvent(event)
