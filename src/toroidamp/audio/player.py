@@ -600,11 +600,23 @@ class PlayerEngine:
             analysis_pcm[:] = enveloped_pcm[:frames]
         self.handoff.push_audio(analysis_pcm)
 
-        # 8. Soft safety limiter to prevent overs (> 1.0)
-        limited_pcm = apply_safety_limiter(enveloped_pcm)
+        # 8. Apply master user volume (self._volume is normalized [0.0, 1.0],
+        # so it can only reduce magnitude, never introduce new overs -- the
+        # limiter must run on this, the actual final output signal, not on
+        # the pre-volume one. Limiting pre-volume was a real bug: source
+        # material peaking at exactly 1.0 (common -- many masters hit 0
+        # dBFS) triggered the limiter's soft knee unconditionally, shaving
+        # ~1.3% off *every* sample regardless of how low the user's volume
+        # was set -- work the limiter had no reason to do, since a signal
+        # already being scaled down by volume was never going to clip.
+        volume_pcm = enveloped_pcm * self._volume
 
-        # 9. Apply master user volume and copy to output buffer
-        outdata[:] = limited_pcm * self._volume
+        # 9. Soft safety limiter to prevent overs (> 1.0) in the actual
+        # output -- still catches a genuine over from RMS/ReplayGain
+        # leveling gain (applied earlier, in `playback_pcm`) combined with
+        # a high volume setting; just no longer fires needlessly at low
+        # volume or on unboosted full-scale source material.
+        outdata[:] = apply_safety_limiter(volume_pcm)
 
         if num_read > 0:
             self._position_seconds += num_read / float(self._sample_rate)

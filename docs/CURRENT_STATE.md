@@ -27,12 +27,14 @@ Current architectural truth belongs in `ARCHITECTURE.md`.
 ## 2. Project Status
 
 **Project:** ToroidAMP
-**Stage:** Visualizer Roster Expansion (v0.669)
-**Current Phase:** Post-0.667 development
-**Status:** ACTIVE
+**Stage:** Release Gate (v0.669, Windows)
+**Current Phase:** RELEASE-GATE-0.669-WINDOWS
+  - RELEASE-GATE-0.669-WINDOWS: PASS
+**Status:** CLOSED (Next: Metal reviews and publishes)
 **Implementation:** PRODUCTION APPLICATION (`toroidamp` v0.669)
+**v0.669:** READY_FOR_PUBLICATION (Windows only — not yet RELEASED; Linux parity for post-0.667 content is deferred)
 
-v0.667's release-gate/closeout record below is historical (that validation and staging genuinely happened at 0.667); source has since moved on to v0.669, which adds nine new visualizers (see CHANGELOG.md `[0.669]`) and fixes the MetalWar Credits emblem never rendering. The v0.667 archives staged under `release/0.667/` remain exactly as validated — they were not touched by this version bump.
+v0.667's release-gate/closeout record below is historical (that validation and staging genuinely happened at 0.667, and its archives under `release/0.667/` remain exactly as validated, untouched by this version bump). Source has since moved on to v0.669 — nine new visualizers, UX-005 (keyboard shortcuts, global media keys, recursive drag & drop, playlist search, track-change OSD), and DSP-001 (micro-fades, gapless/crossfade, loudness normalization + safety limiter) — see CHANGELOG.md `[0.669]`. Windows artifact gate PASS; Linux remains at v0.667 (post-0.667 content is Windows-only for now, deferred to Linux in a future cut). Two real production bugs were found and fixed during this gate: the MetalWar Credits emblem never rendering (`convert_alpha()` needs a display surface ToroidAMP never opens), and DSP-001C's safety limiter running on the pre-volume signal instead of the actual final output (causing an unintended ~1.3% gain reduction on any track peaking at 1.0, regardless of volume). See the RELEASE-GATE-0.669-WINDOWS report for full detail, including a known, pre-existing, intermittent, test-process-only native GL crash (never reproduced in the shipped artifact) affecting a full local `pytest` run.
 
 ToroidAMP v0.667 native Linux ONEDIR packaging has completed full validation on Ubuntu physical hardware (audio playback, GLSL shaders, Wayland Unified Chassis, non-native dialogs, isolated user paths, and zero source dependencies), and that exact validated artifact has been transferred to the Windows closeout machine and staged for release, unmodified.
 
@@ -442,8 +444,13 @@ RELEASE-CLOSEOUT-0.667 — Final Assembly & Publication   CLOSED
   - Windows archive/checksum: STAGED
   - Linux archive/checksum: STAGED
   - v0.667: READY_FOR_PUBLICATION
+Visualizer Roster Expansion, UX-005, DSP-001 (v0.669)   CLOSED
+RELEASE-GATE-0.669-WINDOWS — Native Windows ONEDIR      PASS
+  - Windows archive/checksum: STAGED (release/0.669/)
+  - Linux: DEFERRED (remains at v0.667)
+  - v0.669: READY_FOR_PUBLICATION (Windows only)
 
-Next: Metal commits pending closeout docs, tags v0.667, publishes the GitHub Release.
+Next: Metal reviews the RELEASE-GATE-0.669-WINDOWS report, commits pending fixes/docs, tags v0.669, publishes the GitHub Release.
 ```
 
 

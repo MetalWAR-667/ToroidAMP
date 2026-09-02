@@ -75,7 +75,12 @@ class TestRCPolish001(unittest.TestCase):
         player._state = PlaybackState.PLAYING
         player._fade_state = FadeState.FADING_IN
         player._fade_envelope = 0.0
-        player.volume = 1.0
+        # DSP-001C's safety limiter (correctly) softens any sample above
+        # 0.95 -- DummyDecoder's raw signal is a constant 1.0, so volume=1.0
+        # would legitimately engage the limiter here, which is about
+        # verifying the fade *envelope* shape, not limiter behavior.
+        # 0.5 keeps every checked value safely under that threshold.
+        player.volume = 0.5
 
         # Read 100 ms (4410 frames) chunk - halfway through 200 ms fade
         outdata = np.zeros((4410, 2), dtype=np.float32)
@@ -83,14 +88,14 @@ class TestRCPolish001(unittest.TestCase):
 
         # Initial frames should be near 0
         self.assertAlmostEqual(outdata[0, 0], 0.0, delta=0.01)
-        # 4410th frame should be approx 0.5
-        self.assertAlmostEqual(outdata[-1, 0], 0.5, delta=0.02)
+        # 4410th frame should be approx half of full gain (0.25)
+        self.assertAlmostEqual(outdata[-1, 0], 0.25, delta=0.02)
         self.assertEqual(player.fade_state, FadeState.FADING_IN)
 
         # Read second 100 ms (4410 frames) chunk - finishes 200 ms fade
         outdata2 = np.zeros((4410, 2), dtype=np.float32)
         player._audio_callback(outdata2, 4410, None, None)
-        self.assertAlmostEqual(outdata2[-1, 0], 1.0, delta=0.01)
+        self.assertAlmostEqual(outdata2[-1, 0], 0.5, delta=0.01)
         self.assertEqual(player.fade_state, FadeState.PLAYING)
 
     def test_02_fade_out_reaches_silence_cleanly(self):
@@ -101,13 +106,14 @@ class TestRCPolish001(unittest.TestCase):
         player._state = PlaybackState.PLAYING
         player._fade_state = FadeState.FADING_OUT
         player._fade_envelope = 1.0
-        player.volume = 1.0
+        # Same DSP-001C limiter-threshold reasoning as test_01 above.
+        player.volume = 0.5
 
         # 200 ms = 8820 frames
         outdata = np.zeros((8820, 2), dtype=np.float32)
         player._audio_callback(outdata, 8820, None, None)
 
-        self.assertAlmostEqual(outdata[0, 0], 1.0, delta=0.01)
+        self.assertAlmostEqual(outdata[0, 0], 0.5, delta=0.01)
         self.assertAlmostEqual(outdata[-1, 0], 0.0, delta=0.01)
         self.assertEqual(player.fade_state, FadeState.IDLE)
         self.assertEqual(player.state, PlaybackState.STOPPED)
@@ -179,10 +185,30 @@ class TestRCPolish001(unittest.TestCase):
     def test_09_mini_normal_retina_use_same_marquee_contract(self):
         chassis = UnifiedChassis()
         melt = RetinaMeltWindow()
-        # All three instantiate MarqueeLabel
-        self.assertIsInstance(chassis.normal_title_marquee, MarqueeLabel)
-        self.assertIsInstance(chassis.mini_title_marquee, MarqueeLabel)
-        self.assertIsInstance(melt.hud_marquee, MarqueeLabel)
+        try:
+            # All three instantiate MarqueeLabel
+            self.assertIsInstance(chassis.normal_title_marquee, MarqueeLabel)
+            self.assertIsInstance(chassis.mini_title_marquee, MarqueeLabel)
+            self.assertIsInstance(melt.hud_marquee, MarqueeLabel)
+        finally:
+            # RetinaMeltWindow owns a live GLVisualizerCanvas (a real
+            # QOpenGLWidget/GL context) -- left uncleaned, its teardown
+            # timing relative to CPython's own GC isn't guaranteed, and a
+            # later test creating its own GL context (e.g.
+            # experiments/gpu_visualizers/lab_app.py's GPUAuthoringLabWindow
+            # in test_release_blockers_001.py) can land mid-teardown and
+            # crash the whole process with a native access violation.
+            # RetinaMeltWindow.closeEvent() does NOT call cleanupGL() itself
+            # (only WindowManager.shutdown() does, explicitly, for this
+            # exact reason) -- close() alone doesn't release the GL
+            # resources deterministically here, so this calls cleanupGL()
+            # directly first, matching production's own shutdown path.
+            try:
+                melt.gpu_canvas.cleanupGL()
+            except Exception:
+                pass
+            melt.close()
+            chassis.close()
 
     # =========================================================================
     # PART C — PANEL TEXT READABILITY PASS
