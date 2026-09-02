@@ -50,11 +50,14 @@ class SessionState:
     scale: str = "normal"  # 'mini' or 'normal'
     volume: float = 0.8
     fade_enabled: bool = True
+    crossfade_duration: float = 0.0  # 0.0 = OFF, 0.5, 1.0, 1.5, 2.0
+    normalization_enabled: bool = False
     shuffle: bool = False
     repeat: bool = False
     selected_visualizer_idx: int = 0
     close_to_tray: bool = True
     theme_id: str = "default"
+
     # Visualizer Settings
     visualizer_parameters: dict[str, dict[str, float]] = field(default_factory=dict) # {vis_id: {param_name: val}}
 
@@ -142,11 +145,14 @@ class SessionManager:
                 scale=data.get("scale", "normal"),
                 volume=max(0.0, min(1.0, float(data.get("volume", 0.8)))),
                 fade_enabled=bool(data.get("fade_enabled", True)),
+                crossfade_duration=max(0.0, min(5.0, float(data.get("crossfade_duration", 0.0)))),
+                normalization_enabled=bool(data.get("normalization_enabled", False)),
                 shuffle=bool(data.get("shuffle", False)),
                 repeat=bool(data.get("repeat", False)),
                 selected_visualizer_idx=int(data.get("selected_visualizer_idx", 0)),
                 close_to_tray=bool(data.get("close_to_tray", True)),
                 theme_id=str(data.get("theme_id", "default")) if str(data.get("theme_id", "default")) in ("default", "cyber_yellow") else "default",
+
                 chassis_pos=WindowPosition(
                     x=int(chassis_d.get("x", 250)),
                     y=int(chassis_d.get("y", 180)),

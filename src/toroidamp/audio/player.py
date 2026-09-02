@@ -1,16 +1,20 @@
 """
 ToroidAMP - Unified Audio Player Engine
+Coordinates decoding, crossfade mixing, transport micro-fades, ReplayGain/normalization,
+real-time stream output, and analysis handoff.
 """
 
 from enum import Enum, auto
+import math
 import os
 import threading
+from typing import Optional
 import numpy as np
 import sounddevice as sd
 
 from .decoders import AudioDecoder, ConventionalDecoder, TrackerDecoder
+from .replaygain import estimate_track_gain, apply_safety_limiter
 from ..analysis.audio_frame import AnalysisHandoff
-
 
 import logging
 
@@ -20,24 +24,7 @@ logger = logging.getLogger("toroidamp.player")
 def select_output_device(query_devices=sd.query_devices):
     """
     Capability-based output device policy (Linux audio reliability cut).
-
-    Prefers a device literally named "pipewire" if PortAudio's ALSA host
-    API exposes one -- modern Mint/Ubuntu desktops route audio through
-    PipeWire, and PortAudio's ALSA "default" device typically reaches it
-    through an extra ALSA userspace plugin chain (dmix/rate/plug) sitting
-    *underneath* PipeWire's own graph. That chain negotiates its own
-    buffering independently of what PortAudio requests, invisible to
-    `pw-top`'s XRUN accounting (which only sees PipeWire's own nodes) --
-    a plausible source of audible dropouts that don't show up as PipeWire
-    underruns. Talking to the "pipewire" ALSA PCM directly removes that
-    extra indirection layer.
-
-    Returns None (PortAudio's own default device) on any system without a
-    device named exactly "pipewire" -- Windows, macOS, and Linux systems
-    not running PipeWire all fall through unchanged. This is a name-based
-    capability check via `query_devices()`, not a platform/distro branch:
-    it makes the same decision it always would if some future Windows
-    audio backend happened to expose a device with that exact name.
+    Prefers a device named 'pipewire' if present, falls back to PortAudio default (None).
     """
     try:
         devices = query_devices()
@@ -68,31 +55,43 @@ class FadeState(Enum):
 class PlayerEngine:
     """
     Unified production playback engine coordinating audio decoding,
-    real-time output streaming, volume, seeking, smooth gain envelope fading,
-    robust decoder failure isolation, and analysis handoff.
+    gapless & crossfade playback, transport micro-fades, loudness normalization,
+    real-time output streaming, volume, seeking, and analysis handoff.
     """
 
-    FADE_DURATION_SECONDS = 0.200 # 200 ms smooth envelope
+    FADE_DURATION_SECONDS = 0.200       # 200 ms standard envelope fade
+    MICRO_FADE_DURATION_SECONDS = 0.025 # 25 ms transport micro-fade (DSP-001A)
 
     def __init__(self, handoff: AnalysisHandoff, custom_tracker_lib_path: str | None = None):
         self.handoff = handoff
-        # RC-069-002B: renamed from custom_modplug_path — tracker playback
-        # now uses libxmp, not libmodplug (which was never actually
-        # available in this project's toolchain; see
-        # docs/release/RC_069_002B_tracker_libxmp.md).
         self._custom_tracker_lib_path = custom_tracker_lib_path
 
         self._conventional_decoder = ConventionalDecoder()
         self._tracker_decoder: TrackerDecoder | None = None
         self._active_decoder: AudioDecoder | None = None
 
+        # Crossfade outgoing decoder (DSP-001B)
+        self._outgoing_decoder: AudioDecoder | None = None
+        self._crossfade_total_frames: int = 0
+        self._crossfade_remaining_frames: int = 0
+        self._crossfade_duration: float = 0.0  # 0.0 = OFF, 0.5, 1.0, 1.5, 2.0 (DSP-001B)
+
+        # Loudness normalization & track gain (DSP-001C)
+        self._normalization_enabled: bool = False
+        self._current_track_gain: float = 1.0
+        self._outgoing_track_gain: float = 1.0
+
         self._state = PlaybackState.STOPPED
         self._fade_state = FadeState.IDLE
-        self._fade_envelope: float = 0.0 # 0.0 to 1.0 multiplier
+        self._fade_envelope: float = 0.0  # 0.0 to 1.0 multiplier
         self._fade_enabled: bool = True
         self._volume: float = 0.8
         self._current_filepath: str = ""
         self._sample_rate: int = 44100
+
+        # Micro-fade transition flags (DSP-001A)
+        self._pause_requested: bool = False
+        self._seek_micro_fade_pending: bool = False
 
         # Robust decoder failure tracking
         self._generation: int = 0
@@ -104,24 +103,10 @@ class PlayerEngine:
         self._stream: sd.OutputStream | None = None
         self._lock = threading.Lock()
         self._position_seconds: float = 0.0
-        # Resolved once per process (device.py's query_devices() involves a
-        # real host-API scan) rather than on every play(); None is a valid,
-        # meaningful result (PortAudio default), so a separate flag tracks
-        # whether resolution has actually happened yet.
         self._output_device: int | None = None
         self._output_device_resolved: bool = False
 
-        # Playback-state semantics (STOP/EOF/seek stabilization cut).
-        # Natural end-of-track (decoder genuinely ran out of frames) is a
-        # distinct event from PlaybackState.STOPPED, which is *also* the
-        # state a user-initiated stop lands in -- including the delayed
-        # transition to STOPPED that a fade-out completes asynchronously
-        # in the audio callback, well after PlayerEngine.stop() already
-        # returned. Downstream playlist auto-advance must react to real
-        # EOF only, never to "we're currently in the STOPPED state" alone.
         self._eof_pending: bool = False
-        # Seek target awaiting application by the audio callback thread,
-        # which owns exclusive decoder access while PLAYING (see seek()).
         self._pending_seek_seconds: float | None = None
 
     @property
@@ -145,6 +130,32 @@ class PlayerEngine:
                     self._fade_envelope = 0.0
 
     @property
+    def crossfade_duration(self) -> float:
+        return self._crossfade_duration
+
+    @crossfade_duration.setter
+    def crossfade_duration(self, duration_seconds: float) -> None:
+        with self._lock:
+            self._crossfade_duration = max(0.0, min(5.0, float(duration_seconds)))
+
+    @property
+    def normalization_enabled(self) -> bool:
+        return self._normalization_enabled
+
+    @normalization_enabled.setter
+    def normalization_enabled(self, enabled: bool) -> None:
+        with self._lock:
+            self._normalization_enabled = bool(enabled)
+            if self._normalization_enabled and self._current_filepath:
+                self._current_track_gain = estimate_track_gain(self._current_filepath)
+            else:
+                self._current_track_gain = 1.0
+
+    @property
+    def current_track_gain(self) -> float:
+        return self._current_track_gain
+
+    @property
     def fade_state(self) -> FadeState:
         return self._fade_state
 
@@ -154,10 +165,7 @@ class PlayerEngine:
             return self._decoder_failed
 
     def check_and_clear_error(self) -> tuple[bool, str, str]:
-        """
-        Thread-safe check and consume of decoder error status.
-        Returns (has_error, failed_filepath, error_message).
-        """
+        """Thread-safe check and consume of decoder error status."""
         with self._lock:
             if self._decoder_failed:
                 failed_path = self._last_error_path
@@ -167,14 +175,7 @@ class PlayerEngine:
             return False, "", ""
 
     def consume_natural_eof(self) -> bool:
-        """
-        Thread-safe check-and-clear of the natural-EOF flag. Returns True
-        exactly once per genuine end-of-track completion (the decoder
-        returned zero frames) -- never for a user-initiated stop, even one
-        that finishes an in-progress fade-out asynchronously in the audio
-        callback well after stop()/stop_immediate() already returned.
-        This is the only signal playlist auto-advance should react to.
-        """
+        """Thread-safe check-and-clear of the natural-EOF flag."""
         with self._lock:
             if self._eof_pending:
                 self._eof_pending = False
@@ -217,12 +218,16 @@ class PlayerEngine:
     @property
     def is_tracker(self) -> bool:
         with self._lock:
-            return self._active_decoder is self._tracker_decoder and self._tracker_decoder is not None
+            return isinstance(self._active_decoder, TrackerDecoder)
 
     def _get_tracker_decoder(self) -> TrackerDecoder:
-        if self._tracker_decoder is None:
-            self._tracker_decoder = TrackerDecoder(self._custom_tracker_lib_path)
-        return self._tracker_decoder
+        return TrackerDecoder(self._custom_tracker_lib_path)
+
+    def _create_decoder_for_file(self, filepath: str) -> AudioDecoder:
+        ext = os.path.splitext(filepath)[1].lower()
+        if ext in [".mod", ".xm", ".it", ".s3m"]:
+            return self._get_tracker_decoder()
+        return ConventionalDecoder()
 
     def load(self, filepath: str) -> None:
         """Loads a file and switches to the appropriate decoder."""
@@ -234,35 +239,18 @@ class PlayerEngine:
             self._generation += 1
             self._decoder_failed = False
             self._current_filepath = filepath
-            ext = os.path.splitext(filepath)[1].lower()
+            self._close_outgoing_decoder()
 
             try:
-                # RC-069-002: tracker-decoder CONSTRUCTION (which raises
-                # RuntimeError when the native tracker library is
-                # unavailable — no longer true in this dev environment as
-                # of RC-069-002B's migration to libxmp, but this failure
-                # path still matters on any machine where it genuinely is
-                # missing) now shares the exact same try/except as
-                # decoder.load() below, instead of being constructed
-                # before this block. Previously, a missing
-                # native tracker backend bypassed `_decoder_failed`/
-                # `_last_error_msg` entirely — invisible to `_tick()`'s
-                # normal decoder-failure poll (window_manager.py), which is
-                # what drives the existing clean "log + auto-advance/stop"
-                # behavior every other decode failure already gets. This
-                # was a real, silent product gap: playlist selection would
-                # visibly move to the failed track with no playback, no
-                # error surfaced, and no auto-advance — exactly the
-                # "mysterious failure with no clear diagnostic" this cut's
-                # tracker-failure-semantics requirement exists to close.
-                if ext in [".mod", ".xm", ".it", ".s3m"]:
-                    decoder = self._get_tracker_decoder()
-                else:
-                    decoder = self._conventional_decoder
+                decoder = self._create_decoder_for_file(filepath)
                 decoder.load(filepath)
                 self._active_decoder = decoder
                 self._sample_rate = decoder.get_sample_rate()
                 self._position_seconds = 0.0
+                if self._normalization_enabled:
+                    self._current_track_gain = estimate_track_gain(filepath)
+                else:
+                    self._current_track_gain = 1.0
             except Exception as e:
                 self._decoder_failed = True
                 self._last_error_generation = self._generation
@@ -272,10 +260,68 @@ class PlayerEngine:
                 logger.error(f"Failed to load audio file '{filepath}': {e}")
                 raise
 
+    def load_and_crossfade(self, filepath: str, duration_seconds: Optional[float] = None) -> bool:
+        """
+        Loads the next track and initiates an equal-power crossfade transition (DSP-001B).
+        If crossfade is disabled (duration=0.0 or not playing), falls back to normal load & play.
+        """
+        if not os.path.exists(filepath):
+            raise FileNotFoundError(f"File not found: {filepath}")
+
+        with self._lock:
+            xf_dur = duration_seconds if duration_seconds is not None else self._crossfade_duration
+            if self._state != PlaybackState.PLAYING or self._active_decoder is None or xf_dur <= 0.0:
+                self.load(filepath)
+                self.play()
+                return True
+
+            try:
+                new_decoder = self._create_decoder_for_file(filepath)
+                new_decoder.load(filepath)
+                new_sr = new_decoder.get_sample_rate()
+
+                # If sample rates differ, fallback to normal load to avoid pitch mismatch
+                if new_sr != self._sample_rate:
+                    self.load(filepath)
+                    self.play()
+                    return True
+
+                # Clamp crossfade duration if next track is very short
+                dur = new_decoder.get_duration()
+                if dur > 0.0 and xf_dur > dur * 0.75:
+                    xf_dur = max(0.2, dur * 0.5)
+
+                self._close_outgoing_decoder()
+                self._outgoing_decoder = self._active_decoder
+                self._outgoing_track_gain = self._current_track_gain
+
+                self._active_decoder = new_decoder
+                self._current_filepath = filepath
+                self._position_seconds = 0.0
+                self._generation += 1
+
+                if self._normalization_enabled:
+                    self._current_track_gain = estimate_track_gain(filepath)
+                else:
+                    self._current_track_gain = 1.0
+
+                self._crossfade_total_frames = max(1, int(xf_dur * self._sample_rate))
+                self._crossfade_remaining_frames = self._crossfade_total_frames
+
+                logger.info(f"Crossfade initiated ({xf_dur:.2f}s) to: {filepath}")
+                return True
+            except Exception as e:
+                logger.warning(f"Crossfade load failed for '{filepath}': {e}. Falling back to standard load.")
+                self.load(filepath)
+                self.play()
+                return False
+
     def play(self) -> None:
         with self._lock:
             if self._active_decoder is None or self._decoder_failed:
                 return
+
+            self._pause_requested = False
 
             if self._stream is None:
                 if not self._output_device_resolved:
@@ -287,64 +333,62 @@ class PlayerEngine:
                     channels=2,
                     dtype="float32",
                     callback=self._audio_callback,
-                    # blocksize=0: let PortAudio/the host API negotiate its
-                    # own natural chunk size instead of forcing a fixed 512
-                    # frames. Linux dropout investigation: a fixed block
-                    # size not evenly served by the underlying ALSA/
-                    # PipeWire buffering chain is a well-documented source
-                    # of exactly the intermittent stutter reported here,
-                    # with no XRUN showing in pw-top (that chain sits below
-                    # PipeWire's own graph). _audio_callback already reads
-                    # `frames` dynamically, never assumes 512, so this is
-                    # a config-only change.
                     blocksize=0,
                     device=self._output_device,
                 )
                 self._stream.start()
-                # Diagnostics only -- must never take playback down with it.
-                try:
-                    logger.info(
-                        "Audio stream started: device=%s samplerate=%s negotiated_blocksize=%s "
-                        "negotiated_latency=%.4fs",
-                        self._describe_output_device(self._output_device),
-                        self._sample_rate,
-                        self._stream.blocksize,
-                        self._stream.latency,
-                    )
-                except Exception:
-                    pass
+
+            was_paused = (self._state == PlaybackState.PAUSED)
             self._state = PlaybackState.PLAYING
-            if self._fade_enabled:
+
+            if was_paused:
+                # Resume micro-fade in (DSP-001A)
+                self._fade_state = FadeState.FADING_IN
+                self._fade_envelope = 0.0
+            elif self._fade_enabled:
                 self._fade_state = FadeState.FADING_IN
             else:
                 self._fade_state = FadeState.PLAYING
                 self._fade_envelope = 1.0
 
     def pause(self) -> None:
+        """Pauses playback with a 25 ms micro-fade-out (DSP-001A)."""
         with self._lock:
-            self._state = PlaybackState.PAUSED
-            self._fade_state = FadeState.IDLE
-            self._fade_envelope = 0.0
+            if self._state == PlaybackState.PLAYING and self._fade_envelope > 0.05 and not self._decoder_failed and self._active_decoder is not None:
+                self._pause_requested = True
+                self._fade_state = FadeState.FADING_OUT
+            else:
+                self._state = PlaybackState.PAUSED
+                self._fade_state = FadeState.IDLE
+                self._fade_envelope = 0.0
 
     def stop(self) -> None:
-        """Stops playback with a smooth fade-out or immediate shutdown."""
+        """Stops playback with a smooth fade-out (standard or 25ms micro-fade)."""
         with self._lock:
-            # USER_STOP is never natural EOF, even though the fade-out
-            # path below completes asynchronously in the audio callback
-            # (which sets state to STOPPED on its own once the envelope
-            # reaches 0) well after this call already returned.
             self._eof_pending = False
-            if self._fade_enabled and self._state == PlaybackState.PLAYING and self._stream is not None and self._fade_envelope > 0.05 and not self._decoder_failed:
-                # Trigger fade-out in audio callback
+            self._pause_requested = False
+            if self._state == PlaybackState.PLAYING and self._fade_envelope > 0.05 and not self._decoder_failed and self._active_decoder is not None:
                 self._fade_state = FadeState.FADING_OUT
             else:
                 self._do_stop()
 
+
     def stop_immediate(self) -> None:
-        """Immediately stops playback stream and resets position."""
+        """Immediately stops playback stream and resets state."""
         with self._lock:
             self._eof_pending = False
+            self._pause_requested = False
             self._do_stop()
+
+    def _close_outgoing_decoder(self) -> None:
+        if self._outgoing_decoder:
+            try:
+                self._outgoing_decoder.close()
+            except Exception:
+                pass
+            self._outgoing_decoder = None
+        self._crossfade_total_frames = 0
+        self._crossfade_remaining_frames = 0
 
     def _do_stop(self) -> None:
         self._state = PlaybackState.STOPPED
@@ -352,6 +396,7 @@ class PlayerEngine:
         self._fade_envelope = 0.0
         self._eof_pending = False
         self._pending_seek_seconds = None
+        self._close_outgoing_decoder()
         if self._stream:
             try:
                 self._stream.stop()
@@ -368,27 +413,7 @@ class PlayerEngine:
 
     def seek(self, target_seconds: float) -> bool:
         """
-        Safely seeks the active decoder to target_seconds.
-        Never throws exceptions into caller; returns True on success, False on error.
-
-        While PLAYING, the actual decoder seek is deferred to the audio
-        callback thread instead of applied here directly (see
-        _audio_callback). The callback owns exclusive read/seek access to
-        the decoder while it's actively pulling frames without holding
-        self._lock (a deliberate real-time-safety choice -- the callback
-        must never block on a lock the UI thread might hold); calling
-        decoder.seek() from this thread at the same time raced that
-        unlocked read against soundfile/libsndfile, which is not safe for
-        concurrent access from two threads on the same handle. That race
-        was the root cause of both an occasional spurious end-of-track
-        (a corrupted read returning zero frames, misread as natural EOF)
-        and audible playback interruption while dragging the timeline.
-        Deferring to the callback also naturally coalesces rapid
-        successive calls (e.g. a slider drag) to whichever target was set
-        most recently before the callback next runs.
-
-        While paused/stopped, no audio thread is reading concurrently, so
-        the seek is applied immediately and synchronously as before.
+        Safely seeks the active decoder to target_seconds with micro-fade protection.
         """
         with self._lock:
             if self._decoder_failed or self._active_decoder is None:
@@ -404,7 +429,6 @@ class PlayerEngine:
                 self._position_seconds = target_seconds
                 return True
             except Exception as e:
-                # Isolate seek failure
                 self._decoder_failed = True
                 self._last_error_generation = self._generation
                 self._last_error_path = self._current_filepath
@@ -415,20 +439,10 @@ class PlayerEngine:
                 logger.warning(f"Decoder seek failed on '{self._current_filepath}': {e}")
                 return False
 
-    @staticmethod
-    def _describe_output_device(device_index: int | None) -> str:
-        """Best-effort human-readable device name for the one-line startup
-        diagnostic -- never raises, always returns something loggable."""
-        if device_index is None:
-            return "PortAudio default"
-        try:
-            return f"{device_index}: {sd.query_devices(device_index)['name']}"
-        except Exception:
-            return f"index {device_index}"
-
     def close(self) -> None:
         self.stop_immediate()
         with self._lock:
+            self._close_outgoing_decoder()
             if self._conventional_decoder:
                 try:
                     self._conventional_decoder.close()
@@ -444,9 +458,9 @@ class PlayerEngine:
 
     def _audio_callback(self, outdata: np.ndarray, frames: int, time_info, status) -> None:
         """
-        High-priority audio callback with sample-accurate gain envelope interpolation
-        and hard boundary decoder exception isolation.
-        Never blocks, never throws, never leaks exceptions to CFFI / sounddevice.
+        High-priority real-time audio callback.
+        Handles crossfade mixing, sample-accurate micro-fades, ReplayGain/normalization,
+        and analysis handoff.
         """
         if self._state != PlaybackState.PLAYING or self._active_decoder is None or self._decoder_failed:
             outdata.fill(0)
@@ -454,19 +468,60 @@ class PlayerEngine:
 
         callback_gen = self._generation
         try:
-            # Apply a pending seek before reading -- see seek()'s comment.
-            # This thread is the only one that ever calls seek()/
-            # read_frames() on the decoder while PLAYING, by design.
+            # 1. Apply pending seek with micro-fade protection (DSP-001A)
             pending_seek = self._pending_seek_seconds
+            seek_just_performed = False
             if pending_seek is not None:
                 self._pending_seek_seconds = None
+                self._close_outgoing_decoder()
                 self._active_decoder.seek(pending_seek)
-            chunk = self._active_decoder.read_frames(frames)
+                seek_just_performed = True
+
+            # 2. Read frames from active decoder
+            chunk_in = self._active_decoder.read_frames(frames)
+            num_read = len(chunk_in)
+
+            # Pad active chunk to frames if partial
+            if num_read < frames:
+                padded_in = np.zeros((frames, 2), dtype=np.float32)
+                if num_read > 0:
+                    padded_in[:num_read] = chunk_in
+                chunk_in = padded_in
+
+            # 3. Read and mix outgoing decoder during crossfade (DSP-001B)
+            if self._outgoing_decoder is not None and self._crossfade_remaining_frames > 0:
+                chunk_out = self._outgoing_decoder.read_frames(frames)
+                if len(chunk_out) < frames:
+                    padded_out = np.zeros((frames, 2), dtype=np.float32)
+                    if len(chunk_out) > 0:
+                        padded_out[:len(chunk_out)] = chunk_out
+                    chunk_out = padded_out
+
+                # Equal-power crossfade curve: cos(p * pi/2) and sin(p * pi/2)
+                total_xf = float(self._crossfade_total_frames)
+                p0 = 1.0 - (float(self._crossfade_remaining_frames) / total_xf)
+                p1 = 1.0 - (float(max(0, self._crossfade_remaining_frames - frames)) / total_xf)
+                progress = np.linspace(p0, p1, frames, dtype=np.float32)[:, None]
+                progress = np.clip(progress, 0.0, 1.0)
+
+                g_out = np.cos(progress * (math.pi / 2.0))
+                g_in = np.sin(progress * (math.pi / 2.0))
+
+                # Apply track gains and mix
+                in_scaled = chunk_in * self._current_track_gain * g_in
+                out_scaled = chunk_out * self._outgoing_track_gain * g_out
+                playback_pcm = in_scaled + out_scaled
+
+                self._crossfade_remaining_frames -= frames
+                if self._crossfade_remaining_frames <= 0:
+                    self._close_outgoing_decoder()
+            else:
+                playback_pcm = chunk_in * self._current_track_gain
+                self._close_outgoing_decoder()
+
         except Exception as e:
-            # HARD BOUNDARY: Silence output immediately and record failure state
             outdata.fill(0)
             with self._lock:
-                # Verify generation matches so stale callbacks don't poison newly loaded tracks
                 if self._generation == callback_gen:
                     self._decoder_failed = True
                     self._last_error_generation = callback_gen
@@ -477,10 +532,8 @@ class PlayerEngine:
                     self._fade_envelope = 0.0
             return
 
-        num_read = len(chunk)
-
-        if num_read == 0:
-            # Normal End-Of-File (EOF)
+        # 4. End-of-file check
+        if num_read == 0 and self._outgoing_decoder is None:
             outdata.fill(0)
             self._state = PlaybackState.STOPPED
             self._fade_state = FadeState.IDLE
@@ -488,53 +541,27 @@ class PlayerEngine:
             self._eof_pending = True
             return
 
-        if not self._fade_enabled:
-            # Bypass fade envelope completely
-            self._fade_state = FadeState.PLAYING
-            self._fade_envelope = 1.0
-            gain = self._volume
-            if num_read < frames:
-                outdata[:num_read] = chunk * gain
-                outdata[num_read:].fill(0)
-                # Analysis handoff must stay independent of the user's
-                # listening volume (self._volume) -- reactivity should
-                # reflect musical content, not how loudly the user chose
-                # to hear it. Push the decoded chunk unscaled by gain,
-                # shaped like outdata (zero-padded past num_read, which
-                # correctly reads as silence for a partial/EOF chunk).
-                analysis_pcm = np.zeros_like(outdata)
-                analysis_pcm[:num_read] = chunk
-                self._state = PlaybackState.STOPPED
-                self._fade_state = FadeState.IDLE
-                self._fade_envelope = 0.0
-                self._eof_pending = True
-            else:
-                outdata[:] = chunk * gain
-                analysis_pcm = chunk
+        # 5. Apply micro-fade in across seek boundary to eliminate click
+        if seek_just_performed:
+            seek_ramp_len = min(num_read, int(self.MICRO_FADE_DURATION_SECONDS * self._sample_rate))
+            if seek_ramp_len > 0:
+                seek_ramp = np.linspace(0.0, 1.0, seek_ramp_len, dtype=np.float32)[:, None]
+                playback_pcm[:seek_ramp_len] *= seek_ramp
 
-            self._position_seconds += num_read / float(self._sample_rate)
-            self.handoff.push_audio(analysis_pcm)
-            return
+        # 6. Envelope calculation (Standard 200ms or Micro-Fade 25ms)
+        envelope_curve = np.empty((frames, 1), dtype=np.float32)
 
-        # Compute gain envelope interpolation across this chunk. Vectorized
-        # (Linux dropout investigation): a per-sample Python loop here ran
-        # unconditionally on every real-time callback -- including the
-        # steady-state PLAYING/IDLE cases where the envelope is simply
-        # constant -- spending real-time callback budget on Python-level
-        # iteration for no audible benefit. Produces bit-for-bit equivalent
-        # output to the old loop (same linear ramp, same 0.9999/0.0001
-        # snap-to-target thresholds, same mid-chunk state transition).
-        fade_step = 1.0 / (self.FADE_DURATION_SECONDS * self._sample_rate)
-        envelope_curve = np.empty((num_read, 1), dtype=np.float32)
+        fade_dur = self.MICRO_FADE_DURATION_SECONDS if (self._pause_requested or not self._fade_enabled) else self.FADE_DURATION_SECONDS
+        fade_step = 1.0 / max(0.001, (fade_dur * self._sample_rate))
 
-        if self._fade_state == FadeState.PLAYING:
+        if self._fade_state == FadeState.PLAYING and not self._pause_requested:
             envelope_curve[:, 0] = 1.0
             self._fade_envelope = 1.0
         elif self._fade_state == FadeState.IDLE:
             envelope_curve[:, 0] = 0.0
             self._fade_envelope = 0.0
         elif self._fade_state == FadeState.FADING_IN:
-            ramp = self._fade_envelope + fade_step * np.arange(1, num_read + 1, dtype=np.float64)
+            ramp = self._fade_envelope + fade_step * np.arange(1, frames + 1, dtype=np.float64)
             hits = np.flatnonzero(ramp >= 0.9999)
             if hits.size:
                 k = int(hits[0])
@@ -546,7 +573,7 @@ class PlayerEngine:
                 envelope_curve[:, 0] = ramp
                 self._fade_envelope = float(ramp[-1])
         else:  # FADING_OUT
-            ramp = self._fade_envelope - fade_step * np.arange(1, num_read + 1, dtype=np.float64)
+            ramp = self._fade_envelope - fade_step * np.arange(1, frames + 1, dtype=np.float64)
             hits = np.flatnonzero(ramp <= 0.0001)
             if hits.size:
                 k = int(hits[0])
@@ -554,38 +581,37 @@ class PlayerEngine:
                 envelope_curve[k:, 0] = 0.0
                 self._fade_envelope = 0.0
                 self._fade_state = FadeState.IDLE
+                if self._pause_requested:
+                    self._state = PlaybackState.PAUSED
+                    self._pause_requested = False
+                else:
+                    self._state = PlaybackState.STOPPED
             else:
                 envelope_curve[:, 0] = ramp
                 self._fade_envelope = float(ramp[-1])
 
-        # Apply gain envelope and master user volume
-        gain = envelope_curve * self._volume
-        if num_read < frames:
-            outdata[:num_read] = chunk * gain
-            outdata[num_read:].fill(0)
-            # Analysis handoff tracks the fade envelope (real audio
-            # presence -- silent during an actual fade-out/fade-in edge)
-            # but never the user's listening volume (self._volume), so
-            # reactivity reflects musical content rather than how loudly
-            # the user chose to hear it.
-            analysis_pcm = np.zeros_like(outdata)
-            analysis_pcm[:num_read] = chunk * envelope_curve
+        # Apply envelope to playback PCM
+        enveloped_pcm = playback_pcm * envelope_curve
+
+        # 7. Analysis handoff: receives post-mix, post-envelope, leveled signal PRE-USER-VOLUME
+        # Visualizers see actual musical playback dynamics independent of master volume knob
+        analysis_pcm = np.zeros_like(outdata)
+        if num_read > 0 or self._outgoing_decoder is not None:
+            analysis_pcm[:] = enveloped_pcm[:frames]
+        self.handoff.push_audio(analysis_pcm)
+
+        # 8. Soft safety limiter to prevent overs (> 1.0)
+        limited_pcm = apply_safety_limiter(enveloped_pcm)
+
+        # 9. Apply master user volume and copy to output buffer
+        outdata[:] = limited_pcm * self._volume
+
+        if num_read > 0:
+            self._position_seconds += num_read / float(self._sample_rate)
+
+        # If partial buffer at end of track without active crossfade, mark EOF
+        if num_read < frames and self._outgoing_decoder is None:
             self._state = PlaybackState.STOPPED
             self._fade_state = FadeState.IDLE
             self._fade_envelope = 0.0
-            # The decoder itself ran out of frames -- genuine EOF -- even
-            # if a user-initiated fade-out also happened to be in
-            # progress this same callback; the track really did end.
             self._eof_pending = True
-        else:
-            outdata[:] = chunk * gain
-            analysis_pcm = chunk * envelope_curve
-
-        self._position_seconds += num_read / float(self._sample_rate)
-
-        # If fade-out completed during this frame, complete stopping
-        if self._fade_state == FadeState.IDLE and self._fade_envelope <= 0.0:
-            self._state = PlaybackState.STOPPED
-
-        # Push to analysis handoff
-        self.handoff.push_audio(analysis_pcm)

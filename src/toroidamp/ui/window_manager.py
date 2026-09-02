@@ -160,8 +160,11 @@ class WindowManager(QWidget):
         # 1. Restore Volume & Playback Settings
         self.player_engine.volume = st.volume
         self.player_engine.fade_enabled = getattr(st, "fade_enabled", True)
+        self.player_engine.crossfade_duration = getattr(st, "crossfade_duration", 0.0)
+        self.player_engine.normalization_enabled = getattr(st, "normalization_enabled", False)
         self.chassis.set_volume(st.volume)
         self.chassis.chip_fade.setChecked(self.player_engine.fade_enabled)
+
 
         # 2. Restore Shuffle / Repeat
         self.playlist.shuffle = st.shuffle
@@ -328,9 +331,12 @@ class WindowManager(QWidget):
         st.theme_id = self.theme_manager.active_theme_id
         st.volume = self.player_engine.volume
         st.fade_enabled = self.player_engine.fade_enabled
+        st.crossfade_duration = self.player_engine.crossfade_duration
+        st.normalization_enabled = self.player_engine.normalization_enabled
         st.shuffle = self.playlist.shuffle
         st.repeat = self.playlist.repeat
         st.selected_visualizer_idx = self.vis_mod.vis_idx
+
 
         # Chassis position
         cp = self.chassis.pos()
@@ -453,11 +459,14 @@ class WindowManager(QWidget):
         QApplication.quit()
 
 
-    def load_and_play(self, filepath: str):
-        """Loads and starts playing a track."""
+    def load_and_play(self, filepath: str, use_crossfade: bool = True):
+        """Loads and starts playing a track (with seamless crossfade if active)."""
         try:
-            self.player_engine.load(filepath)
-            self.player_engine.play()
+            if use_crossfade and self.player_engine.crossfade_duration > 0.0 and self.player_engine.state == PlaybackState.PLAYING:
+                self.player_engine.load_and_crossfade(filepath)
+            else:
+                self.player_engine.load(filepath)
+                self.player_engine.play()
             logger.info(f"Playing: {filepath}")
 
             # Track Change OSD Notification (UX-005D)
@@ -468,6 +477,7 @@ class WindowManager(QWidget):
                 self.osd.show_track(title, format_str=ext, reference_widget=self.chassis)
         except Exception as e:
             logger.error(f"Failed to load track '{filepath}': {e}")
+
 
     def _play_index(self, index: int):
         self.playlist.current_index = index

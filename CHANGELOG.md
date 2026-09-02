@@ -12,9 +12,18 @@ briefly got ahead of itself before Linux support, packaging, and basic UX
 polish actually existed; the version number now reflects that honestly.
 Progress will resume when morale improves.
 
-## [0.669] — Visualizer Roster Expansion
+## [0.669] — Visualizer Roster Expansion, Daily-Use UX & DSP Foundation
 
 ### Added
+- **Daily-Use UX Improvements (UX-005)**:
+  - **Input & Media Controls (UX-005A)**: Focused keyboard shortcuts (`Space` for Play/Pause, `Left`/`Right` for ±5s seek, `Up`/`Down` for ±5% volume, `M` for Mute/Unmute toggle, `V` for visualizer mode cycle, `F11` for RETINA MELT fullscreen) with strict input isolation for editable text widgets (`QLineEdit`, `QTextEdit`, etc.) and native Windows global media key integration (`RegisterHotKey` / `QAbstractNativeEventFilter` for hardware Play/Pause, Next, Prev, Stop, Mute).
+  - **Enhanced Drag & Drop (UX-005B)**: Recursive, deterministic directory traversal and format-safe drop handling for chassis and Playlist module (supporting single/multiple audio files, nested directories, and `.m3u`/`.m3u8` playlists).
+  - **Playlist Quick Search (UX-005C)**: `Ctrl+F` incremental search bar in Playlist module with view-only filtering, canonical index binding via `Qt.UserRole`, seamless double-click/delete operations on filtered rows, and full playlist restoration on `Escape`.
+  - **Track Change OSD (UX-005D)**: Compact, transient, non-focus-stealing on-screen display (`TrackChangeOSD`) displaying track title and format badge (`XM`, `MOD`, `MP3`, `FLAC`, etc.) with in-place rapid updates and ~2.5s auto-dismissal.
+- **Playback Continuity, Crossfade & Loudness Foundation (DSP-001)**:
+  - **Transport Micro-Fades (DSP-001A)**: 25 ms sample-accurate gain ramps on Pause, Stop, and Seek to eliminate digital clicks and pops without blocking the UI thread, losing decoder position, or disturbing volume-independent visualizer reactivity.
+  - **Gapless & Crossfade Playback (DSP-001B)**: Seamless gapless transitions at natural EOF and configurable equal-power crossfading (`OFF`, `0.5s`, `1.0s`, `1.5s`, `2.0s`) with multi-decoder mixing, short-track clamping, and pre-user-volume mixed visualizer handoff.
+  - **Loudness Normalization & Safety Limiter (DSP-001C)**: Optional ReplayGain tag extraction, conservative fallback RMS leveling ($[-6.0\text{ dB}, +6.0\text{ dB}]$), transparent soft-knee safety limiter for peaks $> 0.95$ strictly bounded to $(-1.0, 1.0)$ with zero clipping, and session persistence for DSP preferences.
 - Nine new visualizers, cycled the same way as every existing one:
   - **Geometric Morph** — 3D wireframe mesh morphing with parametric shape blending, plasma-colored edges, and particle spark ejection on transients.
   - **Matrix Rain** — code rain where each column is a live readout of one frequency band; a column's head glows white-hot and the whole stream falls faster with the music.
@@ -25,10 +34,12 @@ Progress will resume when morale improves.
 
 ### Changed
 - **Deep Field** reworked into a hyperspace warp tunnel: stars now project as a radial 3D field with long luminous warplines that accelerate outward, strong beats trigger a hyperspace "jump" flash with chromatic fringe, and the field keeps a steady cruise during silence instead of fully stopping.
+- **Neon City Spectrum**: Added multi-colored cyberpunk glowing neon windows (Electric Cyan, Hot Magenta, Amber Gold, Acid Mint, Violet, Ice White) and symmetric lateral column mapping for balanced frequency reactivity across both sides of the central boulevard.
 
 ### Fixed
+- **Neon City Spectrum Glitches & Rooftop Artifacts**: Replaced discontinuous distance metric with exact Euclidean 3D box SDF eliminating raymarching overshoots/tearing on bass spikes, fixed rooftop edge halo calculation to follow real building heights, and resolved first-block lateral asymmetry.
 - The MetalWar Credits visualizer's emblem (`assets/images/metalwar.png`) never actually rendered — it silently fell back to a plain circle every time. Root cause: loading it called `Surface.convert_alpha()` unconditionally, which requires an active pygame display surface; ToroidAMP never opens one (CPU visualizers render off-screen for Qt, not to a real pygame window), so the call always raised `No convert format has been set`, silently swallowed by a bare exception handler. Now only converts when a display surface actually exists, matching the same fix already used by the X-Wing Squadron visualizer's own logo loading.
-- Neon City Spectrum's buildings looked almost entirely static regardless of the music. Root cause: each building's height sampled a spectrum bin chosen by *both* its lateral position and its depth down the boulevard; the depth term saturated to the clamp ceiling past ~22 world units, permanently pinning nearly every visible building to the same (usually near-silent) top frequency bin. The bin is now chosen by lateral position only, the same axis Spectrum Panorama's terrain already used — every building in a lateral "column" now tracks one stable frequency the way panorama's terrain does, instead of the skyline collapsing to a single frozen bin a short distance from the camera.
+
 - A theme stylesheet syntax error (`color: ##00ff00;`, a stray extra `#`) in the default theme's `theme.qss` made Qt's CSS parser reject the *entire* stylesheet, logging `Could not parse stylesheet` for every widget it was applied to (NORMAL's core widget, Playlist, Visualizer) and silently dropping all of that stylesheet's rules everywhere.
 - The GLSL Lab's automatic parameter-discovery system could mistake a shader's own internal loop state (e.g. a raymarch distance accumulator declared `float d = 0.0;` immediately before a `for` loop that does `d += ...` every iteration) for a genuine tunable constant, exposing it as a Lab slider. At its auto-generated default this was a harmless no-op, but moving that slider even once — or an automatic "MUSICALIZE" audio-binding pass — would silently corrupt the loop's starting value every frame. Affected at least two shipped shaders (Neon City Spectrum's raymarch `d`/`matId`, and the bundled `apollo_spiral` sample's fractal weight `w`). Parameter discovery now checks whether a candidate variable is reassigned anywhere later in the shader before promoting it; genuine constants (never reassigned) are unaffected.
 

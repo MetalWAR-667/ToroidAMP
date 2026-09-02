@@ -4,6 +4,7 @@ Provides global multimedia key support (Play/Pause, Next, Previous, Stop, Mute)
 on Windows via RegisterHotKey and QAbstractNativeEventFilter without third-party dependencies.
 """
 
+import os
 import sys
 import time
 import logging
@@ -71,7 +72,7 @@ class WindowsGlobalMediaKeys(QAbstractNativeEventFilter):
 
     def register(self) -> bool:
         """Registers global hotkeys on Windows."""
-        if sys.platform != "win32" or not self._hwnd:
+        if sys.platform != "win32" or not self._hwnd or os.environ.get("QT_QPA_PLATFORM") == "offscreen":
             return False
 
         try:
@@ -167,7 +168,10 @@ class WindowsGlobalMediaKeys(QAbstractNativeEventFilter):
 
     def nativeEventFilter(self, event_type, message):
         """Intercepts Windows native messages for WM_HOTKEY and WM_APPCOMMAND."""
-        if event_type == b"windows_generic_MSG" and self._is_active:
+        if os.environ.get("QT_QPA_PLATFORM") == "offscreen" or not self._is_active:
+            return False, 0
+
+        if event_type == b"windows_generic_MSG":
             try:
                 import ctypes
                 from ctypes import wintypes
@@ -182,7 +186,11 @@ class WindowsGlobalMediaKeys(QAbstractNativeEventFilter):
                         ("pt", wintypes.POINT),
                     ]
 
-                msg = MSG.from_address(int(message))
+                msg_ptr = int(message)
+                if not msg_ptr:
+                    return False, 0
+
+                msg = MSG.from_address(msg_ptr)
 
                 if msg.message == WM_HOTKEY:
                     hk_id = int(msg.wParam)

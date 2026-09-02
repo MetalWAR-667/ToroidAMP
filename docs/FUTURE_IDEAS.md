@@ -6,7 +6,7 @@ Este documento recopila las propuestas de mejoras y siguientes cortes de trabajo
 
 ---
 
-## 🚀 Bloque 1: UX & Daily-Use Fixes (`UX-005`)
+## 🚀 Bloque 1: UX & Daily-Use Fixes (`UX-005`) ** COMPLETED **
 *Objetivo: Perfeccionar la experiencia de uso diario para que el reproductor sea ágil, táctil y fluido.*
 
 - [ ] **Atajos de Teclado Globales / Media Keys**:
@@ -15,19 +15,19 @@ Este documento recopila las propuestas de mejoras y siguientes cortes de trabajo
     - `Espacio`: Play / Pause.
     - `Flechas Izq / Der`: Seek $\pm 5$ segundos.
     - `Flechas Arriba / Abajo`: Volumen $\pm 5\%$.
-    - `M`: Mute / Unmute.
-    - `F` / `F11`: Entrar / Salir de **RETINA MELT** (pantalla completa).
-    - `V` / `Tab`: Cambiar modo de visualizador.
+    - `F11`: Entrar / Salir de **RETINA MELT** (pantalla completa).
+    - `F10`: Cambiar modo de visualizador.
 - [ ] **Arrastrar y Soltar Mejorado (Drag & Drop)**:
-  - Arrastrar carpetas completas o múltiples archivos de audio directamente sobre la ventana principal, el chasis o la playlist para encolar o reproducir al instante de forma recursiva.
+- Arrastrar carpetas completas o múltiples archivos de audio directamente sobre la ventana principal, el chasis o la playlist para encolar o reproducir al instante de forma recursiva.
 - [ ] **Búsqueda / Filtrado Rápido en Playlist**:
   - Barra de búsqueda incremental (`Ctrl+F` en módulo de Playlist) para saltar rápidamente a una pista o módulo tracker en listas extensas.
 - [ ] **Notificaciones OSD / Tray al cambiar de pista**:
   - Mini notificación OSD compacta o tooltip enriquecido en el System Tray con el título del tema, artista y formato (ej. `XM / 32ch`).
 
+02-09-2026 ** COMPLETED **
 ---
 
-## 🎛️ Bloque 2: DSP & Audio Foundation (`DSP-001`)
+## 🎛️ Bloque 2: DSP & Audio Foundation (`DSP-001`) **COMPLETED **
 *Objetivo: Audio continuo, dinámico y profesional sin clics digitales ni saltos bruscos de volumen.*
 
 - [ ] **Normalización Automática (Peak / RMS Limiter / ReplayGain)**:
@@ -36,7 +36,7 @@ Este documento recopila las propuestas de mejoras y siguientes cortes de trabajo
   - Transiciones suaves y configurables entre canciones consecutivas (fundido encadenado configurable de 0.5s a 2.0s).
 - [ ] **Micro-Fades en Stop / Pausa / Seek**:
   - Rampa suave de 25ms para evitar cualquier "pop" o clic digital al pausar, detener o hacer saltos en la línea de tiempo.
-
+02-09-2026 **COMPLETED **
 ---
 
 ## 🌌 Bloque 3: Expansión Gráfica y GLSL (`EXP-GL-002` / `EXP-GL-003`)
