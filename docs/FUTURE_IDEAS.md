@@ -65,3 +65,53 @@ Este documento recopila las propuestas de mejoras y siguientes cortes de trabajo
   - Modo reactivo de sobrecarga: distorsión cromática agresiva, temblor de pantalla (CRT jitter) y shockwaves térmicos cuando la pista tiene un ritmo continuo muy alto (`taStrongBeat` + `taBass` saturado).
 - [ ] **Skin / Tema Estilo Cyberpunk Clásico (John Pondsmith tribute)**:
   - Tema cromático oscuro con acentos ámbar/neón de terminal militar retro.
+
+---
+
+## 🖥️ Bloque 5: Soporte Multipantalla (`MULTI-SCREEN`)
+*Objetivo: que RETINA MELT sepa en qué pantalla vive, y más adelante, separar salida visual y controles.*
+
+> Estado actual (2026-10-15): `ui/fullscreen.py::show_fullscreen_experience()` usa siempre `QGuiApplication.primaryScreen()`.
+
+- [ ] **Nivel 1 — Elegir pantalla** *(barato, recomendado primero)*:
+  - RETINA MELT se abre en la pantalla donde está el reproductor (`self.screen()` / `QGuiApplication.screenAt(...)`), no en la principal.
+  - Submenú opcional "Abrir en pantalla: 1, 2…" persistido en sesión.
+  - Persistir por `QScreen.name()` / `serialNumber()`, nunca por índice (Windows reordena al desconectar monitores).
+- [ ] **Nivel 2 — Modo VJ** *(requiere documento de diseño previo)*:
+  - Visual limpio fullscreen en monitor 2 (proyector/TV); HUD, TUNE y LAB en monitor 1.
+  - Ideal para editar shaders en el Lab viendo el resultado en otra pantalla.
+  - Implica separar `fullscreen.py` en **ventana de salida** (consumidor puro: `AudioFrame` + parámetros → pinta) y **panel de control**. Aplicación directa de "el renderer es un consumidor de datos".
+- [ ] **Nivel 3 — Varias salidas simultáneas** *(cada variante es una decisión aparte)*:
+  - Espejo: mismo visual en todas las pantallas.
+  - Uno por pantalla: visualizador distinto en cada monitor.
+  - Lienzo extendido: un único visual repartido entre monitores.
+  - Prerrequisito: **un solo análisis de audio, N consumidores** (verificar que `AudioFrame` no se calcula por ventana).
+
+**Riesgos técnicos a tener en cuenta:**
+- **DPI / escalado (posible bug actual, sin verificar):** `geometry()` devuelve píxeles lógicos; con escalado 150 % la superficie se crea a resolución lógica y se escala → visual borroso. Multiplicar por `devicePixelRatio()`.
+- **Desconexión en caliente:** escuchar `screenRemoved` y recolocar RETINA MELT en una pantalla existente.
+- **Tasas de refresco distintas** (60 / 144 Hz): el timer de render no debe atarse a una pantalla concreta.
+- **Wayland:** el compositor decide la colocación; el fullscreen en pantalla concreta suele funcionar, las ventanas libres no.
+- **Coste CPU:** la vía pygame a fullscreen en varias pantallas 4K multiplica la copia por frame (relacionado con decisión P-B de `investigations/06_dependency_audit.md`).
+
+---
+
+## ✨ Bloque 6: Ideas Sueltas (semillas)
+
+- [ ] **Transiciones sincronizadas al beat**: cambio de visualizador en un strong beat, no a mitad de compás. Depende de la futura Rhythm Analysis Foundation.
+- [ ] **Playlists de visuales / Modo Fiesta**: lista de presets que rota por pista o cada N compases, sin intervención.
+- [ ] **Grabación a vídeo de RETINA MELT**: frames + audio vía `ffmpeg` como ejecutable externo opcional (sin dependencia Python nueva). Útil para material de YouTube.
+- [ ] **HUD de información tracker en tiempo real**: patrón, fila y BPM actuales. libxmp ya los expone en `xmp_frame_info` (`pos`, `row`, `bpm`) — requiere verificar sus offsets igual que `time`/`total_time`.
+- [ ] **Shader/preset por canción**: asociar un preset a cada pista y guardarlo junto a la playlist.
+
+---
+
+## 🌐 Bloque 7: RETINA MELT Web (semilla lejana, fuera de V1)
+
+*No es "ToroidAMP en WebAssembly": portar la app Python/PySide6 tal cual sería casi reescribirla (PortAudio, `ctypes`/libxmp, tray, modo MINI, media keys y pyttsx3 no existen en navegador).*
+
+- [ ] **Producto independiente**: TypeScript + Web Audio + WebGL2 + reproductor tracker en WASM (libxmp o libopenmpt), cargando los mismos `.frag` y presets JSON. Escaparate: arrastrar un `.xm` y derretir la retina.
+- **Higiene que ya conviene mantener (sin cambiar scope):**
+  - Shaders oficiales compatibles con GLSL ES 3.0 (sin extensiones exclusivas de OpenGL de escritorio).
+  - `AudioFrame` y formato de presets como datos puros y documentados: son el contrato que compartirían ambos productos.
+  - Cuanto más visual viva en GLSL y menos en pygame, más portable (relacionado con P-B).
