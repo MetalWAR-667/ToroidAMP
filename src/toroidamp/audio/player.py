@@ -191,6 +191,12 @@ class PlayerEngine:
         self._volume = max(0.0, min(1.0, float(val)))
 
     @property
+    def has_loaded_track(self) -> bool:
+        """True once a decoder has been loaded for a track (played or not)."""
+        with self._lock:
+            return self._active_decoder is not None
+
+    @property
     def current_track_title(self) -> str:
         with self._lock:
             if self._active_decoder and not self._decoder_failed:

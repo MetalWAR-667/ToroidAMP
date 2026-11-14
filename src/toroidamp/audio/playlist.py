@@ -119,6 +119,24 @@ class PlaylistManager:
         if self._shuffle:
             random.shuffle(self._shuffle_order)
 
+    def get_initial_playback_index(self) -> Optional[int]:
+        """
+        Resolves the index that initial playback should start from.
+
+        Shuffle OFF: the first canonical playlist item.
+        Shuffle ON: the first item in the active shuffle order.
+
+        Returns None for an empty playlist. This is a read-only query:
+        it never rebuilds the shuffle order, so resolving the start of
+        playback cannot reshuffle a sequence the user is already
+        navigating.
+        """
+        if not self._items:
+            return None
+        if self._shuffle and len(self._shuffle_order) == len(self._items):
+            return self._shuffle_order[0]
+        return 0
+
     def sanitize(self) -> list[str]:
         """
         Validates all current entries in the playlist.
@@ -199,6 +217,11 @@ class PlaylistManager:
         if len(self._items) == 0:
             return None
 
+        # No track selected yet (startup / fresh queue): Next begins at the
+        # same place initial Play does, honoring shuffle.
+        if self._current_index == -1:
+            return self.get_initial_playback_index()
+
         if self._shuffle and len(self._shuffle_order) == len(self._items):
             try:
                 curr_pos = self._shuffle_order.index(self._current_index)
@@ -223,6 +246,11 @@ class PlaylistManager:
         """Calculates the previous track index."""
         if len(self._items) == 0:
             return None
+
+        # No track selected yet (startup / fresh queue): Previous begins at
+        # the same place initial Play does, honoring shuffle.
+        if self._current_index == -1:
+            return self.get_initial_playback_index()
 
         if self._shuffle and len(self._shuffle_order) == len(self._items):
             try:

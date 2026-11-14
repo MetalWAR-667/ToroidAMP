@@ -492,11 +492,18 @@ class WindowManager(QWidget):
         elif self.player_engine.state == PlaybackState.PAUSED:
             self.player_engine.play()
         elif self.player_engine.state == PlaybackState.STOPPED:
+            # Initial playback (no decoder loaded yet) starts at the
+            # beginning of the ACTIVE playback order -- shuffle-aware --
+            # instead of always canonical playlist index 0. Once a track
+            # has actually been loaded, Play resumes/replays that track so
+            # explicit selection (and Stop) keep their existing meaning.
             item = self.playlist.current_item
-            if item:
+            if item is not None and self.player_engine.has_loaded_track:
                 self.load_and_play(item.filepath)
-            elif len(self.playlist) > 0:
-                self._play_index(0)
+            else:
+                initial_index = self.playlist.get_initial_playback_index()
+                if initial_index is not None:
+                    self._play_index(initial_index)
 
     def _stop_playback(self):
         self.player_engine.stop()
@@ -599,9 +606,12 @@ class WindowManager(QWidget):
 
         self.pl_mod.refresh()
 
-        # 3. If playlist was empty and playback stopped, start from the first track
+        # 3. If playlist was empty and playback stopped, start from the
+        #    beginning of the active playback order (shuffle-aware).
         if was_empty and len(self.playlist) > 0 and self.player_engine.state == PlaybackState.STOPPED:
-            self._play_index(0)
+            initial_index = self.playlist.get_initial_playback_index()
+            if initial_index is not None:
+                self._play_index(initial_index)
 
 
     def _on_scale_changed(self, new_scale: str):
