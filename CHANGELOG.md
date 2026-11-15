@@ -18,6 +18,7 @@ Progress will resume when morale improves.
 
 ### Added
 - **Shuffle-aware initial playback (QoL-001, commit `65f94a1`)**: with shuffle enabled, initial Play and Next/Previous from an unset position start from the first item in the active shuffle order. Explicit track selection, Stop/Play-again, and stopped session restoration are unchanged. 16 focused automated tests and nine human checks passed.
+- **Playlist search toolbar button (QoL-002)**: a compact magnifier button immediately before M3U toggles the existing quick search bar. Clicking again clears the filter, hides the field, and restores list focus; Ctrl+F and Escape behavior are unchanged. 25 focused UX-005 tests (9 in the UX-005C class) and manual validation passed.
 
 ### Fixed
 - **Short-title marquee bound (BASELINE-REPAIR-003)**: non-overflowing titles now drift by `min(28px, spare_width)` instead of forcing 28 px in near-fit cases. A title that exactly fills its container stays still rather than drifting out of view; overflow scrolling is unchanged. Human UX validation: 5/5 PASS (reported by Metal).
@@ -30,8 +31,8 @@ Progress will resume when morale improves.
 - **Changelog convention (BASELINE-REPAIR-006)**: a single unreleased section is maintained for post-release changes.
 
 ### Known Limitations
-- Maintenance-batch integration validation and human validation are **COMPLETE / PASS** (51/51 modules; 730 PASS, 0 FAIL, 113 subtests, 3 expected skips). Batch closure is **PENDING COMMIT VERIFICATION**; release publication is **NOT AUTHORIZED**.
-- The closure commit requires the documented per-file CRLF staging exception; repository EOL policy is deferred. See `docs/maintenance/BASELINE_REPAIR_2026-11-15.md`.
+- Maintenance-batch integration validation and human validation are **COMPLETE / PASS** (51/51 modules; 730 PASS, 0 FAIL, 113 subtests, 3 expected skips). The batch is **CLOSED / COMMITTED (`93db09d`)**; release publication is **NOT AUTHORIZED**.
+- The baseline closure used the documented per-file CRLF staging exception; repository EOL policy is deferred. See `docs/maintenance/BASELINE_REPAIR_2026-11-15.md`.
 - Deferred test-hardening items are recorded in the maintenance record.
 
 ## [0.669] — Visualizer Roster Expansion, Daily-Use UX & DSP Foundation

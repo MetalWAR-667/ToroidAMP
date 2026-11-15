@@ -1,8 +1,8 @@
 # BASELINE Maintenance Record — Repairs 001–006 and QoL-001
 
-> **Status:** IMPLEMENTED / FUNCTIONAL PASS — independent review **REVIEW PASS WITH NON-BLOCKING OBSERVATIONS**; **BASELINE-INTEGRATION-001 COMPLETE / PASS** — **PENDING COMMIT VERIFICATION**
+> **Status:** IMPLEMENTED / FUNCTIONAL PASS — independent review **REVIEW PASS WITH NON-BLOCKING OBSERVATIONS**; **BASELINE-INTEGRATION-001 COMPLETE / PASS** — **COMMITTED / CLOSED (`93db09d`)**
 >
-> Integration validation and human validation are complete. Batch closure is **PENDING COMMIT VERIFICATION**; release publication is **NOT AUTHORIZED**. No commit or publication has occurred.
+> Integration validation and human validation are complete. Batch closure is **CLOSED / COMMITTED (`93db09d`)**; release publication is **NOT AUTHORIZED**. No release publication has occurred.
 
 - **Date:** 2026-11-15
 - **Repository baseline:** `65f94a1` (`fix(playback): start initial playback from shuffle order`)
@@ -124,7 +124,7 @@ Plus this maintenance record:
 docs/maintenance/BASELINE_REPAIR_2026-11-15.md
 ```
 
-No commit, staging, or push occurred. Integration and human validation are complete; batch closure remains **PENDING COMMIT VERIFICATION**.
+The batch was committed as `93db09d` (22 files) after isolated staging verification. Integration and human validation are complete; closure is recorded as **CLOSED / COMMITTED**. No push or publication occurred.
 
 ### Non-Claims
 
@@ -148,7 +148,7 @@ No commit, staging, or push occurred. Integration and human validation are compl
 
 **CRLF exception / staging:** standard `git diff --check` reports 68 CR-at-EOL warnings (38 `tests/test_rc_polish_001.py`, 9 `docs/ARCHITECTURE.md`, 21 `docs/CURRENT_STATE.md`); `git -c core.whitespace=cr-at-eol diff --check` is clean. Ordinary `git add` would normalize `docs/ARCHITECTURE.md` and `tests/test_rc_polish_001.py` to LF wholesale, so those two must be staged with `git -c core.autocrlf=false add`. Repository-wide EOL policy is deferred to a separate cut.
 
-**Closure state:** integration validation COMPLETE / PASS; human validation COMPLETE / PASS; maintenance batch closure **PENDING COMMIT VERIFICATION**; release publication **NOT AUTHORIZED**. The batch is not CLOSED until the commit exists and is verified.
+**Closure state:** integration validation COMPLETE / PASS; human validation COMPLETE / PASS; maintenance batch closure **CLOSED / COMMITTED (`93db09d`)**; release publication **NOT AUTHORIZED**. The 22-file commit exists and matches the verified inventory.
 
 ## 7. Authoritative References
 

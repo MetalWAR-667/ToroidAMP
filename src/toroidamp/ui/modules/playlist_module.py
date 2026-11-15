@@ -11,7 +11,7 @@ from PySide6.QtWidgets import (
     QLineEdit
 )
 from PySide6.QtCore import Qt, QSize, Signal, QPoint, QEvent, QItemSelectionModel
-from PySide6.QtGui import QDragEnterEvent, QDropEvent
+from PySide6.QtGui import QDragEnterEvent, QDropEvent, QIcon, QPixmap, QPainter, QPen, QColor
 
 from .base import ModuleShell
 from ..neon import NeonState
@@ -19,6 +19,21 @@ from ..theme import ThemeDefinition
 from ..dialogs import platform_file_dialog_options
 from ...audio.playlist import PlaylistManager, PlaylistItem, SUPPORTED_AUDIO_EXTENSIONS
 
+
+def _make_search_icon(color: str) -> QIcon:
+    """Paints a small magnifier so the toolbar icon does not depend on emoji fonts."""
+    pixmap = QPixmap(14, 14)
+    pixmap.fill(Qt.transparent)
+    painter = QPainter(pixmap)
+    painter.setRenderHint(QPainter.Antialiasing)
+    pen = QPen(QColor(color))
+    pen.setWidth(2)
+    pen.setCapStyle(Qt.RoundCap)
+    painter.setPen(pen)
+    painter.drawEllipse(2, 2, 8, 8)
+    painter.drawLine(9, 9, 13, 13)
+    painter.end()
+    return QIcon(pixmap)
 
 
 class PlaylistModule(ModuleShell):
@@ -116,6 +131,16 @@ class PlaylistModule(ModuleShell):
         self.btn_rep.clicked.connect(self._toggle_repeat)
         b_layout.addWidget(self.btn_rep)
 
+        self.btn_search = QPushButton(btn_bar)
+        self.btn_search.setObjectName("playlistBtnSearch")
+        self.btn_search.setProperty("themeRole", "playlistAction")
+        self.btn_search.setFixedWidth(20)
+        self.btn_search.setIconSize(QSize(11, 11))
+        self.btn_search.setToolTip("Toggle playlist search (Ctrl+F)")
+        self.btn_search.setAccessibleName("Search playlist")
+        self.btn_search.clicked.connect(self._toggle_search)
+        b_layout.addWidget(self.btn_search)
+
         self.btn_m3u = QPushButton("M3U", btn_bar)
         self.btn_m3u.setObjectName("playlistBtnM3u")
         self.btn_m3u.setProperty("themeRole", "playlistAction")
@@ -202,6 +227,7 @@ class PlaylistModule(ModuleShell):
         # In Cyber Yellow, playlist action buttons use the canonical red accent (pal.accent); Default uses cyan (pal.primary)
         pl_btn_accent = pal.accent if theme.id == "cyber_yellow" else pal.primary
         pl_btn_border_hover = pal.accent if theme.id == "cyber_yellow" else pal.border_control_hover
+        self.btn_search.setIcon(_make_search_icon(pal.text_muted))
 
         base_pl_btn_style = f"""
             QPushButton[themeRole="playlistAction"] {{
@@ -234,7 +260,7 @@ class PlaylistModule(ModuleShell):
                 background-color: {pal.bg_surface};
             }}
         """
-        for btn in (self.btn_add, self.btn_del, self.btn_clear, self.btn_shf, self.btn_rep, self.btn_m3u):
+        for btn in (self.btn_add, self.btn_del, self.btn_clear, self.btn_shf, self.btn_rep, self.btn_search, self.btn_m3u):
             btn.setStyleSheet("")
 
         self.queue_info.setStyleSheet(f"color: {pal.text_dim}; font-family: {mono_font}; font-size: 9px;")
@@ -255,6 +281,13 @@ class PlaylistModule(ModuleShell):
         self.search_container.hide()
         self.refresh()
         self.list_widget.setFocus()
+
+    def _toggle_search(self):
+        """Toggles the existing quick search bar from the toolbar button."""
+        if self.search_container.isVisible():
+            self.hide_search()
+        else:
+            self.show_search()
 
     def _on_search_text_changed(self, text: str):
         """Updates incremental search filter."""

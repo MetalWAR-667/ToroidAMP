@@ -275,7 +275,75 @@ class TestUX005CPlaylistQuickSearch(unittest.TestCase):
         self.assertEqual(self.mod._search_query, "")
         self.assertEqual(self.mod.list_widget.count(), 4)
 
+    def test_01a_search_button_precedes_m3u_and_is_visible(self):
+        self.app.processEvents()
+        layout = self.mod.btn_m3u.parentWidget().layout()
+        self.assertIsNotNone(layout)
+        self.assertEqual(
+            layout.indexOf(self.mod.btn_search) + 1,
+            layout.indexOf(self.mod.btn_m3u),
+            "search button must sit immediately before M3U in the toolbar",
+        )
+        self.assertTrue(self.mod.btn_search.isVisible())
+        self.assertFalse(self.mod.btn_search.icon().isNull())
+        self.assertEqual(self.mod.btn_search.accessibleName(), "Search playlist")
+        self.assertIn("Ctrl+F", self.mod.btn_search.toolTip())
 
+    def test_01b_search_button_opens_focuses_and_closes_clearing_filter(self):
+        self.app.processEvents()
+        self.assertTrue(self.mod.search_container.isHidden())
+        titles_before = [item.title for item in self.manager.items]
+
+        self.mod.btn_search.click()
+        self.app.processEvents()
+        self.assertFalse(self.mod.search_container.isHidden())
+        self.assertTrue(self.mod.search_edit.hasFocus())
+
+        self.mod.search_edit.setText("cyber")
+        self.app.processEvents()
+        self.assertEqual(self.mod.list_widget.count(), 2)
+        self.assertEqual([item.title for item in self.manager.items], titles_before)
+
+        self.mod.btn_search.click()
+        self.app.processEvents()
+        self.assertTrue(self.mod.search_container.isHidden())
+        self.assertEqual(self.mod._search_query, "")
+        self.assertEqual(self.mod.list_widget.count(), 4)
+        self.assertTrue(self.mod.list_widget.hasFocus())
+        self.assertEqual([item.title for item in self.manager.items], titles_before)
+
+    def test_01c_ctrl_f_and_escape_preserve_search_contract(self):
+        self.mod.activateWindow()
+        self.mod.list_widget.setFocus()
+        self.app.processEvents()
+        self.assertTrue(self.mod.list_widget.hasFocus())
+
+        ctrl_f = QKeyEvent(QEvent.Type.KeyPress, Qt.Key_F, Qt.ControlModifier, "f")
+        QApplication.sendEvent(self.mod.list_widget, ctrl_f)
+        self.app.processEvents()
+        self.assertFalse(self.mod.search_container.isHidden())
+        self.assertTrue(self.mod.search_edit.hasFocus())
+
+        self.mod.search_edit.setText("neon")
+        self.assertEqual(self.mod.list_widget.count(), 1)
+        esc = QKeyEvent(QEvent.Type.KeyPress, Qt.Key_Escape, Qt.NoModifier)
+        QApplication.sendEvent(self.mod.search_edit, esc)
+        self.app.processEvents()
+        self.assertTrue(self.mod.search_container.isHidden())
+        self.assertEqual(self.mod._search_query, "")
+        self.assertEqual(self.mod.list_widget.count(), 4)
+        self.assertTrue(self.mod.list_widget.hasFocus())
+
+    def test_01d_search_button_usable_at_minimum_module_size(self):
+        self.mod.resize(PlaylistModule.MIN_SIZE)
+        self.app.processEvents()
+        self.assertTrue(self.mod.btn_search.isVisible())
+        self.mod.btn_search.click()
+        self.app.processEvents()
+        self.assertFalse(self.mod.search_container.isHidden())
+        self.mod.btn_search.click()
+        self.app.processEvents()
+        self.assertTrue(self.mod.search_container.isHidden())
 
     def test_02_incremental_case_insensitive_filtering(self):
         self.mod.show_search()
