@@ -2,7 +2,7 @@
 tests/test_ux_004.py — UX-004 Marquee Titles, MINI Volume & Version Cadence
 
 Focused regression tests for:
-  1-3. MarqueeLabel: static-when-fits, overflow activation, reset-on-change.
+  1-3. MarqueeLabel: bounded short-title drift, overflow activation, reset-on-change.
   4-5. NORMAL/MINI titles use MarqueeLabel.
   6-8. MINI volume popup: opens from speaker, no taskbar identity, changes
        authoritative volume.
@@ -58,11 +58,22 @@ class TestMarqueeLabel(unittest.TestCase):
         m.show()
         return m
 
-    def test_short_title_does_not_marquee(self):
+    def test_short_title_drifts_within_spare_space(self):
         m = self._make(width=400)
+        _app.processEvents()
+        spare = m.width() - m.fontMetrics().horizontalAdvance("Short")
         m.set_marquee_text("Short")
         self.assertEqual(m._overflow_px, 0)
-        self.assertEqual(m._state, m._STATIC)
+        self.assertNotEqual(m._state, m._STATIC, "short titles must move while spare space exists")
+        self.assertEqual(m._max_offset, min(m.NON_OVERFLOW_TRAVEL_PX, spare))
+        self.assertLessEqual(m._max_offset, spare)
+        self.assertGreater(m._max_offset, 0)
+        self.assertTrue(m._timer.isActive(), "bounded drift must schedule its animation timer")
+
+        m._tick()  # PAUSE_START -> SCROLL_FWD
+        m._tick()  # first movement step
+        self.assertGreater(m._offset, 0.0)
+        self.assertLessEqual(m._offset, m._max_offset)
         m.close()
 
     def test_long_title_activates_marquee(self):
@@ -152,11 +163,57 @@ class TestMarqueeTravelAmplitude(unittest.TestCase):
         self.assertEqual(m._max_offset, m._overflow_px + m.END_REVEAL_MARGIN_PX)
         m.close()
 
-    def test_short_title_has_zero_max_offset(self):
+    def test_short_title_max_offset_is_bounded(self):
         m = self._make(width=400)
+        _app.processEvents()
+        spare = m.width() - m.fontMetrics().horizontalAdvance("Short")
         m.set_marquee_text("Short")
-        self.assertEqual(m._max_offset, 0)
+        self.assertEqual(m._overflow_px, 0)
+        self.assertEqual(m._max_offset, min(m.NON_OVERFLOW_TRAVEL_PX, spare))
+        self.assertLessEqual(m._max_offset, m.NON_OVERFLOW_TRAVEL_PX)
+        self.assertLessEqual(m._max_offset, spare)
+        self.assertGreater(m._max_offset, 0)
         m.close()
+
+    def test_short_title_offset_never_exceeds_spare_width(self):
+        """
+        BASELINE-REPAIR-003 boundary coverage: travel is min(28, spare) for
+        every spare width, and never exceeds the free space. This is the
+        regression guard for the old forced 28 px near-fit drift (spare 0-4).
+        """
+        text = "Short"
+        for spare in (0, 1, 2, 3, 4, 5, 27, 28, 29, 64):
+            with self.subTest(spare=spare):
+                m = self._make(width=400)
+                try:
+                    _app.processEvents()
+                    text_w = m.fontMetrics().horizontalAdvance(text)
+                    m.resize(text_w + spare, 20)
+                    _app.processEvents()
+                    m.set_marquee_text(text)
+                    _app.processEvents()
+
+                    expected = min(m.NON_OVERFLOW_TRAVEL_PX, spare)
+                    self.assertEqual(m._overflow_px, 0)
+                    self.assertEqual(m._max_offset, expected)
+                    self.assertLessEqual(m._max_offset, spare)
+
+                    if expected == 0:
+                        self.assertEqual(m._state, m._STATIC)
+                        self.assertEqual(m._offset, 0.0)
+                    else:
+                        self.assertNotEqual(m._state, m._STATIC)
+                        m._state = m._PAUSE_START
+                        m._offset = 0.0
+                        m._tick()  # PAUSE_START -> SCROLL_FWD
+                        ticks = 0
+                        while m._state == m._SCROLL_FWD and ticks < 2000:
+                            m._tick()
+                            ticks += 1
+                        self.assertEqual(m._offset, float(expected))
+                        self.assertLessEqual(m._offset, float(spare))
+                finally:
+                    m.close()
 
     def test_moderate_overflow_scrolls_past_raw_overflow(self):
         """A title that only barely overflows must still travel a meaningful distance."""
@@ -261,13 +318,18 @@ class TestNormalMarqueeInRealLayout(unittest.TestCase):
         self.assertNotEqual(nm._state, nm._STATIC)
         c.close()
 
-    def test_normal_short_title_remains_static(self):
+    def test_normal_short_title_drifts_within_bound(self):
         c = self._chassis()
         c.update_telemetry(self.SHORT_TITLE, "00:00 / 00:00", 0.0, False)
         _app.processEvents()
         nm = c.normal_title_marquee
+        spare = nm.width() - nm.fontMetrics().horizontalAdvance(self.SHORT_TITLE)
         self.assertEqual(nm._overflow_px, 0)
-        self.assertEqual(nm._state, nm._STATIC)
+        self.assertNotEqual(nm._state, nm._STATIC)
+        self.assertEqual(nm._max_offset, min(nm.NON_OVERFLOW_TRAVEL_PX, spare))
+        self.assertLessEqual(nm._max_offset, spare)
+        self.assertGreater(nm._max_offset, 0)
+        self.assertTrue(nm._timer.isActive())
         c.close()
 
     def test_normal_marquee_resets_on_track_change(self):

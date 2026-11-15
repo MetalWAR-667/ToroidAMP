@@ -60,3 +60,15 @@ FIX-002 resolves two baseline production defects:
 3. **Taskbar Thumbnail Close**: Started playback, hovered the taskbar icon, clicked thumbnail `✕`, and confirmed audio stopped immediately and the process exited cleanly (return code 0).
 4. **Alt+F4**: Launched application and pressed `Alt+F4`; confirmed immediate full shutdown.
 5. **Minimize `─`**: Started playback and pressed `─`; confirmed UI hid to tray while audio continued playing.
+
+---
+
+## 6. Reconciliation — BASELINE-REPAIR-002 (2026-11-15)
+
+> This note is appended. §4 above is preserved as the historical FIX-002 record; its `test_no_donor_path_in_production_codebase: PASS` entry reflected the pre-reconciliation guard.
+
+- **Original intent:** production code must never import from, point at, or load media from the historical `MetalWar-Installer` donor repository.
+- **Observed false positive:** the original guard scanned every production line for the bare token `metalwar`. After the first-party **MetalWar Credits** visualizer was added, its authorized module (`visualizers/metalwar_credits.py`) and imports in `ui/fullscreen.py` / `ui/modules/visualizer_module.py` were flagged. The visualizer is a legitimate ToroidAMP resource and remains registered unchanged.
+- **Corrected detection criteria:** the shared `find_donor_references()` helper in `tests/test_fix_002.py` now matches only donor-project markers (`metalwar`, optional separator, `installer`) and historical donor media identifiers (`dalezy`, `lotus` + optional separator + `drei`). Full-line comments remain exempt so attribution comments do not count as dependencies. Bare first-party `MetalWar` branding, the `metalwar_credits` module id, the `MetalWarCreditsVisualizer` class, `MetalWar Credits` display text, and `metalwar.png` are accepted by construction.
+- **Negative-control evidence:** `test_donor_guard_rejects_donor_and_accepts_first_party` drives the same detector used by the production scan. It rejects a synthetic donor package import, donor project path, donor filesystem path, and donor media filename; it accepts first-party visualizer code, ordinary first-party imports, and attribution comments; and it verifies the tree-scanning path rejects a contaminated temporary module while accepting a clean one.
+- **Result (2026-11-15):** `python -m pytest tests/test_fix_002.py -q` → **4 passed, exit 0**. Production `src/toroidamp/` scan findings: none.

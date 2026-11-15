@@ -23,6 +23,10 @@ Validates:
     categories otherwise stripping comments (regression for a bug where
     reusing the comment-stripped text broke annotation detection entirely).
 16. Corpus auto-classification (USER/OFFICIAL/TEST_FIXTURE/EXPERIMENTAL).
+17. Tracked project-owned fixture corpus smoke: eligible and ineligible
+    parameters are distinguished from controlled sources.
+18. Optional local user-corpus smoke (environment-dependent; skipped in a
+    clean checkout, never release-blocking).
 """
 
 import sys
@@ -31,6 +35,7 @@ import unittest
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
+SHADER_FIXTURES = REPO_ROOT / "tests" / "assets" / "shaders"
 TOOLS_DIR = REPO_ROOT / "tools"
 if str(TOOLS_DIR) not in sys.path:
     sys.path.insert(0, str(TOOLS_DIR))
@@ -266,20 +271,69 @@ class TestGPUAudio006AShaderDiscoveryAudit(unittest.TestCase):
         self.assertEqual(sa.classify_corpus_tag(Path("src/toroidamp/assets/official_shaders/cyber_bloom.frag")), "OFFICIAL")
         self.assertEqual(sa.classify_corpus_tag(Path("experiments/gpu_visualizers/shaders/shader_a_plasma.frag")), "EXPERIMENTAL")
 
-    # -- Real corpus smoke test (still read-only, no promotion side effects) ----
+    # -- Tracked fixture corpus smoke (read-only, no promotion side effects) ---
 
-    def test_17_real_user_shader_corpus_smoke(self):
-        corpus_dir = REPO_ROOT / "user_shaders" / "shadertoy"
+    def test_17_tracked_fixture_corpus_smoke(self):
+        """
+        BASELINE-REPAIR-005: replaces the old ignored user_shaders/shadertoy
+        dependency with project-owned tracked fixtures. The auditor must stay
+        read-only, and controlled fixtures must distinguish eligible from
+        ineligible parameters instead of asserting a blanket outcome.
+        """
+        corpus_dir = SHADER_FIXTURES / "audit"
         files = sa.iter_shader_files(corpus_dir)
-        self.assertGreaterEqual(len(files), 5, "expected at least the 5 known real user shaders")
+        self.assertGreaterEqual(len(files), 4, "expected the tracked audit fixtures")
+
+        results = {}
+        for f in files:
+            before = f.read_bytes()
+            result = sa.audit_shader(f, corpus_tag="TEST_FIXTURE")
+            after = f.read_bytes()
+            self.assertEqual(before, after, f"{f} was modified by the auditor")
+            self.assertEqual(result.corpus_tag, "TEST_FIXTURE")
+            results[f.name] = result
+
+        annotated = results["audit_annotated_param.frag"]
+        self.assertTrue(annotated.has_current_eligible_parameter())
+        annotated_hits = annotated.by_category().get("uniform_float_annotated", [])
+        self.assertEqual(len(annotated_hits), 1)
+        self.assertEqual(annotated_hits[0].name, "u_gain")
+
+        promotable = results["audit_promotable_const.frag"]
+        self.assertTrue(promotable.has_current_eligible_parameter())
+        promotable_hits = promotable.by_category().get("const_float_safe_promotable", [])
+        self.assertEqual(len(promotable_hits), 1)
+        self.assertEqual(promotable_hits[0].name, "SPEED")
+
+        non_promotable = results["audit_non_promotable_bool.frag"]
+        self.assertFalse(non_promotable.has_current_eligible_parameter())
+        self.assertEqual(non_promotable.by_category().get("uniform_float_annotated", []), [])
+
+        structural = results["audit_structural_only.frag"]
+        self.assertFalse(structural.has_current_eligible_parameter())
+        self.assertTrue(structural.by_category().get("structural_int_loop_bound"))
+        self.assertTrue(structural.by_category().get("structural_int_array"))
+
+    def test_18_optional_local_user_shader_corpus_smoke(self):
+        """
+        Environment-dependent, non-blocking smoke test for a developer's own
+        user_shaders/shadertoy corpus. Skips in a clean checkout and is never
+        part of the release-blocking baseline. Content is user-owned and may
+        change, so this only checks read-only behavior and corpus tagging.
+        """
+        corpus_dir = REPO_ROOT / "user_shaders" / "shadertoy"
+        if not corpus_dir.is_dir():
+            self.skipTest("optional local user_shaders/shadertoy corpus not present")
+        files = sa.iter_shader_files(corpus_dir)
+        if not files:
+            self.skipTest("optional local user_shaders/shadertoy corpus is empty")
+
         for f in files:
             before = f.read_bytes()
             result = sa.audit_shader(f)
             after = f.read_bytes()
             self.assertEqual(before, after, f"{f} was modified by the auditor")
             self.assertEqual(result.corpus_tag, "USER")
-            # None of the real corpus currently benefits from discovery/promotion.
-            self.assertFalse(result.has_current_eligible_parameter())
 
 
 if __name__ == "__main__":

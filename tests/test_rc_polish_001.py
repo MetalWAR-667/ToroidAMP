@@ -314,17 +314,50 @@ class TestRCPolish001(unittest.TestCase):
             # code several tests later in a full-suite run.
             player.stop_immediate()
 
-    def test_17_disabled_stop_terminates_immediately(self):
+    def test_17_disabled_stop_uses_transport_microfade(self):
         player = PlayerEngine(handoff=self.handoff)
         dummy = DummyDecoder()
         player._active_decoder = dummy
+        player._sample_rate = 44100
         player.fade_enabled = False
         player.play()
-        self.assertEqual(player.state, PlaybackState.PLAYING)
 
-        player.stop()
-        self.assertEqual(player.state, PlaybackState.STOPPED)
-        self.assertEqual(player.fade_state, FadeState.IDLE)
+        try:
+            self.assertEqual(player.state, PlaybackState.PLAYING)
+            self.assertEqual(player.fade_state, FadeState.PLAYING)
+
+            player.stop()
+
+            # DSP-001A supersedes RC-POLISH-001's original "FDE OFF stops
+            # immediately" contract: the 25 ms transport micro-fade is
+            # always active, so stop() only *requests* the fade-out. The
+            # callback completes the ramp and leaves STOPPED/IDLE; the
+            # finally block is what actually closes the OutputStream.
+            self.assertEqual(player.state, PlaybackState.PLAYING)
+            self.assertEqual(player.fade_state, FadeState.FADING_OUT)
+
+            # 25 ms at 44.1 kHz is ~1103 frames. Three 512-frame callbacks
+            # cover it deterministically -- no sleep, no wall-clock wait.
+            outdata = np.zeros((512, 2), dtype=np.float32)
+            player._audio_callback(outdata, 512, None, None)
+            self.assertLess(player._fade_envelope, 1.0)
+
+            player._audio_callback(outdata, 512, None, None)
+            player._audio_callback(outdata, 512, None, None)
+
+            self.assertEqual(player.state, PlaybackState.STOPPED)
+            self.assertEqual(player.fade_state, FadeState.IDLE)
+            self.assertEqual(player._fade_envelope, 0.0)
+        finally:
+            # Defense in depth for the same reason as test_16: play() opens
+            # a native PortAudio callback thread, and an assertion failure
+            # above must not leave it running into later tests. This is also
+            # the authorized release point for the stream, since completing
+            # the fade in the callback only changes state -- it does not
+            # close the OutputStream.
+            player.stop_immediate()
+
+        self.assertIsNone(player._stream)
 
     def test_18_session_persistence_roundtrip_fade_enabled(self):
         from toroidamp.session import SessionManager, SessionState

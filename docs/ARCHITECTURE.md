@@ -462,6 +462,15 @@ The playlist tells playback **what** should play.
 
 Playback determines **how** it plays.
 
+### Initial Playback & Shuffle Contract (QoL-001)
+
+* Initial playback resolves through `PlaylistManager.get_initial_playback_index()`: shuffle off selects the first canonical item; shuffle on selects the first item in the active shuffle order; an empty playlist selects nothing. This query is read-only and never reshuffles an existing sequence.
+* Next/Previous from an unset position (`current_index == -1`) use the same initial index.
+* Once a track has actually been loaded, Play resumes/replays that track. Explicit selection and Stop/Play-again semantics are preserved.
+* Adding files to an empty, stopped playlist starts from the initial index, honoring shuffle.
+* Session restoration remains stopped and never autoplays (see the Startup Music & Voice Identity Invariant in §1).
+* Evidence: `tests/test_qol_001.py` (16 tests, all passing), commit `65f94a1`; nine human validation checks reported PASS.
+
 ### Playlist Format
 
 M3U/M3U8 is the preferred initial direction.

@@ -44,7 +44,9 @@ from PySide6.QtWidgets import QApplication, QSlider, QCheckBox, QPushButton
 from PySide6.QtCore import Qt, QPoint, QEvent
 from PySide6.QtGui import QSurfaceFormat, QMouseEvent, QKeyEvent
 
-from toroidamp.analysis.audio_frame import AudioFrame
+from toroidamp.analysis.audio_frame import AudioFrame, AnalysisHandoff
+from toroidamp.audio.player import PlayerEngine
+from toroidamp.audio.playlist import PlaylistManager
 from toroidamp.session import SessionManager, SessionState
 from toroidamp.visualizers.toroid_identity import ToroidIdentityVisualizer
 from toroidamp.visualizers.cyber_bloom import CyberBloomVisualizer
@@ -56,6 +58,26 @@ from toroidamp.visualizers.gpu_compiler import (
 )
 from toroidamp.ui.fullscreen import RetinaMeltWindow
 from toroidamp.ui.modules.visualizer_module import VisualizerModule
+from toroidamp.ui.window_manager import WindowManager
+
+
+def _visualizer_index_by_id(visualizers, visualizer_id: str) -> int:
+    """
+    Resolve a visualizer's current roster index by its stable identity.
+
+    Roster position is an implementation detail: Cyber Bloom moved from index
+    5 to 14 when the roster expanded. Only get_id() is a stable contract.
+    Raises a clear assertion if the identity is absent.
+    """
+    available = []
+    for index, vis in enumerate(visualizers):
+        ident = getattr(vis, "get_id", lambda: None)()
+        available.append(ident or vis.get_name())
+        if ident == visualizer_id:
+            return index
+    raise AssertionError(
+        f"Visualizer id {visualizer_id!r} not found in roster. Available: {available}"
+    )
 
 
 class TestGPUProd002(unittest.TestCase):
@@ -192,9 +214,11 @@ class TestGPUProd002(unittest.TestCase):
         self.app.processEvents()
 
     def test_07_official_cyber_bloom_lab_presentation(self):
-        """Validates Cyber Bloom official visualizer registered at index 5 in integrated LAB."""
+        """Validates Cyber Bloom resolves by stable identity and presents in the integrated LAB."""
         melt = RetinaMeltWindow(session_manager=self.session_manager)
-        melt.set_visualizer_index(5)  # Cyber Bloom
+        cyber_idx = _visualizer_index_by_id(melt.visualizers, "cyber_bloom")
+        self.assertIsInstance(melt.visualizers[cyber_idx], CyberBloomVisualizer)
+        melt.set_visualizer_index(cyber_idx)
         melt.show_fullscreen_experience()
         melt._open_lab_panel()
         self.app.processEvents()
@@ -535,7 +559,8 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord) {}
     def test_26_lab_closes_on_mode_button_switch(self):
         """Validates that opening LAB and then clicking the MODE button closes LAB immediately."""
         melt = RetinaMeltWindow(session_manager=self.session_manager)
-        melt.set_visualizer_index(5)  # Cyber Bloom
+        cyber_idx = _visualizer_index_by_id(melt.visualizers, "cyber_bloom")
+        melt.set_visualizer_index(cyber_idx)
         melt.show_fullscreen_experience()
         melt._open_lab_panel()
         self.assertTrue(melt.lab_panel.isVisible())
@@ -551,25 +576,50 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord) {}
         melt.close()
         self.app.processEvents()
 
-    def test_27_lab_closes_on_m_shortcut_switch(self):
-        """Validates that opening LAB and pressing M shortcut closes LAB immediately."""
-        melt = RetinaMeltWindow(session_manager=self.session_manager)
-        melt.set_visualizer_index(4)  # Toroid Identity
-        melt.show_fullscreen_experience()
-        melt._open_lab_panel()
-        self.assertTrue(melt.lab_panel.isVisible())
+    def test_27_lab_closes_on_v_shortcut_switch(self):
+        """
+        UX-005: V cycles the visualizer through the application-level
+        shortcut filter, and the authoritative visualizer switch closes LAB.
 
-        # Press 'M'
-        key_event = QKeyEvent(QEvent.Type.KeyPress, Qt.Key_M, Qt.NoModifier, "m")
-        melt.keyPressEvent(key_event)
-        self.app.processEvents()
+        M is mute in UX-005 and must not be used for visualizer switching.
+        The event is dispatched through QApplication so the installed
+        AppShortcutFilter handles it exactly as it does in production.
+        """
+        handoff = AnalysisHandoff(2048)
+        wm = WindowManager(
+            player=PlayerEngine(handoff=handoff),
+            handoff=handoff,
+            playlist=PlaylistManager(),
+            session_manager=self.session_manager,
+        )
+        try:
+            retina = wm.retina_melt
+            start_idx = _visualizer_index_by_id(retina.visualizers, "toroid_identity")
+            wm.vis_mod.vis_idx = start_idx
+            retina.set_visualizer_index(start_idx)
+            retina.show_fullscreen_experience()
+            self.app.processEvents()
+            retina._open_lab_panel()
+            self.app.processEvents()
+            self.assertTrue(retina.lab_panel.isVisible())
+            start_name = retina.current_visualizer.get_name()
 
-        self.assertFalse(melt.lab_panel.isVisible())
-        self.assertFalse(melt.hud_btn_lab.isChecked())
-        self.assertEqual(melt.vis_idx, 5)  # Advanced to Cyber Bloom
+            key_event = QKeyEvent(QEvent.Type.KeyPress, Qt.Key_V, Qt.NoModifier, "v")
+            handled = QApplication.sendEvent(retina, key_event)
+            self.app.processEvents()
 
-        melt.close()
-        self.app.processEvents()
+            expected_idx = (start_idx + 1) % len(retina.visualizers)
+            self.assertTrue(handled, "the application shortcut filter must consume V")
+            self.assertFalse(retina.lab_panel.isVisible())
+            self.assertFalse(retina.hud_btn_lab.isChecked())
+            self.assertEqual(retina.vis_idx, expected_idx)
+            # Only the WindowManager path updates vis_mod; this proves the
+            # app-level filter handled the key, not RetinaMeltWindow.keyPressEvent.
+            self.assertEqual(wm.vis_mod.vis_idx, expected_idx)
+            self.assertNotEqual(retina.current_visualizer.get_name(), start_name)
+        finally:
+            wm.shutdown()
+            self.app.processEvents()
 
     def test_28_local_to_official_switch_closes_lab_and_restores_hud(self):
         """Validates that switching from a LOCAL shader back to official visualizers via MODE closes LAB cleanly."""

@@ -30,15 +30,24 @@ Current architectural truth belongs in `ARCHITECTURE.md`.
 **Stage:** Release Gate (v0.669, Windows)
 **Current Phase:** RELEASE-GATE-0.669-WINDOWS
   - RELEASE-GATE-0.669-WINDOWS: PASS
-**Status:** CLOSED (Next: Metal reviews and publishes)
+**Status:** RELEASE GATE CLOSED (Next: Metal reviews and publishes). The BASELINE maintenance batch is tracked separately below; closure is **PENDING COMMIT VERIFICATION**.
 **Implementation:** PRODUCTION APPLICATION (`toroidamp` v0.669)
 **v0.669:** READY_FOR_PUBLICATION (Windows only — not yet RELEASED; Linux parity for post-0.667 content is deferred)
+**BASELINE maintenance batch:** REPAIR-001..006 IMPLEMENTED / FUNCTIONAL PASS; independent BASELINE-REVIEW-001 = REVIEW PASS WITH NON-BLOCKING OBSERVATIONS. BASELINE-INTEGRATION-001 = COMPLETE / PASS; human closure checklist 5/5 PASS. Batch closure is **PENDING COMMIT VERIFICATION**; release publication is **NOT AUTHORIZED**.
 
-v0.667's release-gate/closeout record below is historical (that validation and staging genuinely happened at 0.667, and its archives under `release/0.667/` remain exactly as validated, untouched by this version bump). Source has since moved on to v0.669 — nine new visualizers, UX-005 (keyboard shortcuts, global media keys, recursive drag & drop, playlist search, track-change OSD), and DSP-001 (micro-fades, gapless/crossfade, loudness normalization + safety limiter) — see CHANGELOG.md `[0.669]`. Windows artifact gate PASS; Linux remains at v0.667 (post-0.667 content is Windows-only for now, deferred to Linux in a future cut). Two real production bugs were found and fixed during this gate: the MetalWar Credits emblem never rendering (`convert_alpha()` needs a display surface ToroidAMP never opens), and DSP-001C's safety limiter running on the pre-volume signal instead of the actual final output (causing an unintended ~1.3% gain reduction on any track peaking at 1.0, regardless of volume). See the RELEASE-GATE-0.669-WINDOWS report for full detail, including a known, pre-existing, intermittent, test-process-only native GL crash (never reproduced in the shipped artifact) affecting a full local `pytest` run.
+v0.667's release-gate/closeout record below is historical (that validation and staging genuinely happened at 0.667, and its archives under `release/0.667/` remain exactly as validated, untouched by this version bump). Source has since moved on to v0.669 — nine new visualizers, UX-005 (keyboard shortcuts, global media keys, recursive drag & drop, playlist search, track-change OSD), and DSP-001 (micro-fades, gapless/crossfade, loudness normalization + safety limiter) — see CHANGELOG.md `[0.669]`. Windows artifact gate PASS; Linux remains at v0.667 (post-0.667 content is Windows-only for now, deferred to Linux in a future cut). Two real production bugs were found and fixed during this gate: the MetalWar Credits emblem never rendering (`convert_alpha()` needs a display surface ToroidAMP never opens), and DSP-001C's safety limiter running on the pre-volume signal instead of the actual final output (causing an unintended ~1.3% gain reduction on any track peaking at 1.0, regardless of volume). See the RELEASE-GATE-0.669-WINDOWS report (not present in tracked repository content; see the release-evidence note below) for full detail, including a known, pre-existing, intermittent, test-process-only native crash (originally attributed to GL; never reproduced in the shipped artifact) affecting a full local `pytest` run. **Reconciliation (2026-11-15):** BASELINE-REPAIR-001 reproduced the crash through a leaked PortAudio stream in `tests/test_rc_polish_001.py`; the test now completes the DSP-001A microfade and releases its stream (20/20 clean process exits in isolated runs). The exact native teardown mechanism remains a hypothesis; see `docs/maintenance/BASELINE_REPAIR_2026-11-15.md`.
 
 ToroidAMP v0.667 native Linux ONEDIR packaging has completed full validation on Ubuntu physical hardware (audio playback, GLSL shaders, Wayland Unified Chassis, non-native dialogs, isolated user paths, and zero source dependencies), and that exact validated artifact has been transferred to the Windows closeout machine and staged for release, unmodified.
 
 ToroidAMP v0.667 native Windows ONEDIR packaging (PyInstaller) has completed full validation on this dev machine: frozen isolated launch, 5/5 clean TTS launch/close cycles via `sounddevice` (no pygame.mixer dependency), all four conventional audio formats (WAV/MP3/OGG/FLAC) plus a representative tracker MOD file (confirming `libxmp.dll` resolves in the frozen bundle), Windows independent-top-level Playlist/Visualizer docking (pixel-exact via UI Automation), MINI↔NORMAL transitions, RETINA MELT enter/exit, isolated user-writable state (`%LOCALAPPDATA%\ToroidAMP\`), and a clean `git status`. One real packaging defect was found and fixed: a stale editable-install `dist-info` (0.666) was baking an incorrect version into the frozen artifact via `copy_metadata()`; fixed by refreshing the editable install (`pip install -e . --no-deps --force-reinstall`) before rebuilding — no tracked source files changed. Full interactive UI verification (file dialogs, GLSL Lab, CPU/GPU visualizer switching) was only partially achievable via UI Automation in this session (no human eyes/ears available); see the RELEASE-GATE-0.667-WINDOWS report for the exact boundary of what was verified programmatically vs. what still benefits from Metal's direct confirmation.
+
+**Release evidence limitation (2026-11-15):** references above to `RELEASE-GATE-0.667-LINUX`, `RELEASE-GATE-0.667-WINDOWS`, and `RELEASE-GATE-0.669-WINDOWS` reports point to documents that are **not present in tracked repository content**. The corresponding staged archives, checksums, and release-notes drafts exist only under the git-ignored `release/` tree. No missing report content has been reconstructed or claimed.
+
+### Reconciliation — 2026-11-15 (BASELINE maintenance batch)
+
+* **QoL-001 — CLOSED / ACCEPTED** (`65f94a1`): shuffle-aware initial playback; explicit selection, Stop/Play-again, and stopped session restoration preserved; 16 focused automated tests and nine human checks PASS. Contract recorded in `ARCHITECTURE.md` §13.
+* **BASELINE-REPAIR-001..006 — IMPLEMENTED / FUNCTIONAL PASS.** Independent `BASELINE-REVIEW-001` verdict: **REVIEW PASS WITH NON-BLOCKING OBSERVATIONS**. The implementation batch leaves ten tracked files and eight shader fixtures pending; REPAIR-007 adds three documentation updates and this maintenance record. Nothing is committed; BASELINE-INTEGRATION-001 is **COMPLETE / PASS** (51/51 modules, 730 passed, 0 failed, 113 subtests, 3 expected skips, no native crashes), and the human closure checklist is **5/5 PASS**. Test accounting: 9 previously failing test functions corrected, 4 tests added, and 2 subtest failures resolved separately. Batch closure is **PENDING COMMIT VERIFICATION**; release publication is **NOT AUTHORIZED**. See the maintenance record for the accepted CRLF exception and per-file staging requirement.
+* Authoritative per-repair evidence, review findings, and deferred test-hardening items: `docs/maintenance/BASELINE_REPAIR_2026-11-15.md`. Historical marquee intent is reconciled in `docs/ux/004_marquee_mini_volume_versioning.md`; the DSP-001A/RC-POLISH fade contract remains in `docs/design/06_rc_polish_001.md`; the FIX-002 guard reconciliation is appended to `docs/fixes/002_production_isolation_native_shutdown.md`.
 
 
 
@@ -128,9 +137,9 @@ Current status:
 * `SCOPE.md` — CREATED.
 * `ARCHITECTURE.md` — CREATED.
 * `CURRENT_STATE.md` — CREATED.
-* `ARCHIVE.md` — PENDING INITIALIZATION.
+* `ARCHIVE.md` — CREATED (contains archived Foundation 0 material; the older "PENDING INITIALIZATION" status was stale and was reconciled 2026-11-15).
 
-Public-facing `README.md` remains pending.
+Public-facing `README.md` — CREATED.
 
 ---
 
@@ -449,8 +458,14 @@ RELEASE-GATE-0.669-WINDOWS — Native Windows ONEDIR      PASS
   - Windows archive/checksum: STAGED (release/0.669/)
   - Linux: DEFERRED (remains at v0.667)
   - v0.669: READY_FOR_PUBLICATION (Windows only)
+QoL-001 — Shuffle-aware initial playback (65f94a1)     CLOSED / ACCEPTED
+BASELINE-REPAIR-001..006 — Test/doc reconciliation     IMPLEMENTED / REVIEW PASS
+  - Integration validation: COMPLETE / PASS (51/51 modules; 730 PASS, 0 FAIL, 113 subtests, 3 skips)
+  - Human validation: COMPLETE / PASS (5/5)
+  - Batch closure: PENDING COMMIT VERIFICATION
+  - Release publication: NOT AUTHORIZED
 
-Next: Metal reviews the RELEASE-GATE-0.669-WINDOWS report, commits pending fixes/docs, tags v0.669, publishes the GitHub Release.
+Next: stage and commit the maintenance batch (13 modified files + 9 new files, including eight shader fixtures and the maintenance record) using the documented per-file CRLF staging exception, verify the commit, then Metal reviews release evidence and publishes v0.669.
 ```
 
 

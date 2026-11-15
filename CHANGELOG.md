@@ -2,6 +2,8 @@
 
 All notable user-facing changes to ToroidAMP are documented here.
 Format loosely inspired by [Keep a Changelog](https://keepachangelog.com/).
+Changes not yet part of a published version are listed in the top section,
+before the versioned entries.
 
 ToroidAMP has **not yet had a formal public release**.
 
@@ -11,6 +13,26 @@ typo and not a mistake by whatever tooling generated this file. Development
 briefly got ahead of itself before Linux support, packaging, and basic UX
 polish actually existed; the version number now reflects that honestly.
 Progress will resume when morale improves.
+
+## [Unreleased]
+
+### Added
+- **Shuffle-aware initial playback (QoL-001, commit `65f94a1`)**: with shuffle enabled, initial Play and Next/Previous from an unset position start from the first item in the active shuffle order. Explicit track selection, Stop/Play-again, and stopped session restoration are unchanged. 16 focused automated tests and nine human checks passed.
+
+### Fixed
+- **Short-title marquee bound (BASELINE-REPAIR-003)**: non-overflowing titles now drift by `min(28px, spare_width)` instead of forcing 28 px in near-fit cases. A title that exactly fills its container stays still rather than drifting out of view; overflow scrolling is unchanged. Human UX validation: 5/5 PASS (reported by Metal).
+- **Test-process native crash (BASELINE-REPAIR-001)**: the reproducible crash in `test_rc_polish_001.py` was caused by a leaked PortAudio stream; the test now completes the DSP-001A 25 ms transport micro-fade and releases its stream. The exact native teardown mechanism remains a hypothesis.
+
+### Internal / Test Maintenance
+- **Donor-isolation guard (BASELINE-REPAIR-002)**: distinguishes first-party MetalWar Credits resources from real MetalWar-Installer dependencies, with negative controls sharing the production-scan detector.
+- **GPU visualizer tests (BASELINE-REPAIR-004)**: Cyber Bloom and Toroid Identity resolve by stable `get_id()`; the UX-005 `V` shortcut path is exercised and the obsolete M-to-cycle expectation is removed.
+- **Tracked shader fixtures (BASELINE-REPAIR-005)**: mandatory shader tests use project-owned fixtures under `tests/assets/shaders/` instead of ignored `user_shaders/`; real compile/render coverage and malformed-GLSL rejection are retained. `iChannel0..3` remains DEFERRED / NOT AUTHORIZED.
+- **Changelog convention (BASELINE-REPAIR-006)**: a single unreleased section is maintained for post-release changes.
+
+### Known Limitations
+- Maintenance-batch integration validation and human validation are **COMPLETE / PASS** (51/51 modules; 730 PASS, 0 FAIL, 113 subtests, 3 expected skips). Batch closure is **PENDING COMMIT VERIFICATION**; release publication is **NOT AUTHORIZED**.
+- The closure commit requires the documented per-file CRLF staging exception; repository EOL policy is deferred. See `docs/maintenance/BASELINE_REPAIR_2026-11-15.md`.
+- Deferred test-hardening items are recorded in the maintenance record.
 
 ## [0.669] — Visualizer Roster Expansion, Daily-Use UX & DSP Foundation
 

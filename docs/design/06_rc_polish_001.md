@@ -25,18 +25,20 @@ RC-POLISH-001 delivers four key release-polish features for the first public exe
   ```
 - **State Machine**:
   - `START / RESUME`: Enters `FadeState.FADING_IN`, smoothly ramping envelope from 0.0 to 1.0.
-  - `STOP / TRACK TRANSITION`: Triggering `stop()` sets `FadeState.FADING_OUT` if actively playing, reaching silence before stopping stream. Immediate operations (e.g. `load()`, `close()`) use `stop_immediate()` to cleanly prevent buffer bleeding.
+  - `STOP / TRACK TRANSITION`: Triggering `stop()` sets `FadeState.FADING_OUT` if actively playing, reaching silence before stopping stream. The fade is the standard 200 ms envelope when FDE is on, or the always-on 25 ms transport safety micro-fade when FDE is off (DSP-001A). Immediate operations (e.g. `load()`, `close()`) use `stop_immediate()` to cleanly prevent buffer bleeding.
   - Master volume remains 100% decoupled from fade envelope state.
+  - **DSP-001A supersession:** RC-POLISH-001 originally described FDE OFF as a direct immediate stop. DSP-001A later made the 25 ms transport micro-fade unconditional; only the 200 ms playback envelope is disabled. See §6.
 
 ---
 
 ## 3. Always-Alive Marquee Motion Contract
 
-- **Motion Philosophy**: No title remains static in ToroidAMP or RETINA MELT.
+- **Motion Philosophy**: Titles move whenever there is travel room, in ToroidAMP and RETINA MELT. Movement is subject to available space and readability: a title that exactly fills its container may remain still rather than drift out of view.
 - **Overflowing Titles**:
   - `max_offset = (text_width - visible_width) + 28px` (travels leftward to reveal obscured text, dwells 1200ms at endpoints).
 - **Short / Non-Overflowing Titles**:
-  - `max_offset = min(28px, spare_width)` (restrained gentle drift rightward across the open viewport space).
+  - `max_offset = min(28px, max(0, spare_width))` (restrained gentle drift rightward across the open viewport space).
+  - The 28 px value is a **cap, never a forced amplitude**. When `spare_width` is 0, movement is 0 and the title remains static — readability takes precedence over decorative motion.
 - **Parity**: Exactly identical unified `MarqueeLabel` component utilized across `UnifiedChassis` (NORMAL & MINI) and `RetinaMeltWindow` (RETINA MELT HUD).
 
 ---
@@ -66,7 +68,9 @@ RC-POLISH-001 delivers four key release-polish features for the first public exe
 - **User Control**: Added compact checkable `FDE` toggle button immediately before `VIS` in the NORMAL chassis control bar.
 - **Behavior**:
   - `Checked (FDE ON)`: Active fade-in (200 ms) and fade-out envelope.
-  - `Unchecked (FDE OFF)`: Direct immediate start/stop (`fade_gain = 1.0`), bypassing envelope interpolation.
+  - `Unchecked (FDE OFF)`: Bypasses the 200 ms envelope interpolation.
+  - **Historical note:** the original RC-POLISH-001 wording described FDE OFF as "direct immediate start/stop (`fade_gain = 1.0`)". DSP-001A ("Transport Micro-Fades") superseded that behavior.
+  - **Current contract (DSP-001A):** the **25 ms transport safety micro-fade is always active**, including when FDE is off. `stop()`/`pause()` therefore still enter `FADING_OUT` and complete asynchronously in the audio callback; `stop_immediate()` remains the explicit non-fading escape hatch used by teardown and tests. See §2.
 - **Scope & Persistence**:
   - Global playback preference (`fade_enabled: bool = True`), persisted across restarts in `session.json`.
   - MINI and RETINA MELT inherit the global setting automatically without redundant controls.

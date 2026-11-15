@@ -3,8 +3,8 @@ ToroidAMP - Marquee Label
 Ping-pong horizontal scroll for titles that overflow their available width.
 
 Pure information UX (title readability) — not audio-reactive, not a
-visualizer. A title that fits stays still; a title that doesn't shows you
-the rest, calmly.
+visualizer. A title that fits drifts gently within its spare space; a title
+that doesn't shows you the rest, calmly.
 """
 from PySide6.QtWidgets import QLabel, QSizePolicy
 from PySide6.QtCore import Qt, QTimer, QSize
@@ -17,7 +17,8 @@ class MarqueeLabel(QLabel):
     `setText()` — it owns overflow detection, ping-pong scroll state, and
     resets to the beginning whenever the text actually changes.
 
-    Marquee state machine (only active while the text overflows):
+    Marquee state machine (active while there is travel room: overflow, or
+    non-overflow spare space):
         PAUSE_START -> SCROLL_FORWARD -> PAUSE_END -> SCROLL_BACKWARD -> repeat
     """
 
@@ -108,7 +109,7 @@ class MarqueeLabel(QLabel):
             max_offset = (text_w - visible_w) + END_REVEAL_MARGIN_PX
         - If text fits (text_w <= visible_w and text not empty):
             max_offset = min(NON_OVERFLOW_TRAVEL_PX, max(0, visible_w - text_w))
-            or restrained drift if there is positive space
+            (zero when the text exactly fills the label)
         - If text is empty:
             max_offset = 0
         """
@@ -130,9 +131,12 @@ class MarqueeLabel(QLabel):
         if overflow > 0:
             self._max_offset = overflow + self.END_REVEAL_MARGIN_PX
         else:
-            # Short / non-overflowing text: restrained ping-pong travel
+            # Short / non-overflowing text: restrained drift bounded by the
+            # actual open space. Readability wins over decorative motion --
+            # a title that exactly fills the label stays put (offset 0)
+            # rather than drifting out of view.
             spare_room = max(0, visible_width - text_w)
-            self._max_offset = min(self.NON_OVERFLOW_TRAVEL_PX, spare_room) if spare_room > 4 else self.NON_OVERFLOW_TRAVEL_PX
+            self._max_offset = min(self.NON_OVERFLOW_TRAVEL_PX, spare_room)
 
         self._offset = min(self._offset, float(self._max_offset))
 

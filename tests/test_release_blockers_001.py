@@ -4,12 +4,12 @@ Ubuntu TTS, User GLSL & Wayland Unified Chassis
 
 Focused regression tests for Blocker 3 (GLSL Lab user shaders rendering
 black on Ubuntu/Mesa/Intel HD 5500):
-  1-2. Every sample user shader in this repo's user_shaders/shadertoy/
-       directory compiles, links, AND renders non-black pixels through
-       the real production pipeline (load_shader_file() /
-       classify_and_wrap_source() / paintGL()) on a real (not offscreen)
-       OpenGL context -- a regression guard confirming this repo's own
-       sample content stays healthy through this pipeline.
+  1-2. Tracked, project-owned sample shaders under
+       tests/assets/shaders/supported/ compile, link, AND render non-black
+       pixels through the real production pipeline
+       (load_shader_file() / classify_and_wrap_source() / paintGL()) on a
+       real (not offscreen) OpenGL context -- a regression guard confirming
+       the supported fixture corpus stays healthy through this pipeline.
   3-4. The Lab's new black-render diagnostic (_diagnose_black_render)
        correctly flags a shader that compiles/links but paints all-black,
        and does NOT false-positive on a shader that renders real content
@@ -24,6 +24,7 @@ run under QT_QPA_PLATFORM=offscreen.
 
 import importlib.util
 import sys
+import tempfile
 import unittest
 from pathlib import Path
 from unittest.mock import patch
@@ -34,6 +35,7 @@ from PySide6.QtWidgets import QApplication
 from PySide6.QtGui import QSurfaceFormat
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
+SHADER_FIXTURES = REPO_ROOT / "tests" / "assets" / "shaders"
 
 fmt = QSurfaceFormat()
 fmt.setVersion(3, 3)
@@ -61,11 +63,11 @@ def _max_pixel_channel(img, w, h):
 
 
 class TestUserShaderPipelineHealth(unittest.TestCase):
-    """Regression guard: this repo's own sample user shaders must keep
+    """Regression guard: the tracked shader fixture corpus must keep
     compiling, linking, and rendering visible (non-black) content through
     the real production GL pipeline. Root-cause investigation for Blocker
-    3 found no pipeline defect reproducible here -- every one of these
-    files already renders correctly on a real desktop OpenGL driver."""
+    3 found no pipeline defect reproducible here -- every tracked supported
+    fixture already renders correctly on a real desktop OpenGL driver."""
 
     @classmethod
     def setUpClass(cls):
@@ -80,10 +82,10 @@ class TestUserShaderPipelineHealth(unittest.TestCase):
     def tearDownClass(cls):
         cls.canvas.close()
 
-    def test_01_sample_user_shadertoy_shaders_compile_and_render(self):
-        shader_dir = REPO_ROOT / "user_shaders" / "shadertoy"
-        shaders = sorted(shader_dir.glob("*/*.frag"))
-        self.assertGreater(len(shaders), 0, "expected at least one sample user shader")
+    def test_01_tracked_supported_shaders_compile_and_render(self):
+        shader_dir = SHADER_FIXTURES / "supported"
+        shaders = sorted(shader_dir.glob("*.frag"))
+        self.assertGreaterEqual(len(shaders), 2, "expected the tracked supported shader fixtures")
 
         for sp in shaders:
             with self.subTest(shader=sp.name):
@@ -105,6 +107,14 @@ class TestUserShaderPipelineHealth(unittest.TestCase):
         self.assertTrue(ok)
         self.assertGreater(max_channel, 3)
 
+    def test_03_malformed_fixture_is_rejected(self):
+        """A tracked malformed fixture must fail compilation, not be treated as success."""
+        malformed = SHADER_FIXTURES / "unsupported" / "malformed.frag"
+        self.assertTrue(malformed.is_file())
+        ok = self.canvas.load_shader_file(malformed)
+        self.assertFalse(ok, "malformed fixture must not be mistaken for a successful compile")
+        self.assertNotEqual(self.canvas.last_error_log, "")
+
 
 class TestLabBlackRenderDiagnostic(unittest.TestCase):
     """The Lab's post-load diagnostic must flag a compiled-but-black frame
@@ -116,6 +126,8 @@ class TestLabBlackRenderDiagnostic(unittest.TestCase):
         self.win = self.lab_app.GPUAuthoringLabWindow()
         self.win.show()
         _app.processEvents()
+        self._tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self._tmp.cleanup)
         if not self.win.canvas.isValid():
             # An earlier test file in this same pytest process may have
             # set QT_QPA_PLATFORM=offscreen via os.environ.setdefault(),
@@ -129,9 +141,8 @@ class TestLabBlackRenderDiagnostic(unittest.TestCase):
         self.win.close()
 
     def _write_shader(self, name: str, body: str) -> Path:
-        path = REPO_ROOT / "user_shaders" / name
+        path = Path(self._tmp.name) / name
         path.write_text(body, encoding="utf-8")
-        self.addCleanup(lambda: path.unlink(missing_ok=True))
         return path
 
     def test_03_all_black_shader_triggers_diagnostic(self):
@@ -169,12 +180,8 @@ class TestLabBlackRenderDiagnostic(unittest.TestCase):
         # A genuine compile/link failure must keep going through
         # _update_ui_state()'s existing error surfacing, not the new
         # black-render diagnostic (which only runs when ok=True).
-        broken_shader = self._write_shader(
-            "test_release_blockers_001_broken.frag",
-            "void mainImage(out vec4 fragColor, in vec2 fragCoord) {\n"
-            "    fragColor = totallyUndefinedIdentifier;\n"
-            "}\n",
-        )
+        broken_shader = SHADER_FIXTURES / "unsupported" / "malformed.frag"
+        self.assertTrue(broken_shader.is_file())
         with patch.object(self.lab_app.logger, "warning") as mock_warn:
             self.win.switch_shader_path(broken_shader)
 

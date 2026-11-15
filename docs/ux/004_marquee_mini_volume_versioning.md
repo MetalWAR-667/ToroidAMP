@@ -4,6 +4,13 @@
 > Volume in MINI: **one click away.**
 > Version numbers: **change when work actually closes, not when an agent gets excited.**
 
+> **Reconciliation (2026-11-15):** This is the historical UX-004 design record.
+> Its "short titles stay static" model was superseded by RC-POLISH-001's
+> always-alive motion contract, and the near-fit displacement bound was
+> corrected by BASELINE-REPAIR-003. Statements below describing static short
+> titles or zero offset are historical, not current. See the reconciliation
+> section at the end.
+
 ---
 
 ## 1. Human Requirements
@@ -356,3 +363,15 @@ Full suite after this follow-up: **132 passed, 1 skipped** (same honestly-classi
 ## CURRENT_STATE_UPDATE: NOT_REQUIRED
 
 UX-004 is an ergonomics/versioning-discipline cut within the existing ACTIVE Production Cut 3 phase. No phase changed, no decision gate changed, no architectural boundary moved. The version number itself changed (0.1.0 → 0.2.0), but per AGENTS.md/CURRENT_STATE.md policy this is a metadata change, not an operational-state change — CURRENT_STATE.md's own "Current Phase"/"Status" fields remain accurate as written. Operational baseline remains STABLE. Both follow-ups correct implementation defects found in human validation; neither changes phase, scope, or architecture.
+
+---
+
+## Reconciliation — BASELINE-REPAIR-003 (2026-11-15)
+
+This section is appended. Everything above is preserved as the historical UX-004 record, including its original static-short-title requirement and test names.
+
+- **Original intent:** RC-POLISH-001 deliberately introduced a 28 px short-title amplitude so that motion remained perceptible instead of a barely visible wiggle. The implementation treated a spare width of 0–4 px as "effectively no room" and forced the full 28 px, which could exceed the actual available space in near-fit cases and draw part of the title outside the label.
+- **Readability-first decision (authorized):** for non-overflowing titles, `max_offset = min(28px, max(0, spare_width))`. The 28 px figure is a cap, never a forced amplitude. When there is zero spare space, zero movement is correct; overflow scrolling is unchanged.
+- **Validation:** `tests/test_ux_004.py` now asserts the bounded behavior across spare widths 0, 1, 2, 3, 4, 5, 27, 28, 29, and 64. Independent review reproduced the original 0–4 px defect against a temporary copy and confirmed the corrected implementation passes 41 tests + 10 subtests. Human UX validation: **5/5 PASS**, reported by Metal; BASELINE-REVIEW-001 did not independently repeat it.
+- **Deferred / UX POLISH (not authorized):** a future NORMAL-mode improvement to make short-title motion more visible without exceeding available space remains future work. It is not designed or authorized here.
+- **Current authority:** `docs/design/06_rc_polish_001.md` §3 and `docs/maintenance/BASELINE_REPAIR_2026-11-15.md`.
